@@ -84,6 +84,9 @@ export default function LessonDetailPage() {
     textKz: string
     titleAr: string
     textAr: string
+    arabicWord: string
+    transcription: string
+    translationRu: string
   }>({
     type: 'theory',
     orderIndex: 1,
@@ -93,6 +96,9 @@ export default function LessonDetailPage() {
     textKz: '',
     titleAr: '',
     textAr: '',
+    arabicWord: '',
+    transcription: '',
+    translationRu: '',
   })
 
   const breadcrumb = useMemo(() => {
@@ -183,6 +189,9 @@ export default function LessonDetailPage() {
       textKz: '',
       titleAr: '',
       textAr: '',
+      arabicWord: '',
+      transcription: '',
+      translationRu: '',
     })
   }
 
@@ -197,6 +206,9 @@ export default function LessonDetailPage() {
       textKz: (block.contentKz?.text as string) || '',
       titleAr: (block.contentAr?.title as string) || '',
       textAr: (block.contentAr?.text as string) || '',
+      arabicWord: (block.contentRu?.arabicWord as string) || '',
+      transcription: (block.contentRu?.transcription as string) || '',
+      translationRu: (block.contentRu?.translation as string) || (block.contentRu?.translationRu as string) || '',
     })
   }
 
@@ -207,14 +219,24 @@ export default function LessonDetailPage() {
       return
     }
 
+    const isIllustration = blockDraft.type === 'illustration'
+
+    const contentRu = isIllustration
+      ? {
+          arabicWord: blockDraft.arabicWord || '',
+          transcription: blockDraft.transcription || '',
+          translation: blockDraft.translationRu || '',
+        }
+      : {
+          title: blockDraft.titleRu,
+          text: stripHtml(blockDraft.textRuHtml),
+          html: blockDraft.textRuHtml,
+        }
+
     const payload = {
       type: blockDraft.type,
       orderIndex: Number(blockDraft.orderIndex) || 0,
-      contentRu: {
-        title: blockDraft.titleRu,
-        text: stripHtml(blockDraft.textRuHtml),
-        html: blockDraft.textRuHtml,
-      },
+      contentRu,
       contentKz: { title: blockDraft.titleKz, text: blockDraft.textKz },
       contentAr: { title: blockDraft.titleAr, text: blockDraft.textAr },
     }
@@ -434,7 +456,9 @@ export default function LessonDetailPage() {
                               #{b.orderIndex} • {b.type}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {(b.contentRu?.title as string) || 'Без заголовка'}
+                              {b.type === 'illustration'
+                                ? ((b.contentRu?.arabicWord as string) || (b.contentRu?.translation as string) || 'Без заголовка')
+                                : ((b.contentRu?.title as string) || 'Без заголовка')}
                             </Typography>
                           </Box>
                           <Stack direction="row" spacing={0.5}>
@@ -487,47 +511,91 @@ export default function LessonDetailPage() {
                       onChange={(e) => setBlockDraft((p) => ({ ...p, orderIndex: Number(e.target.value) || 1 }))}
                     />
                   </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Заголовок (RU)"
-                      value={blockDraft.titleRu}
-                      onChange={(e) => setBlockDraft((p) => ({ ...p, titleRu: e.target.value }))}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
-                      <Chip size="small" color="primary" variant="outlined" label="Rich text" />
-                      <Chip size="small" variant="outlined" label="Вставка: фото / аудио / видео" />
-                    </Stack>
-                    <RichTextEditor
-                      value={blockDraft.textRuHtml}
-                      onChange={(v) => setBlockDraft((p) => ({ ...p, textRuHtml: v }))}
-                      minHeight={360}
-                      onUploadFile={uploadEditorMedia}
-                      onRemoveMedia={removeEditorMedia}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Box
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 2,
-                        p: 2,
-                        minHeight: 100,
-                        backgroundColor: '#FBFBFD',
-                        '& img, & video': { maxWidth: '100%', borderRadius: 1.5 },
-                        '& audio': { width: '100%' },
-                      }}
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          blockDraft.textRuHtml ||
-                          '<p style="color:#8E8E93">Пока пусто.</p>',
-                      }}
-                    />
-                  </Grid>
+                  {blockDraft.type === 'illustration' ? (
+                    <>
+                      <Grid item xs={12}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          Заполните поля для карточки-иллюстрации. Изображение и аудио загружаются через раздел «Медиа файлы» на странице редактирования блока.
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Арабское слово"
+                          value={blockDraft.arabicWord}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, arabicWord: e.target.value }))}
+                          placeholder="تفاحة"
+                          inputProps={{ dir: 'rtl', style: { fontSize: 24 } }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Транскрипция"
+                          value={blockDraft.transcription}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, transcription: e.target.value }))}
+                          placeholder="туфаха"
+                          helperText="Как произносится (латиницей/кириллицей)"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Перевод (RU)"
+                          value={blockDraft.translationRu}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, translationRu: e.target.value }))}
+                          placeholder="Яблоко"
+                        />
+                      </Grid>
+                    </>
+                  ) : (
+                    <>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Заголовок (RU)"
+                          value={blockDraft.titleRu}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, titleRu: e.target.value }))}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+                          <Chip size="small" color="primary" variant="outlined" label="Rich text" />
+                          <Chip size="small" variant="outlined" label="Вставка: фото / аудио / видео" />
+                        </Stack>
+                        <RichTextEditor
+                          value={blockDraft.textRuHtml}
+                          onChange={(v) => setBlockDraft((p) => ({ ...p, textRuHtml: v }))}
+                          minHeight={360}
+                          onUploadFile={uploadEditorMedia}
+                          onRemoveMedia={removeEditorMedia}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Box
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 2,
+                            p: 2,
+                            minHeight: 100,
+                            backgroundColor: '#FBFBFD',
+                            '& img, & video': { maxWidth: '100%', borderRadius: 1.5 },
+                            '& audio': { width: '100%' },
+                          }}
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              blockDraft.textRuHtml ||
+                              '<p style="color:#8E8E93">Пока пусто.</p>',
+                          }}
+                        />
+                      </Grid>
+                    </>
+                  )}
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth

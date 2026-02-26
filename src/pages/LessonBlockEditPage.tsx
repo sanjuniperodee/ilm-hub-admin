@@ -15,7 +15,6 @@ import {
   MenuItem,
   Tabs,
   Tab,
-  Alert,
 } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
 import {
@@ -515,7 +514,7 @@ export default function LessonBlockEditPage() {
           ) : blockType === 'illustration' ? (
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Заполните поля для карточки-иллюстрации. Изображение и аудио загружаются через раздел «Медиа файлы» ниже.
+                Заполните поля для карточки-иллюстрации. Фото / GIF / видео и аудио для этой карточки загружаются через раздел «Медиа файлы» ниже.
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
