@@ -301,6 +301,14 @@ export const updateIslamAyah = (id: string, data: any) =>
 export const deleteIslamAyah = (id: string) =>
   apiClient.post(`/admin/islam/ayahs/delete/${id}`)
 
+export const uploadIslamSurahAudio = (surahId: string, file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`/admin/islam/surahs/${surahId}/upload-audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
 // ==================== Islam / Hajj Guide ====================
 
 export const getIslamHajjSections = () =>
