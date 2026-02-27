@@ -62,6 +62,7 @@ export default function WordsDictionaryPage() {
 
   const [editOpen, setEditOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DictionaryEntry | null>(null)
+  const [draggingExampleId, setDraggingExampleId] = useState<string | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -294,20 +295,20 @@ export default function WordsDictionaryPage() {
 
   const handleReorderExamples = async () => {
     if (!editingEntry || !editingEntry.id || !editingEntry.examples) return
-    const sorted = [...editingEntry.examples].sort((a, b) => a.orderIndex - b.orderIndex)
+    const current = editingEntry.examples
     try {
       setLoading(true)
       setError('')
       setSuccess('')
       await reorderWordsDictionaryExamples(
         editingEntry.id,
-        sorted.map((ex) => ex.id),
+        current.map((ex) => ex.id),
       )
       setEditingEntry((prev) =>
         prev
           ? {
               ...prev,
-              examples: sorted.map((ex, index) => ({ ...ex, orderIndex: index })),
+              examples: current.map((ex, index) => ({ ...ex, orderIndex: index })),
             }
           : prev,
       )
@@ -319,6 +320,34 @@ export default function WordsDictionaryPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleExampleDragStart = (id: string) => {
+    setDraggingExampleId(id)
+  }
+
+  const handleExampleDragOver = (event: React.DragEvent<HTMLTableRowElement>, targetId: string) => {
+    event.preventDefault()
+    if (!editingEntry || !editingEntry.examples || !draggingExampleId || draggingExampleId === targetId) return
+    const examples = [...editingEntry.examples]
+    const fromIndex = examples.findIndex((ex) => ex.id === draggingExampleId)
+    const toIndex = examples.findIndex((ex) => ex.id === targetId)
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return
+    const [moved] = examples.splice(fromIndex, 1)
+    examples.splice(toIndex, 0, moved)
+    setEditingEntry((prev) =>
+      prev
+        ? {
+            ...prev,
+            examples,
+          }
+        : prev,
+    )
+  }
+
+  const handleExampleDrop = async () => {
+    setDraggingExampleId(null)
+    await handleReorderExamples()
   }
 
   return (
@@ -491,17 +520,16 @@ export default function WordsDictionaryPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {(editingEntry.examples || []).map((ex) => (
-                      <TableRow key={ex.id}>
-                        <TableCell>
-                          <TextField
-                            type="number"
-                            size="small"
-                            value={ex.orderIndex}
-                            onChange={(e) => handleExampleFieldChange(ex.id, 'orderIndex', e.target.value)}
-                            sx={{ width: 70 }}
-                          />
-                        </TableCell>
+                    {(editingEntry.examples || []).map((ex, index) => (
+                      <TableRow
+                        key={ex.id}
+                        draggable
+                        onDragStart={() => handleExampleDragStart(ex.id)}
+                        onDragOver={(e) => handleExampleDragOver(e, ex.id)}
+                        onDrop={handleExampleDrop}
+                        sx={{ cursor: 'grab' }}
+                      >
+                        <TableCell>{index + 1}</TableCell>
                         <TableCell>
                           <TextField
                             fullWidth

@@ -137,8 +137,13 @@ export const getWordsAlphabet = () => apiClient.get('/admin/words/alphabet')
 
 export const getWordLetter = (code: string) => apiClient.get(`/admin/words/alphabet/${code}`)
 
+export const createWordLetter = (data: any) => apiClient.post('/admin/words/alphabet', data)
+
 export const updateWordLetter = (code: string, data: any) =>
   apiClient.patch(`/admin/words/alphabet/${code}`, data)
+
+export const deleteWordLetter = (code: string) =>
+  apiClient.post(`/admin/words/alphabet/delete/${code}`)
 
 export const uploadWordLetterAudio = (code: string, file: File) => {
   const formData = new FormData()

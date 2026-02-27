@@ -108,6 +108,7 @@ function App() {
               <Route path="tests" element={<TestsPage />} />
               <Route path="words-alphabet" element={<WordsAlphabetPage />} />
               <Route path="words-dictionary" element={<WordsDictionaryPage />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
             <Route
               path="content-studio/lessons/:lessonId"

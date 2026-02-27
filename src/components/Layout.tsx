@@ -22,6 +22,7 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   Logout as LogoutIcon,
   Menu as MenuIcon,
+  MenuBook as MenuBookIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -36,6 +37,7 @@ const menuItems = [
   { text: 'Lessons', icon: <ArticleIcon />, path: '/lessons' },
   { text: 'Tests', icon: <QuizIcon />, path: '/tests' },
   { text: 'Words & Alphabet', icon: <ArticleIcon />, path: '/words-alphabet' },
+  { text: 'Words Dictionary', icon: <MenuBookIcon />, path: '/words-dictionary' },
 ]
 
 export default function Layout() {

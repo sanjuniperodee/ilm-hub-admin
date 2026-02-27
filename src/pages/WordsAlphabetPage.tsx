@@ -5,6 +5,10 @@ import {
   Button,
   Card,
   CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   IconButton,
   Stack,
@@ -16,11 +20,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Audiotrack, Refresh, Save } from '@mui/icons-material'
+import { Add, Audiotrack, Delete, DragIndicator, Refresh, Save } from '@mui/icons-material'
 import {
   getWordsAlphabet,
+  createWordLetter,
   updateWordLetter,
   uploadWordLetterAudio,
+  deleteWordLetter,
 } from '../api/adminApi'
 
 interface WordLetter {
@@ -39,6 +45,18 @@ export default function WordsAlphabetPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [letters, setLetters] = useState<WordLetter[]>([])
+  const [draggingCode, setDraggingCode] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [newLetter, setNewLetter] = useState<WordLetter>({
+    id: '',
+    code: '',
+    orderIndex: 0,
+    arabic: '',
+    nameRu: '',
+    translit: '',
+    important: '',
+    audioUrl: '',
+  })
 
   const load = async () => {
     setLoading(true)
@@ -108,6 +126,93 @@ export default function WordsAlphabetPage() {
     }
   }
 
+  const handleCreateLetter = async () => {
+    try {
+      setLoading(true)
+      setError('')
+      setSuccess('')
+      await createWordLetter({
+        code: newLetter.code.trim(),
+        orderIndex: Number(newLetter.orderIndex) || 0,
+        arabic: newLetter.arabic.trim(),
+        nameRu: newLetter.nameRu.trim(),
+        translit: newLetter.translit || null,
+        important: newLetter.important || null,
+      })
+      setCreateOpen(false)
+      setNewLetter({
+        id: '',
+        code: '',
+        orderIndex: 0,
+        arabic: '',
+        nameRu: '',
+        translit: '',
+        important: '',
+        audioUrl: '',
+      })
+      await load()
+      setSuccess('Буква создана')
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка создания буквы'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteLetter = async (code: string) => {
+    if (!window.confirm(`Удалить букву ${code}?`)) return
+    try {
+      setLoading(true)
+      setError('')
+      setSuccess('')
+      await deleteWordLetter(code)
+      await load()
+      setSuccess('Буква удалена')
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка удаления буквы'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDragStart = (code: string) => {
+    setDraggingCode(code)
+  }
+
+  const handleDragOver = (event: React.DragEvent<HTMLTableRowElement>, targetCode: string) => {
+    event.preventDefault()
+    if (!draggingCode || draggingCode === targetCode) return
+    const items = [...letters]
+    const fromIndex = items.findIndex((l) => l.code === draggingCode)
+    const toIndex = items.findIndex((l) => l.code === targetCode)
+    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return
+    const [moved] = items.splice(fromIndex, 1)
+    items.splice(toIndex, 0, moved)
+    setLetters(items.map((l, i) => ({ ...l, orderIndex: i + 1 })))
+  }
+
+  const handleDrop = async () => {
+    setDraggingCode(null)
+    try {
+      setLoading(true)
+      setError('')
+      setSuccess('')
+      await Promise.all(letters.map((l) => updateWordLetter(l.code, { orderIndex: l.orderIndex })))
+      setSuccess('Порядок букв сохранён')
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка сохранения порядка'
+      setError(msg)
+      await load()
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
@@ -127,6 +232,13 @@ export default function WordsAlphabetPage() {
             disabled={loading}
           >
             Обновить
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setCreateOpen(true)}
+          >
+            Добавить букву
           </Button>
         </Stack>
       </Stack>
@@ -154,27 +266,34 @@ export default function WordsAlphabetPage() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ width: 60 }}>№</TableCell>
+                    <TableCell sx={{ width: 40 }} />
+                    <TableCell sx={{ width: 50 }}>№</TableCell>
                     <TableCell sx={{ width: 80 }}>Араб.</TableCell>
                     <TableCell>Название (RU)</TableCell>
                     <TableCell>Транслит</TableCell>
                     <TableCell>Важно знать</TableCell>
                     <TableCell sx={{ width: 120 }}>Аудио</TableCell>
-                    <TableCell sx={{ width: 90 }} />
+                    <TableCell sx={{ width: 140 }} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {letters.map((letter) => (
-                    <TableRow key={letter.id}>
-                      <TableCell>
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={letter.orderIndex}
-                          onChange={(e) => handleFieldChange(letter.code, 'orderIndex', e.target.value)}
-                          sx={{ width: 70 }}
-                        />
+                  {letters.map((letter, index) => (
+                    <TableRow
+                      key={letter.id}
+                      draggable
+                      onDragStart={() => handleDragStart(letter.code)}
+                      onDragOver={(e) => handleDragOver(e, letter.code)}
+                      onDrop={handleDrop}
+                      sx={{
+                        cursor: 'grab',
+                        opacity: draggingCode === letter.code ? 0.5 : 1,
+                        '&:active': { cursor: 'grabbing' },
+                      }}
+                    >
+                      <TableCell sx={{ cursor: 'grab' }}>
+                        <DragIndicator sx={{ color: 'text.disabled', fontSize: 20 }} />
                       </TableCell>
+                      <TableCell>{index + 1}</TableCell>
                       <TableCell>
                         <Typography variant="h5" sx={{ textAlign: 'center' }}>
                           {letter.arabic}
@@ -232,6 +351,13 @@ export default function WordsAlphabetPage() {
                         >
                           <Save fontSize="small" />
                         </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteLetter(letter.code)}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -241,6 +367,64 @@ export default function WordsAlphabetPage() {
           </Card>
         </Grid>
       </Grid>
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Новая буква алфавита</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Код (латиницей, уникальный)"
+                value={newLetter.code}
+                onChange={(e) => setNewLetter((prev) => ({ ...prev, code: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Порядок"
+                type="number"
+                value={newLetter.orderIndex}
+                onChange={(e) =>
+                  setNewLetter((prev) => ({ ...prev, orderIndex: Number(e.target.value) || 0 }))
+                }
+                sx={{ width: 120 }}
+              />
+            </Stack>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Арабская буква"
+                value={newLetter.arabic}
+                onChange={(e) => setNewLetter((prev) => ({ ...prev, arabic: e.target.value }))}
+                fullWidth
+              />
+              <TextField
+                label="Название (RU)"
+                value={newLetter.nameRu}
+                onChange={(e) => setNewLetter((prev) => ({ ...prev, nameRu: e.target.value }))}
+                fullWidth
+              />
+            </Stack>
+            <TextField
+              label="Транслит"
+              value={newLetter.translit || ''}
+              onChange={(e) => setNewLetter((prev) => ({ ...prev, translit: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Важно знать"
+              value={newLetter.important || ''}
+              onChange={(e) => setNewLetter((prev) => ({ ...prev, important: e.target.value }))}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateOpen(false)}>Отмена</Button>
+          <Button variant="contained" onClick={handleCreateLetter} disabled={loading}>
+            Создать
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
