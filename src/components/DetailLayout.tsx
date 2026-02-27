@@ -1,6 +1,9 @@
 import { Outlet, useNavigate, useParams } from 'react-router-dom'
-import { Box, AppBar, Toolbar, Typography, IconButton } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { Box, Typography, IconButton, Chip, Breadcrumbs } from '@mui/material'
+import {
+  ArrowBack as ArrowBackIcon,
+  NavigateNext,
+} from '@mui/icons-material'
 
 export default function DetailLayout() {
   const navigate = useNavigate()
@@ -11,33 +14,80 @@ export default function DetailLayout() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="fixed" elevation={0} sx={{ backgroundColor: 'background.paper', color: 'text.primary' }}>
-        <Toolbar>
-          <IconButton edge="start" color="inherit" aria-label="back to content studio" onClick={handleBack} sx={{ mr: 1 }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#F8FAFC' }}>
+      {/* Header */}
+      <Box
+        sx={{
+          px: { xs: 2, md: 4 },
+          py: 1.5,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+          background: 'rgba(255,255,255,0.9)',
+          backdropFilter: 'blur(12px)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100,
+        }}
+      >
+        <IconButton
+          onClick={handleBack}
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: '10px',
+            border: '1px solid rgba(0,0,0,0.08)',
+            color: 'text.secondary',
+            '&:hover': {
+              background: 'rgba(99,102,241,0.06)',
+              borderColor: 'rgba(99,102,241,0.2)',
+              color: '#6366F1',
+            },
+          }}
+        >
+          <ArrowBackIcon fontSize="small" />
+        </IconButton>
+        <Breadcrumbs separator={<NavigateNext sx={{ fontSize: 16, color: 'text.disabled' }} />}>
+          <Typography
+            onClick={handleBack}
+            sx={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: 'text.secondary',
+              cursor: 'pointer',
+              '&:hover': { color: '#6366F1' },
+              transition: 'color 0.15s ease',
+            }}
+          >
             Content Studio
           </Typography>
           {lessonId && (
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-              / {lessonId.slice(0, 8)}…
-            </Typography>
+            <Chip
+              label={lessonId.slice(0, 8) + '…'}
+              size="small"
+              sx={{
+                height: 24,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                background: 'rgba(99,102,241,0.08)',
+                color: '#4F46E5',
+              }}
+            />
           )}
-        </Toolbar>
-      </AppBar>
+        </Breadcrumbs>
+      </Box>
+
+      {/* Content */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          pt: 8,
-          px: 3,
-          pb: 3,
-          width: '100%',
+          px: { xs: 2, md: 4 },
+          py: 3,
           maxWidth: '100%',
-          boxSizing: 'border-box',
         }}
+        className="page-enter"
       >
         <Outlet />
       </Box>
