@@ -25,6 +25,18 @@ export const getUserAchievements = (userId: string) =>
 export const getUserStreaks = (userId: string) =>
   apiClient.get(`/admin/users/${userId}/streaks`)
 
+export const getUserSubscriptions = (userId: string) =>
+  apiClient.get(`/admin/users/${userId}/subscriptions`)
+
+export const getUserOAuthProviders = (userId: string) =>
+  apiClient.get(`/admin/users/${userId}/oauth-providers`)
+
+export const getUserStudyPlan = (userId: string) =>
+  apiClient.get(`/admin/users/${userId}/study-plan`)
+
+export const getUserWordsSummary = (userId: string) =>
+  apiClient.get(`/admin/users/${userId}/words-summary`)
+
 // Courses
 export const getCourses = () => apiClient.get('/admin/courses')
 export const getCourseById = (id: string) => apiClient.get(`/admin/courses/${id}`)
