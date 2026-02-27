@@ -208,6 +208,9 @@ export const updateWordCardTheme = (id: string, data: any) =>
 export const deleteWordCardTheme = (id: string) =>
   apiClient.post(`/admin/words/cards/themes/delete/${id}`)
 
+export const getWordCardQuizStats = (themeId: string) =>
+  apiClient.get(`/admin/words/cards/themes/${themeId}/quiz-stats`)
+
 // Words / Cards
 export const getWordCards = (themeId: string) =>
   apiClient.get(`/admin/words/cards/themes/${themeId}/cards`)

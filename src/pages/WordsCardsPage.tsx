@@ -37,12 +37,15 @@ import {
   updateWordCardTheme,
   deleteWordCardTheme,
   getWordCards,
+  getWordCardQuizStats,
   createWordCard,
   updateWordCard,
   deleteWordCard,
   uploadWordCardAudio,
   uploadWordCardImage,
 } from '../api/adminApi'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Switch from '@mui/material/Switch'
 
 interface CardTheme {
   id: string
@@ -50,7 +53,14 @@ interface CardTheme {
   titleRu: string
   orderIndex: number
   isActive: boolean
+  quizEnabled?: boolean
   cardsCount: number
+}
+
+interface QuizStats {
+  totalAttempts: number
+  avgScorePercent: number
+  lastAttempt: { correctCount: number; incorrectCount: number; totalQuestions: number; createdAt: string } | null
 }
 
 interface WordCard {
@@ -72,10 +82,11 @@ export default function WordsCardsPage() {
   const [themes, setThemes] = useState<CardTheme[]>([])
   const [expandedThemeId, setExpandedThemeId] = useState<string | null>(null)
   const [themeCards, setThemeCards] = useState<Record<string, WordCard[]>>({})
+  const [quizStats, setQuizStats] = useState<Record<string, QuizStats>>({})
 
   const [themeDialogOpen, setThemeDialogOpen] = useState(false)
   const [editingTheme, setEditingTheme] = useState<CardTheme | null>(null)
-  const [themeForm, setThemeForm] = useState({ emoji: '', titleRu: '', orderIndex: 0 })
+  const [themeForm, setThemeForm] = useState({ emoji: '', titleRu: '', orderIndex: 0, quizEnabled: true })
 
   const [cardDialogOpen, setCardDialogOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<WordCard | null>(null)
@@ -113,18 +124,26 @@ export default function WordsCardsPage() {
     } else {
       setExpandedThemeId(themeId)
       if (!themeCards[themeId]) loadCards(themeId)
+      getWordCardQuizStats(themeId)
+        .then(({ data }) => setQuizStats((prev) => ({ ...prev, [themeId]: data })))
+        .catch(() => {})
     }
   }
 
   const openCreateTheme = () => {
     setEditingTheme(null)
-    setThemeForm({ emoji: '', titleRu: '', orderIndex: themes.length })
+    setThemeForm({ emoji: '', titleRu: '', orderIndex: themes.length, quizEnabled: true })
     setThemeDialogOpen(true)
   }
 
   const openEditTheme = (theme: CardTheme) => {
     setEditingTheme(theme)
-    setThemeForm({ emoji: theme.emoji, titleRu: theme.titleRu, orderIndex: theme.orderIndex })
+    setThemeForm({
+      emoji: theme.emoji,
+      titleRu: theme.titleRu,
+      orderIndex: theme.orderIndex,
+      quizEnabled: theme.quizEnabled !== false,
+    })
     setThemeDialogOpen(true)
   }
 
@@ -281,6 +300,11 @@ export default function WordsCardsPage() {
                 </Typography>
               </Box>
               <Chip
+                label={theme.quizEnabled !== false ? 'Quiz on' : 'Quiz off'}
+                color={theme.quizEnabled !== false ? 'primary' : 'default'}
+                size="small"
+              />
+              <Chip
                 label={theme.isActive ? 'Active' : 'Inactive'}
                 color={theme.isActive ? 'success' : 'default'}
                 size="small"
@@ -299,6 +323,20 @@ export default function WordsCardsPage() {
 
           <Collapse in={expandedThemeId === theme.id}>
             <Box sx={{ px: 2, pb: 2 }}>
+              {quizStats[theme.id] && (
+                <Box sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Quiz stats
+                  </Typography>
+                  <Typography variant="body2">
+                    Attempts: {quizStats[theme.id].totalAttempts} &middot; Avg score:{' '}
+                    {quizStats[theme.id].avgScorePercent}%
+                    {quizStats[theme.id].lastAttempt && (
+                      <> &middot; Last: {quizStats[theme.id].lastAttempt!.correctCount}/{quizStats[theme.id].lastAttempt!.totalQuestions}</>
+                    )}
+                  </Typography>
+                </Box>
+              )}
               <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
                 <Button size="small" startIcon={<Add />} onClick={() => openCreateCard(theme.id)}>
                   Add Card
@@ -389,6 +427,15 @@ export default function WordsCardsPage() {
               type="number"
               value={themeForm.orderIndex}
               onChange={(e) => setThemeForm({ ...themeForm, orderIndex: Number(e.target.value) })}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={themeForm.quizEnabled}
+                  onChange={(e) => setThemeForm({ ...themeForm, quizEnabled: e.target.checked })}
+                />
+              }
+              label="Quiz enabled"
             />
           </Stack>
         </DialogContent>
