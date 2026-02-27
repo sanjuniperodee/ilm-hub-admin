@@ -13,6 +13,8 @@ import {
   Audiotrack,
   VideoLibrary,
   DeleteOutline,
+  ZoomOutMap,
+  ZoomInMap,
 } from '@mui/icons-material'
 import { useEffect, useRef } from 'react'
 
@@ -110,13 +112,14 @@ export default function RichTextEditor({
     if (!anchorNode) return
     const parent = anchorNode instanceof Element ? anchorNode : anchorNode.parentElement
     if (!parent) return
-    const mediaEl = parent.closest('[data-media-id]') as HTMLElement | null
+    const mediaEl = (parent.closest('[data-media-id],img,video,audio') as HTMLElement | null)
     if (!mediaEl) return
     const mediaId = mediaEl.getAttribute('data-media-id')
     mediaEl.remove()
     if (editorRef.current) {
       onChange(editorRef.current.innerHTML)
     }
+    // Для новых медиа с data-media-id удаляем и на бэкенде, старые вставки без id просто убираем из HTML
     if (mediaId && onRemoveMedia) {
       try {
         await onRemoveMedia(mediaId)
@@ -124,6 +127,30 @@ export default function RichTextEditor({
         const message = e?.response?.data?.message?.[0] || e?.message || 'Не удалось удалить медиа'
         window.alert(message)
       }
+    }
+  }
+
+  const resizeCurrentMedia = (direction: 'smaller' | 'larger') => {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0 || !editorRef.current) return
+    const anchorNode = selection.anchorNode
+    if (!anchorNode) return
+    const parent = anchorNode instanceof Element ? anchorNode : anchorNode.parentElement
+    if (!parent) return
+    const mediaEl = parent.closest('img,video') as HTMLElement | null
+    if (!mediaEl) return
+
+    const current = Number(mediaEl.getAttribute('data-width-pct')) || 100
+    const step = 25
+    let next = direction === 'larger' ? current + step : current - step
+    next = Math.min(100, Math.max(25, next))
+
+    mediaEl.style.maxWidth = `${next}%`
+    mediaEl.style.height = 'auto'
+    mediaEl.setAttribute('data-width-pct', String(next))
+
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML)
     }
   }
 
@@ -263,6 +290,26 @@ export default function RichTextEditor({
           >
             <VideoLibrary fontSize="small" />
           </IconButton>
+        </Tooltip>
+        <Tooltip title="Уменьшить выбранное медиа">
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => resizeCurrentMedia('smaller')}
+            >
+              <ZoomOutMap fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title="Увеличить выбранное медиа">
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => resizeCurrentMedia('larger')}
+            >
+              <ZoomInMap fontSize="small" />
+            </IconButton>
+          </span>
         </Tooltip>
         <Tooltip title="Удалить выбранное медиа">
           <span>
