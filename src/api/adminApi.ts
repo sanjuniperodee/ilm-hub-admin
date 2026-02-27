@@ -255,3 +255,92 @@ export const uploadWordCardImage = (id: string, file: File) => {
   })
 }
 
+// ==================== Islam / 99 Names of Allah ====================
+
+export const getIslamAllahNames = () => apiClient.get('/admin/islam/allah-names')
+
+export const createIslamAllahName = (data: any) =>
+  apiClient.post('/admin/islam/allah-names', data)
+
+export const updateIslamAllahName = (id: string, data: any) =>
+  apiClient.patch(`/admin/islam/allah-names/${id}`, data)
+
+export const deleteIslamAllahName = (id: string) =>
+  apiClient.post(`/admin/islam/allah-names/delete/${id}`)
+
+export const uploadIslamAllahNameAudio = (id: string, file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`/admin/islam/allah-names/${id}/upload-audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+// ==================== Islam / Quran (Surahs + Ayahs) ====================
+
+export const getIslamSurahs = () => apiClient.get('/admin/islam/surahs')
+
+export const createIslamSurah = (data: any) =>
+  apiClient.post('/admin/islam/surahs', data)
+
+export const updateIslamSurah = (id: string, data: any) =>
+  apiClient.patch(`/admin/islam/surahs/${id}`, data)
+
+export const deleteIslamSurah = (id: string) =>
+  apiClient.post(`/admin/islam/surahs/delete/${id}`)
+
+export const getIslamSurahAyahs = (surahId: string) =>
+  apiClient.get(`/admin/islam/surahs/${surahId}/ayahs`)
+
+export const createIslamAyah = (surahId: string, data: any) =>
+  apiClient.post(`/admin/islam/surahs/${surahId}/ayahs`, data)
+
+export const updateIslamAyah = (id: string, data: any) =>
+  apiClient.patch(`/admin/islam/ayahs/${id}`, data)
+
+export const deleteIslamAyah = (id: string) =>
+  apiClient.post(`/admin/islam/ayahs/delete/${id}`)
+
+// ==================== Islam / Hajj Guide ====================
+
+export const getIslamHajjSections = () =>
+  apiClient.get('/admin/islam/hajj-sections')
+
+export const createIslamHajjSection = (data: any) =>
+  apiClient.post('/admin/islam/hajj-sections', data)
+
+export const updateIslamHajjSection = (id: string, data: any) =>
+  apiClient.patch(`/admin/islam/hajj-sections/${id}`, data)
+
+export const deleteIslamHajjSection = (id: string) =>
+  apiClient.post(`/admin/islam/hajj-sections/delete/${id}`)
+
+export const getIslamHajjSectionDetails = (id: string) =>
+  apiClient.get(`/admin/islam/hajj-sections/${id}/details`)
+
+export const createIslamHajjInstruction = (sectionId: string, data: any) =>
+  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/instructions`, data)
+
+export const updateIslamHajjInstruction = (id: string, data: any) =>
+  apiClient.patch(`/admin/islam/hajj-instructions/${id}`, data)
+
+export const deleteIslamHajjInstruction = (id: string) =>
+  apiClient.post(`/admin/islam/hajj-instructions/delete/${id}`)
+
+export const createIslamHajjPhrase = (sectionId: string, data: any) =>
+  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/phrases`, data)
+
+export const updateIslamHajjPhrase = (id: string, data: any) =>
+  apiClient.patch(`/admin/islam/hajj-phrases/${id}`, data)
+
+export const deleteIslamHajjPhrase = (id: string) =>
+  apiClient.post(`/admin/islam/hajj-phrases/delete/${id}`)
+
+export const uploadIslamHajjPhraseAudio = (id: string, file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`/admin/islam/hajj-phrases/${id}/upload-audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+

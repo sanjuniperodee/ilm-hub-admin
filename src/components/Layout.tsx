@@ -26,6 +26,9 @@ import {
   Style as StyleIcon,
   KeyboardDoubleArrowLeft,
   KeyboardDoubleArrowRight,
+  AutoAwesome as AutoAwesomeIcon,
+  ImportContacts as ImportContactsIcon,
+  Explore as ExploreIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -53,6 +56,14 @@ const navSections = [
       { text: 'Алфавит', icon: <ArticleIcon />, path: '/words-alphabet' },
       { text: 'Словарь', icon: <MenuBookIcon />, path: '/words-dictionary' },
       { text: 'Карточки', icon: <StyleIcon />, path: '/words-cards' },
+    ],
+  },
+  {
+    label: 'ИСЛАМ',
+    items: [
+      { text: '99 имён', icon: <AutoAwesomeIcon />, path: '/islam-names' },
+      { text: 'Коран', icon: <ImportContactsIcon />, path: '/islam-quran' },
+      { text: 'Хадж и Умра', icon: <ExploreIcon />, path: '/islam-hajj' },
     ],
   },
 ]

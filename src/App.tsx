@@ -17,6 +17,9 @@ import Layout from './components/Layout'
 import WordsAlphabetPage from './pages/WordsAlphabetPage'
 import WordsDictionaryPage from './pages/WordsDictionaryPage'
 import WordsCardsPage from './pages/WordsCardsPage'
+import IslamAllahNamesPage from './pages/IslamAllahNamesPage'
+import IslamQuranPage from './pages/IslamQuranPage'
+import IslamHajjGuidePage from './pages/IslamHajjGuidePage'
 
 const theme = createTheme({
   palette: {
@@ -510,6 +513,9 @@ function App() {
               <Route path="words-alphabet" element={<WordsAlphabetPage />} />
               <Route path="words-dictionary" element={<WordsDictionaryPage />} />
               <Route path="words-cards" element={<WordsCardsPage />} />
+              <Route path="islam-names" element={<IslamAllahNamesPage />} />
+              <Route path="islam-quran" element={<IslamQuranPage />} />
+              <Route path="islam-hajj" element={<IslamHajjGuidePage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
           </Routes>
