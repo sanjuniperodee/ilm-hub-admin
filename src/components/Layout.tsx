@@ -23,6 +23,7 @@ import {
   Logout as LogoutIcon,
   Menu as MenuIcon,
   MenuBook as MenuBookIcon,
+  Style as StyleIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -38,6 +39,7 @@ const menuItems = [
   { text: 'Tests', icon: <QuizIcon />, path: '/tests' },
   { text: 'Words & Alphabet', icon: <ArticleIcon />, path: '/words-alphabet' },
   { text: 'Words Dictionary', icon: <MenuBookIcon />, path: '/words-dictionary' },
+  { text: 'Word Cards', icon: <StyleIcon />, path: '/words-cards' },
 ]
 
 export default function Layout() {

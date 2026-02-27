@@ -196,3 +196,43 @@ export const uploadWordsDictionaryExampleAudio = (id: string, file: File) => {
 export const reorderWordsDictionaryExamples = (entryId: string, exampleIds: string[]) =>
   apiClient.post(`/admin/words/dictionary/${entryId}/examples/reorder`, { exampleIds })
 
+// Words / Card Themes
+export const getWordCardThemes = () => apiClient.get('/admin/words/cards/themes')
+
+export const createWordCardTheme = (data: any) =>
+  apiClient.post('/admin/words/cards/themes', data)
+
+export const updateWordCardTheme = (id: string, data: any) =>
+  apiClient.patch(`/admin/words/cards/themes/${id}`, data)
+
+export const deleteWordCardTheme = (id: string) =>
+  apiClient.post(`/admin/words/cards/themes/delete/${id}`)
+
+// Words / Cards
+export const getWordCards = (themeId: string) =>
+  apiClient.get(`/admin/words/cards/themes/${themeId}/cards`)
+
+export const createWordCard = (data: any) => apiClient.post('/admin/words/cards', data)
+
+export const updateWordCard = (id: string, data: any) =>
+  apiClient.patch(`/admin/words/cards/${id}`, data)
+
+export const deleteWordCard = (id: string) =>
+  apiClient.post(`/admin/words/cards/delete/${id}`)
+
+export const uploadWordCardAudio = (id: string, file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`/admin/words/cards/${id}/upload-audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export const uploadWordCardImage = (id: string, file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`/admin/words/cards/${id}/upload-image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+

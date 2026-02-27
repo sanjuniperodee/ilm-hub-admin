@@ -23,6 +23,7 @@ import Layout from './components/Layout'
 import DetailLayout from './components/DetailLayout'
 import WordsAlphabetPage from './pages/WordsAlphabetPage'
 import WordsDictionaryPage from './pages/WordsDictionaryPage'
+import WordsCardsPage from './pages/WordsCardsPage'
 
 const theme = createTheme({
   palette: {
@@ -108,6 +109,7 @@ function App() {
               <Route path="tests" element={<TestsPage />} />
               <Route path="words-alphabet" element={<WordsAlphabetPage />} />
               <Route path="words-dictionary" element={<WordsDictionaryPage />} />
+              <Route path="words-cards" element={<WordsCardsPage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
             <Route
