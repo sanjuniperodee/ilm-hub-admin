@@ -148,3 +148,46 @@ export const uploadWordLetterAudio = (code: string, file: File) => {
   })
 }
 
+// Words / Dictionary (backend-copy words module)
+export const getWordsDictionary = () => apiClient.get('/admin/words/dictionary')
+
+export const getWordsDictionaryEntry = (id: string) =>
+  apiClient.get(`/admin/words/dictionary/${id}`)
+
+export const createWordsDictionaryEntry = (data: any) =>
+  apiClient.post('/admin/words/dictionary', data)
+
+export const updateWordsDictionaryEntry = (id: string, data: any) =>
+  apiClient.patch(`/admin/words/dictionary/${id}`, data)
+
+export const deleteWordsDictionaryEntry = (id: string) =>
+  apiClient.post(`/admin/words/dictionary/delete/${id}`)
+
+export const uploadWordsDictionaryEntryAudio = (id: string, file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`/admin/words/dictionary/${id}/upload-audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export const createWordsDictionaryExample = (entryId: string, data: any) =>
+  apiClient.post(`/admin/words/dictionary/${entryId}/examples`, data)
+
+export const updateWordsDictionaryExample = (id: string, data: any) =>
+  apiClient.patch(`/admin/words/dictionary/examples/${id}`, data)
+
+export const deleteWordsDictionaryExample = (id: string) =>
+  apiClient.post(`/admin/words/dictionary/examples/delete/${id}`)
+
+export const uploadWordsDictionaryExampleAudio = (id: string, file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`/admin/words/dictionary/examples/${id}/upload-audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export const reorderWordsDictionaryExamples = (entryId: string, exampleIds: string[]) =>
+  apiClient.post(`/admin/words/dictionary/${entryId}/examples/reorder`, { exampleIds })
+
