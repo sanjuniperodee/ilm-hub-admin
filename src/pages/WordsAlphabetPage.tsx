@@ -9,18 +9,22 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   IconButton,
+  LinearProgress,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { Add, Audiotrack, Delete, DragIndicator, Refresh, Save } from '@mui/icons-material'
+import {
+  Add,
+  Audiotrack,
+  Delete,
+  DragIndicator,
+  Edit as EditIcon,
+  Refresh,
+  Save,
+} from '@mui/icons-material'
 import {
   getWordsAlphabet,
   createWordLetter,
@@ -47,15 +51,15 @@ export default function WordsAlphabetPage() {
   const [letters, setLetters] = useState<WordLetter[]>([])
   const [draggingCode, setDraggingCode] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [newLetter, setNewLetter] = useState<WordLetter>({
-    id: '',
+  const [editLetter, setEditLetter] = useState<WordLetter | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<WordLetter | null>(null)
+  const [newLetter, setNewLetter] = useState({
     code: '',
     orderIndex: 0,
     arabic: '',
     nameRu: '',
     translit: '',
     important: '',
-    audioUrl: '',
   })
 
   const load = async () => {
@@ -80,12 +84,6 @@ export default function WordsAlphabetPage() {
     load()
   }, [])
 
-  const handleFieldChange = (code: string, field: keyof WordLetter, value: any) => {
-    setLetters((prev) =>
-      prev.map((l) => (l.code === code ? { ...l, [field]: field === 'orderIndex' ? Number(value) || 0 : value } : l)),
-    )
-  }
-
   const handleSaveLetter = async (letter: WordLetter) => {
     try {
       setLoading(true)
@@ -93,11 +91,12 @@ export default function WordsAlphabetPage() {
       setSuccess('')
       await updateWordLetter(letter.code, {
         nameRu: letter.nameRu,
-        translit: letter.translit,
-        important: letter.important,
+        translit: letter.translit || null,
+        important: letter.important || null,
         orderIndex: letter.orderIndex,
       })
       setSuccess(`Буква ${letter.code} обновлена`)
+      setEditLetter(null)
       await load()
     } catch (e: any) {
       const msg =
@@ -140,16 +139,7 @@ export default function WordsAlphabetPage() {
         important: newLetter.important || null,
       })
       setCreateOpen(false)
-      setNewLetter({
-        id: '',
-        code: '',
-        orderIndex: 0,
-        arabic: '',
-        nameRu: '',
-        translit: '',
-        important: '',
-        audioUrl: '',
-      })
+      setNewLetter({ code: '', orderIndex: 0, arabic: '', nameRu: '', translit: '', important: '' })
       await load()
       setSuccess('Буква создана')
     } catch (e: any) {
@@ -161,8 +151,10 @@ export default function WordsAlphabetPage() {
     }
   }
 
-  const handleDeleteLetter = async (code: string) => {
-    if (!window.confirm(`Удалить букву ${code}?`)) return
+  const handleDeleteLetter = async () => {
+    if (!deleteConfirm) return
+    const code = deleteConfirm.code
+    setDeleteConfirm(null)
     try {
       setLoading(true)
       setError('')
@@ -183,7 +175,7 @@ export default function WordsAlphabetPage() {
     setDraggingCode(code)
   }
 
-  const handleDragOver = (event: React.DragEvent<HTMLTableRowElement>, targetCode: string) => {
+  const handleDragOver = (event: React.DragEvent, targetCode: string) => {
     event.preventDefault()
     if (!draggingCode || draggingCode === targetCode) return
     const items = [...letters]
@@ -218,155 +210,153 @@ export default function WordsAlphabetPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4 }}>
-            Words / Алфавит
+            Алфавит
           </Typography>
           <Typography color="text.secondary">
-            Управление буквами алфавита и аудио‑произношением для мобильного приложения.
+            Буквы арабского алфавита и аудио-произношение для приложения.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={load}
-            disabled={loading}
-          >
+          <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading}>
             Обновить
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setCreateOpen(true)}
-          >
+          <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>
             Добавить букву
           </Button>
         </Stack>
       </Stack>
 
-      {loading && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Загрузка...
-        </Alert>
-      )}
-      {!!error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      {!!success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
-      )}
+      {loading && <LinearProgress sx={{ mb: 2 }} />}
+      {!!error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {!!success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ width: 40 }} />
-                    <TableCell sx={{ width: 50 }}>№</TableCell>
-                    <TableCell sx={{ width: 80 }}>Араб.</TableCell>
-                    <TableCell>Название (RU)</TableCell>
-                    <TableCell>Транслит</TableCell>
-                    <TableCell>Важно знать</TableCell>
-                    <TableCell sx={{ width: 120 }}>Аудио</TableCell>
-                    <TableCell sx={{ width: 140 }} />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {letters.map((letter, index) => (
-                    <TableRow
-                      key={letter.id}
-                      draggable
-                      onDragStart={() => handleDragStart(letter.code)}
-                      onDragOver={(e) => handleDragOver(e, letter.code)}
-                      onDrop={handleDrop}
-                      sx={{
-                        cursor: 'grab',
-                        opacity: draggingCode === letter.code ? 0.5 : 1,
-                        '&:active': { cursor: 'grabbing' },
-                      }}
-                    >
-                      <TableCell sx={{ cursor: 'grab' }}>
-                        <DragIndicator sx={{ color: 'text.disabled', fontSize: 20 }} />
-                      </TableCell>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>
-                        <Typography variant="h5" sx={{ textAlign: 'center' }}>
+      <Card sx={{ borderRadius: 4 }}>
+        <CardContent>
+          {letters.length === 0 ? (
+            <Box sx={{ py: 8, textAlign: 'center' }}>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Нет букв. Добавьте первую букву алфавита.
+              </Typography>
+              <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>
+                Добавить букву
+              </Button>
+            </Box>
+          ) : (
+            <Stack spacing={1}>
+              {letters.map((letter) => (
+                <Card
+                  key={letter.id}
+                  variant="outlined"
+                  draggable
+                  onDragStart={() => handleDragStart(letter.code)}
+                  onDragOver={(e) => handleDragOver(e, letter.code)}
+                  onDrop={handleDrop}
+                  sx={{
+                    borderRadius: 2,
+                    cursor: 'grab',
+                    opacity: draggingCode === letter.code ? 0.5 : 1,
+                    '&:active': { cursor: 'grabbing' },
+                    transition: 'opacity 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <Box
+                        sx={{
+                          width: 40,
+                          display: 'flex',
+                          justifyContent: 'center',
+                          cursor: 'grab',
+                          color: 'text.disabled',
+                        }}
+                      >
+                        <DragIndicator sx={{ fontSize: 20 }} />
+                      </Box>
+                      <Box
+                        sx={{
+                          width: 56,
+                          height: 56,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 2,
+                          bgcolor: 'action.hover',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Typography variant="h4" sx={{ fontFamily: 'serif' }}>
                           {letter.arabic}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={letter.nameRu}
-                          onChange={(e) => handleFieldChange(letter.code, 'nameRu', e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          value={letter.translit || ''}
-                          onChange={(e) => handleFieldChange(letter.code, 'translit', e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          multiline
-                          minRows={2}
-                          value={letter.important || ''}
-                          onChange={(e) => handleFieldChange(letter.code, 'important', e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" alignItems="center" spacing={1}>
+                      </Box>
+                      <Stack sx={{ flex: 1, minWidth: 0 }} spacing={0.25}>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          {letter.nameRu}
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            {letter.code}
+                          </Typography>
+                          {letter.translit && (
+                            <Typography variant="body2" color="text.secondary">
+                              • {letter.translit}
+                            </Typography>
+                          )}
+                        </Stack>
+                      </Stack>
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <Tooltip title={letter.audioUrl ? 'Заменить аудио' : 'Загрузить аудио'}>
                           <Button
                             component="label"
                             size="small"
-                            variant="outlined"
-                            startIcon={<Audiotrack />}
+                            variant={letter.audioUrl ? 'outlined' : 'text'}
+                            sx={{ minWidth: 0, p: 1 }}
                           >
-                            {letter.audioUrl ? 'Заменить' : 'Загрузить'}
+                            <Audiotrack
+                              sx={{
+                                fontSize: 20,
+                                color: letter.audioUrl ? 'success.main' : 'text.disabled',
+                              }}
+                            />
                             <input
                               type="file"
                               accept="audio/*"
                               hidden
-                              onChange={(e) => handleUploadAudio(letter.code, e.target.files?.[0] || null)}
+                              onChange={(e) =>
+                                handleUploadAudio(letter.code, e.target.files?.[0] || null)
+                              }
                             />
                           </Button>
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleSaveLetter(letter)}
-                        >
-                          <Save fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeleteLetter(letter.code)}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+                        </Tooltip>
+                        <Tooltip title="Редактировать">
+                          <IconButton
+                            size="small"
+                            onClick={() => setEditLetter({ ...letter })}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Удалить">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setDeleteConfirm(letter)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
+
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Новая буква алфавита</DialogTitle>
         <DialogContent>
@@ -425,7 +415,112 @@ export default function WordsAlphabetPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={!!editLetter}
+        onClose={() => setEditLetter(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Редактировать букву {editLetter?.code}</DialogTitle>
+        {editLetter && (
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 2,
+                    bgcolor: 'action.hover',
+                  }}
+                >
+                  <Typography variant="h3" sx={{ fontFamily: 'serif' }}>
+                    {editLetter.arabic}
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  Код: {editLetter.code} • Порядок: {editLetter.orderIndex}
+                </Typography>
+              </Stack>
+              <TextField
+                label="Название (RU)"
+                value={editLetter.nameRu}
+                onChange={(e) =>
+                  setEditLetter((prev) => (prev ? { ...prev, nameRu: e.target.value } : null))
+                }
+                fullWidth
+              />
+              <TextField
+                label="Транслит"
+                value={editLetter.translit || ''}
+                onChange={(e) =>
+                  setEditLetter((prev) => (prev ? { ...prev, translit: e.target.value } : null))
+                }
+                fullWidth
+              />
+              <TextField
+                label="Важно знать"
+                value={editLetter.important || ''}
+                onChange={(e) =>
+                  setEditLetter((prev) => (prev ? { ...prev, important: e.target.value } : null))
+                }
+                fullWidth
+                multiline
+                minRows={3}
+              />
+            </Stack>
+          </DialogContent>
+        )}
+        <DialogActions>
+          <Button onClick={() => setEditLetter(null)}>Отмена</Button>
+          <Button
+            variant="contained"
+            startIcon={<Save />}
+            onClick={() => editLetter && handleSaveLetter(editLetter)}
+            disabled={loading}
+          >
+            Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
+        <DialogTitle>Удалить букву?</DialogTitle>
+        <DialogContent>
+          {deleteConfirm && (
+            <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 1 }}>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 2,
+                  bgcolor: 'action.hover',
+                }}
+              >
+                <Typography variant="h4" sx={{ fontFamily: 'serif' }}>
+                  {deleteConfirm.arabic}
+                </Typography>
+              </Box>
+              <Typography>
+                Удалить букву «{deleteConfirm.nameRu}» ({deleteConfirm.code})? Это действие нельзя отменить.
+              </Typography>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm(null)}>Отмена</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteLetter} disabled={loading}>
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
-

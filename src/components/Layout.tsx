@@ -20,8 +20,6 @@ import {
   People as PeopleIcon,
   School as SchoolIcon,
   Article as ArticleIcon,
-  Quiz as QuizIcon,
-  AutoAwesome as AutoAwesomeIcon,
   Logout as LogoutIcon,
   Menu as MenuIcon,
   MenuBook as MenuBookIcon,
@@ -37,27 +35,24 @@ const SIDEBAR_COLLAPSED = 72
 
 const navSections = [
   {
-    label: 'OVERVIEW',
+    label: 'ОБЗОР',
     items: [
-      { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-      { text: 'Content Studio', icon: <AutoAwesomeIcon />, path: '/content-studio' },
+      { text: 'Панель', icon: <DashboardIcon />, path: '/dashboard' },
+      { text: 'Контент', icon: <SchoolIcon />, path: '/content' },
     ],
   },
   {
-    label: 'MANAGEMENT',
+    label: 'УПРАВЛЕНИЕ',
     items: [
-      { text: 'Users', icon: <PeopleIcon />, path: '/users' },
-      { text: 'Courses', icon: <SchoolIcon />, path: '/courses' },
-      { text: 'Lessons', icon: <ArticleIcon />, path: '/lessons' },
-      { text: 'Tests', icon: <QuizIcon />, path: '/tests' },
+      { text: 'Пользователи', icon: <PeopleIcon />, path: '/users' },
     ],
   },
   {
-    label: 'DICTIONARY',
+    label: 'СЛОВАРЬ',
     items: [
-      { text: 'Alphabet', icon: <ArticleIcon />, path: '/words-alphabet' },
-      { text: 'Dictionary', icon: <MenuBookIcon />, path: '/words-dictionary' },
-      { text: 'Word Cards', icon: <StyleIcon />, path: '/words-cards' },
+      { text: 'Алфавит', icon: <ArticleIcon />, path: '/words-alphabet' },
+      { text: 'Словарь', icon: <MenuBookIcon />, path: '/words-dictionary' },
+      { text: 'Карточки', icon: <StyleIcon />, path: '/words-cards' },
     ],
   },
 ]
@@ -264,7 +259,7 @@ export default function Layout() {
             </IconButton>
           </Box>
         )}
-        <Tooltip title={collapsed && !isMobile ? 'Logout' : ''} placement="right" arrow>
+        <Tooltip title={collapsed && !isMobile ? 'Выйти' : ''} placement="right" arrow>
           <ListItemButton
             onClick={handleLogout}
             sx={{
@@ -287,8 +282,8 @@ export default function Layout() {
               <LogoutIcon />
             </ListItemIcon>
             {(!collapsed || isMobile) && (
-              <ListItemText
-                primary="Logout"
+                            <ListItemText
+                              primary="Выйти"
                 primaryTypographyProps={{
                   fontSize: '0.85rem',
                   fontWeight: 400,
@@ -344,7 +339,7 @@ export default function Layout() {
         </Drawer>
       )}
 
-      {/* Desktop permanent sidebar */}
+      {/* Desktop permanent sidebar - sticky so it stays visible when scrolling */}
       {!isMobile && (
         <Box
           component="nav"
@@ -352,6 +347,10 @@ export default function Layout() {
             width: currentWidth,
             flexShrink: 0,
             transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
+            position: 'sticky',
+            top: 0,
+            alignSelf: 'flex-start',
+            maxHeight: '100vh',
           }}
         >
           {sidebarContent}

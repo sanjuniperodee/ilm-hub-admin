@@ -35,7 +35,7 @@ export default function LoginPage() {
       await login(email, password)
       navigate('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed')
+      setError(err.response?.data?.message || 'Ошибка входа')
     } finally {
       setLoading(false)
     }
@@ -124,7 +124,7 @@ export default function LoginPage() {
               mt: 0.5,
             }}
           >
-            Sign in to access admin panel
+            Войдите для доступа к панели администратора
           </Typography>
         </Box>
 
@@ -156,7 +156,7 @@ export default function LoginPage() {
           <Box component="form" onSubmit={handleSubmit}>
             <TextField
               fullWidth
-              placeholder="Email address"
+              placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               InputProps={{
@@ -192,7 +192,7 @@ export default function LoginPage() {
             <TextField
               fullWidth
               type={showPassword ? 'text' : 'password'}
-              placeholder="Password"
+              placeholder="Пароль"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               InputProps={{
@@ -260,7 +260,7 @@ export default function LoginPage() {
                 transition: 'all 0.2s ease',
               }}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Вход...' : 'Войти'}
             </Button>
           </Box>
         </Box>
@@ -273,7 +273,7 @@ export default function LoginPage() {
             fontSize: '0.75rem',
           }}
         >
-          © 2024 ILM HUB. All rights reserved.
+          © 2024 ILM HUB. Все права защищены.
         </Typography>
       </Box>
     </Box>

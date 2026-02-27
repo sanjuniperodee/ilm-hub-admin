@@ -10,7 +10,7 @@ import { getUsers, getCourses } from '../api/adminApi'
 
 const formatDate = () => {
   const now = new Date()
-  return now.toLocaleDateString('en-US', {
+  return now.toLocaleDateString('ru-RU', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -141,7 +141,7 @@ export default function DashboardPage() {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          Dashboard
+          Панель управления
         </Typography>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 0.5 }}>
           <CalendarTodayOutlined sx={{ fontSize: 16, color: 'text.disabled' }} />
@@ -155,7 +155,7 @@ export default function DashboardPage() {
       <Grid container spacing={3}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Total Users"
+            title="Всего пользователей"
             value={stats.users}
             icon={<PeopleOutlined sx={{ color: '#6366F1' }} />}
             gradient="linear-gradient(135deg, #6366F1, #818CF8)"
@@ -164,7 +164,7 @@ export default function DashboardPage() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Total Courses"
+            title="Всего курсов"
             value={stats.courses}
             icon={<SchoolOutlined sx={{ color: '#10B981' }} />}
             gradient="linear-gradient(135deg, #10B981, #34D399)"
@@ -173,7 +173,7 @@ export default function DashboardPage() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Active Today"
+            title="Активных сегодня"
             value="—"
             icon={<TrendingUp sx={{ color: '#F59E0B' }} />}
             gradient="linear-gradient(135deg, #F59E0B, #FCD34D)"
@@ -182,7 +182,7 @@ export default function DashboardPage() {
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Completion Rate"
+            title="Процент завершения"
             value="—"
             icon={<TrendingUp sx={{ color: '#3B82F6' }} />}
             gradient="linear-gradient(135deg, #3B82F6, #93C5FD)"
@@ -194,15 +194,15 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <Box sx={{ mt: 4 }}>
         <Typography variant="h4" sx={{ mb: 2 }}>
-          Quick Overview
+          Обзор
         </Typography>
         <Card>
           <CardContent sx={{ p: 4, textAlign: 'center', '&:last-child': { pb: 4 } }}>
             <SchoolOutlined sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
             <Typography color="text.secondary" sx={{ fontSize: '0.9375rem' }}>
-              Use the sidebar to navigate between sections.
+              Используйте боковую панель для навигации.
               <br />
-              Start with <strong>Content Studio</strong> to manage your courses and lessons.
+              Начните с раздела <strong>Контент</strong> для управления курсами и уроками.
             </Typography>
           </CardContent>
         </Card>

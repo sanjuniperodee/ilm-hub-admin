@@ -7,20 +7,13 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import UsersPage from './pages/UsersPage'
 import UserDetailPage from './pages/UserDetailPage'
-import CoursesPage from './pages/CoursesPage'
-import CourseEditPage from './pages/CourseEditPage'
-import ModulesPage from './pages/ModulesPage'
-import ModuleEditPage from './pages/ModuleEditPage'
-import LessonsPage from './pages/LessonsPage'
-import LessonEditPage from './pages/LessonEditPage'
-import LessonBlocksPage from './pages/LessonBlocksPage'
-import LessonBlockEditPage from './pages/LessonBlockEditPage'
-import TestsPage from './pages/TestsPage'
-import ContentStudioPage from './pages/ContentStudioPage'
-import LessonDetailPage from './pages/LessonDetailPage'
-import TestDetailPage from './pages/TestDetailPage'
+import ContentHubPage from './pages/ContentHubPage'
+import LessonEditorPage from './pages/LessonEditorPage'
+import CourseEditorPage from './pages/CourseEditorPage'
+import ModuleEditorPage from './pages/ModuleEditorPage'
+import ModuleTestPage from './pages/ModuleTestPage'
+import LevelTestPage from './pages/LevelTestPage'
 import Layout from './components/Layout'
-import DetailLayout from './components/DetailLayout'
 import WordsAlphabetPage from './pages/WordsAlphabetPage'
 import WordsDictionaryPage from './pages/WordsDictionaryPage'
 import WordsCardsPage from './pages/WordsCardsPage'
@@ -503,37 +496,21 @@ function App() {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="content-studio" element={<ContentStudioPage />} />
+              <Route path="content" element={<ContentHubPage />} />
+              <Route path="content/courses/:courseId" element={<ContentHubPage />} />
+              <Route path="content/courses/:courseId/modules/:moduleId" element={<ContentHubPage />} />
+              <Route path="content/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonEditorPage />} />
+              <Route path="content/courses/:courseId/lessons/:lessonId" element={<LessonEditorPage />} />
+              <Route path="content/courses/:courseId/edit" element={<CourseEditorPage />} />
+              <Route path="content/courses/:courseId/modules/:moduleId/edit" element={<ModuleEditorPage />} />
+              <Route path="content/courses/:courseId/modules/:moduleId/test" element={<ModuleTestPage />} />
+              <Route path="content/level-tests/:levelCode" element={<LevelTestPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="users/:id" element={<UserDetailPage />} />
-              <Route path="courses" element={<CoursesPage />} />
-              <Route path="courses/new" element={<CourseEditPage />} />
-              <Route path="courses/:id" element={<CourseEditPage />} />
-              <Route path="modules" element={<ModulesPage />} />
-              <Route path="modules/new" element={<ModuleEditPage />} />
-              <Route path="modules/:id" element={<ModuleEditPage />} />
-              <Route path="lessons" element={<LessonsPage />} />
-              <Route path="lessons/new" element={<LessonEditPage />} />
-              <Route path="lessons/:id" element={<LessonEditPage />} />
-              <Route path="lesson-blocks" element={<LessonBlocksPage />} />
-              <Route path="lesson-blocks/new" element={<LessonBlockEditPage />} />
-              <Route path="lesson-blocks/:id" element={<LessonBlockEditPage />} />
-              <Route path="tests" element={<TestsPage />} />
               <Route path="words-alphabet" element={<WordsAlphabetPage />} />
               <Route path="words-dictionary" element={<WordsDictionaryPage />} />
               <Route path="words-cards" element={<WordsCardsPage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Route>
-            <Route
-              path="content-studio/lessons/:lessonId"
-              element={
-                <PrivateRoute>
-                  <DetailLayout />
-                </PrivateRoute>
-              }
-            >
-              <Route index element={<LessonDetailPage />} />
-              <Route path="test" element={<TestDetailPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -73,15 +73,15 @@ export default function UsersPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
-            Users
+            Пользователи
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {users.length} registered users
+            {users.length} зарегистрировано
           </Typography>
         </Box>
         <TextField
           size="small"
-          placeholder="Search users..."
+          placeholder="Поиск пользователей..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           InputProps={{

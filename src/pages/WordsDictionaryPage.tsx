@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -9,18 +9,22 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
   IconButton,
+  LinearProgress,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { Add, Audiotrack, Edit, Refresh, Save, Star, StarBorder } from '@mui/icons-material'
+import {
+  Add,
+  Audiotrack,
+  Delete,
+  DragIndicator,
+  Edit as EditIcon,
+  Refresh,
+  Save,
+} from '@mui/icons-material'
 import {
   createWordsDictionaryEntry,
   createWordsDictionaryExample,
@@ -59,10 +63,11 @@ export default function WordsDictionaryPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [entries, setEntries] = useState<DictionaryEntry[]>([])
-
   const [editOpen, setEditOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DictionaryEntry | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<DictionaryEntry | null>(null)
   const [draggingExampleId, setDraggingExampleId] = useState<string | null>(null)
+  const pendingExamplesRef = useRef<DictionaryExample[] | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -144,8 +149,10 @@ export default function WordsDictionaryPage() {
     }
   }
 
-  const handleDeleteEntry = async (id: string) => {
-    if (!window.confirm('Удалить это слово и все его примеры?')) return
+  const handleDeleteEntry = async () => {
+    if (!deleteConfirm) return
+    const id = deleteConfirm.id
+    setDeleteConfirm(null)
     try {
       setLoading(true)
       setError('')
@@ -194,12 +201,7 @@ export default function WordsDictionaryPage() {
         orderIndex,
       })
       setEditingEntry((prev) =>
-        prev
-          ? {
-              ...prev,
-              examples: [...(prev.examples || []), data],
-            }
-          : prev,
+        prev ? { ...prev, examples: [...(prev.examples || []), data] } : prev,
       )
     } catch (e: any) {
       const msg =
@@ -249,12 +251,7 @@ export default function WordsDictionaryPage() {
       setSuccess('')
       await deleteWordsDictionaryExample(id)
       setEditingEntry((prev) =>
-        prev
-          ? {
-              ...prev,
-              examples: (prev.examples || []).filter((ex) => ex.id !== id),
-            }
-          : prev,
+        prev ? { ...prev, examples: (prev.examples || []).filter((ex) => ex.id !== id) } : prev,
       )
       setSuccess('Пример удалён')
     } catch (e: any) {
@@ -293,24 +290,17 @@ export default function WordsDictionaryPage() {
     }
   }
 
-  const handleReorderExamples = async () => {
-    if (!editingEntry || !editingEntry.id || !editingEntry.examples) return
-    const current = editingEntry.examples
+  const handleReorderExamples = async (examplesOverride?: DictionaryExample[]) => {
+    if (!editingEntry || !editingEntry.id) return
+    const current = examplesOverride ?? editingEntry.examples ?? []
+    if (current.length === 0) return
     try {
       setLoading(true)
       setError('')
       setSuccess('')
-      await reorderWordsDictionaryExamples(
-        editingEntry.id,
-        current.map((ex) => ex.id),
-      )
+      await reorderWordsDictionaryExamples(editingEntry.id, current.map((ex) => ex.id))
       setEditingEntry((prev) =>
-        prev
-          ? {
-              ...prev,
-              examples: current.map((ex, index) => ({ ...ex, orderIndex: index })),
-            }
-          : prev,
+        prev ? { ...prev, examples: current.map((ex, index) => ({ ...ex, orderIndex: index })) } : prev,
       )
       setSuccess('Порядок примеров сохранён')
     } catch (e: any) {
@@ -322,11 +312,9 @@ export default function WordsDictionaryPage() {
     }
   }
 
-  const handleExampleDragStart = (id: string) => {
-    setDraggingExampleId(id)
-  }
+  const handleExampleDragStart = (id: string) => setDraggingExampleId(id)
 
-  const handleExampleDragOver = (event: React.DragEvent<HTMLTableRowElement>, targetId: string) => {
+  const handleExampleDragOver = (event: React.DragEvent, targetId: string) => {
     event.preventDefault()
     if (!editingEntry || !editingEntry.examples || !draggingExampleId || draggingExampleId === targetId) return
     const examples = [...editingEntry.examples]
@@ -335,19 +323,17 @@ export default function WordsDictionaryPage() {
     if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return
     const [moved] = examples.splice(fromIndex, 1)
     examples.splice(toIndex, 0, moved)
-    setEditingEntry((prev) =>
-      prev
-        ? {
-            ...prev,
-            examples,
-          }
-        : prev,
-    )
+    pendingExamplesRef.current = examples
+    setEditingEntry((prev) => (prev ? { ...prev, examples } : prev))
   }
 
   const handleExampleDrop = async () => {
     setDraggingExampleId(null)
-    await handleReorderExamples()
+    const pending = pendingExamplesRef.current
+    pendingExamplesRef.current = null
+    if (pending && editingEntry?.id) {
+      await handleReorderExamples(pending)
+    }
   }
 
   return (
@@ -355,98 +341,115 @@ export default function WordsDictionaryPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4 }}>
-            Words / Dictionary
+            Словарь
           </Typography>
           <Typography color="text.secondary">
-            Управление словами словаря, примерами и аудио для мобильного приложения.
+            Слова с переводами, примерами и аудио для приложения.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={load}
-            disabled={loading}
-          >
+          <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading}>
             Обновить
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={openCreateDialog}
-          >
+          <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog}>
             Добавить слово
           </Button>
         </Stack>
       </Stack>
 
-      {!!error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      {!!success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
-      )}
+      {loading && <LinearProgress sx={{ mb: 2 }} />}
+      {!!error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {!!success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Арабское</TableCell>
-                    <TableCell>Транслит</TableCell>
-                    <TableCell>Перевод (RU)</TableCell>
-                    <TableCell>Заметка</TableCell>
-                    <TableCell align="center">Примеры</TableCell>
-                    <TableCell align="center">Аудио</TableCell>
-                    <TableCell align="right" sx={{ width: 120 }}>
-                      Действия
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {entries.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600 }}>{entry.arabic}</Typography>
-                      </TableCell>
-                      <TableCell>{entry.translit}</TableCell>
-                      <TableCell>{entry.translationRu}</TableCell>
-                      <TableCell>{entry.noteRu}</TableCell>
-                      <TableCell align="center">{(entry as any).examples?.length ?? 0}</TableCell>
-                      <TableCell align="center">
-                        {entry.audioUrl ? (
-                          <Star sx={{ fontSize: 18, color: 'goldenrod' }} />
-                        ) : (
-                          <StarBorder sx={{ fontSize: 18, color: 'text.disabled' }} />
-                        )}
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={() => openEditDialog(entry.id)}>
-                          <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDeleteEntry(entry.id)}>
-                          <Save sx={{ opacity: 0 }} />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <Card sx={{ borderRadius: 4 }}>
+        <CardContent>
+          {entries.length === 0 ? (
+            <Box sx={{ py: 8, textAlign: 'center' }}>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Нет слов. Добавьте первое слово в словарь.
+              </Typography>
+              <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog}>
+                Добавить слово
+              </Button>
+            </Box>
+          ) : (
+            <Stack spacing={1}>
+              {entries.map((entry) => (
+                <Card
+                  key={entry.id}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 2,
+                    transition: 'box-shadow 0.2s',
+                    '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+                  }}
+                >
+                  <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <Box
+                        sx={{
+                          width: 56,
+                          height: 56,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 2,
+                          bgcolor: 'action.hover',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Typography variant="h5" sx={{ fontFamily: 'serif' }}>
+                          {entry.arabic}
+                        </Typography>
+                      </Box>
+                      <Stack sx={{ flex: 1, minWidth: 0 }} spacing={0.25}>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          {entry.translationRu}
+                        </Typography>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          {entry.translit && (
+                            <Typography variant="body2" color="text.secondary">
+                              {entry.translit}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            {entry.examples?.length ?? 0} примеров
+                          </Typography>
+                        </Stack>
+                      </Stack>
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <Tooltip title={entry.audioUrl ? 'Есть аудио' : 'Нет аудио'}>
+                          <Audiotrack
+                            sx={{
+                              fontSize: 20,
+                              color: entry.audioUrl ? 'success.main' : 'text.disabled',
+                            }}
+                          />
+                        </Tooltip>
+                        <Tooltip title="Редактировать">
+                          <IconButton size="small" onClick={() => openEditDialog(entry.id)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Удалить">
+                          <IconButton size="small" color="error" onClick={() => setDeleteConfirm(entry)}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+        </CardContent>
+      </Card>
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>{editingEntry?.id ? 'Редактирование слова' : 'Новое слово'}</DialogTitle>
-        <DialogContent>
-          {editingEntry && (
+        {editingEntry && (
+          <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <Stack direction="row" spacing={2}>
                 <TextField
@@ -473,6 +476,8 @@ export default function WordsDictionaryPage() {
                 label="Заметка"
                 value={editingEntry.noteRu || ''}
                 onChange={(e) => handleEntryFieldChange('noteRu', e.target.value)}
+                multiline
+                minRows={2}
               />
 
               {editingEntry.id && (
@@ -493,91 +498,115 @@ export default function WordsDictionaryPage() {
                 </Button>
               )}
 
-              <Box>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                  <Typography variant="subtitle1">Примеры</Typography>
-                  <Stack direction="row" spacing={1}>
-                    <Button size="small" variant="outlined" onClick={handleAddExample}>
+              {editingEntry.id && (
+                <Box>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Примеры
+                    </Typography>
+                    <Button size="small" variant="outlined" startIcon={<Add />} onClick={handleAddExample}>
                       Добавить пример
                     </Button>
-                    <Button size="small" variant="outlined" onClick={handleReorderExamples}>
-                      Пересчитать порядок
-                    </Button>
                   </Stack>
-                </Stack>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ width: 60 }}>№</TableCell>
-                      <TableCell>Арабское предложение</TableCell>
-                      <TableCell>Перевод (RU)</TableCell>
-                      <TableCell sx={{ width: 140 }} align="center">
-                        Аудио
-                      </TableCell>
-                      <TableCell sx={{ width: 80 }} align="right">
-                        Действия
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {(editingEntry.examples || []).map((ex, index) => (
-                      <TableRow
+                  <Stack spacing={1}>
+                    {(editingEntry.examples || []).map((ex) => (
+                      <Card
                         key={ex.id}
+                        variant="outlined"
+                        sx={{
+                          borderRadius: 1.5,
+                          cursor: 'grab',
+                          opacity: draggingExampleId === ex.id ? 0.5 : 1,
+                          '&:active': { cursor: 'grabbing' },
+                        }}
                         draggable
                         onDragStart={() => handleExampleDragStart(ex.id)}
                         onDragOver={(e) => handleExampleDragOver(e, ex.id)}
                         onDrop={handleExampleDrop}
-                        sx={{ cursor: 'grab' }}
                       >
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            value={ex.arabicSentence}
-                            onChange={(e) => handleExampleFieldChange(ex.id, 'arabicSentence', e.target.value)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            value={ex.translationRu}
-                            onChange={(e) => handleExampleFieldChange(ex.id, 'translationRu', e.target.value)}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Button
-                            component="label"
-                            size="small"
-                            variant="outlined"
-                            startIcon={<Audiotrack />}
-                          >
-                            {ex.audioUrl ? 'Заменить' : 'Загрузить'}
-                            <input
-                              type="file"
-                              accept="audio/*"
-                              hidden
-                              onChange={(e) => handleUploadExampleAudio(ex.id, e.target.files?.[0] || null)}
-                            />
-                          </Button>
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton size="small" onClick={() => handleSaveExample(ex)}>
-                            <Save fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => handleDeleteExample(ex.id)}>
-                            <Save sx={{ opacity: 0 }} />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
+                        <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                          <Stack direction="row" alignItems="flex-start" spacing={1}>
+                            <Box
+                              sx={{
+                                width: 32,
+                                display: 'flex',
+                                justifyContent: 'center',
+                                color: 'text.disabled',
+                                flexShrink: 0,
+                                pointerEvents: 'none',
+                              }}
+                            >
+                              <DragIndicator sx={{ fontSize: 18 }} />
+                            </Box>
+                            <Stack sx={{ flex: 1 }} spacing={1}>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                label="Арабское предложение"
+                                value={ex.arabicSentence}
+                                onChange={(e) =>
+                                  handleExampleFieldChange(ex.id, 'arabicSentence', e.target.value)
+                                }
+                              />
+                              <TextField
+                                fullWidth
+                                size="small"
+                                label="Перевод (RU)"
+                                value={ex.translationRu}
+                                onChange={(e) =>
+                                  handleExampleFieldChange(ex.id, 'translationRu', e.target.value)
+                                }
+                              />
+                            </Stack>
+                            <Stack direction="row" spacing={0.5}>
+                              <Button
+                                component="label"
+                                size="small"
+                                variant="text"
+                                sx={{ minWidth: 0, p: 1 }}
+                              >
+                                <Audiotrack
+                                  sx={{
+                                    fontSize: 18,
+                                    color: ex.audioUrl ? 'success.main' : 'text.disabled',
+                                  }}
+                                />
+                                <input
+                                  type="file"
+                                  accept="audio/*"
+                                  hidden
+                                  onChange={(e) =>
+                                    handleUploadExampleAudio(ex.id, e.target.files?.[0] || null)
+                                  }
+                                />
+                              </Button>
+                              <IconButton size="small" onClick={() => handleSaveExample(ex)}>
+                                <Save fontSize="small" />
+                              </IconButton>
+                              <IconButton size="small" color="error" onClick={() => handleDeleteExample(ex.id)}>
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Stack>
+                          </Stack>
+                        </CardContent>
+                      </Card>
                     ))}
-                  </TableBody>
-                </Table>
-              </Box>
+                  </Stack>
+                  {(editingEntry.examples?.length ?? 0) > 0 && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      sx={{ mt: 1 }}
+                      onClick={() => handleReorderExamples()}
+                    >
+                      Сохранить порядок примеров
+                    </Button>
+                  )}
+                </Box>
+              )}
             </Stack>
-          )}
-        </DialogContent>
+          </DialogContent>
+        )}
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={handleSaveEntry} disabled={loading}>
@@ -585,7 +614,40 @@ export default function WordsDictionaryPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
+        <DialogTitle>Удалить слово?</DialogTitle>
+        <DialogContent>
+          {deleteConfirm && (
+            <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 1 }}>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 2,
+                  bgcolor: 'action.hover',
+                }}
+              >
+                <Typography variant="h5" sx={{ fontFamily: 'serif' }}>
+                  {deleteConfirm.arabic}
+                </Typography>
+              </Box>
+              <Typography>
+                Удалить слово «{deleteConfirm.translationRu}» и все его примеры? Это действие нельзя отменить.
+              </Typography>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm(null)}>Отмена</Button>
+          <Button variant="contained" color="error" onClick={handleDeleteEntry} disabled={loading}>
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
-

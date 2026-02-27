@@ -76,16 +76,16 @@ export default function UserDetailPage() {
   }
 
   if (!user) {
-    return <Typography>User not found</Typography>
+    return <Typography>Пользователь не найден</Typography>
   }
 
   return (
     <Box>
       <Button startIcon={<ArrowBack />} onClick={() => navigate('/users')} sx={{ mb: 2 }}>
-        Back to Users
+        К списку пользователей
       </Button>
       <Typography variant="h4" gutterBottom>
-        User Details
+        Профиль пользователя
       </Typography>
 
       <Paper sx={{ p: 3, mt: 2, mb: 2 }}>
