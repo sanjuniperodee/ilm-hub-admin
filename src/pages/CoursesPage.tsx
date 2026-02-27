@@ -14,8 +14,10 @@ import {
   IconButton,
   CircularProgress,
   Chip,
+  Stack,
+  Tooltip,
 } from '@mui/material'
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Add as AddIcon, Edit as EditIcon, DeleteOutline as DeleteIcon } from '@mui/icons-material'
 import { getCourses, deleteCourse } from '../api/adminApi'
 
 interface Course {
@@ -63,15 +65,22 @@ export default function CoursesPage() {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <CircularProgress sx={{ color: '#6366F1' }} />
       </Box>
     )
   }
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h4">Courses</Typography>
+    <Box className="animate-fade-in">
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
+        <Box>
+          <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+            Courses
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {courses.length} courses total
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -79,7 +88,7 @@ export default function CoursesPage() {
         >
           New Course
         </Button>
-      </Box>
+      </Stack>
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -90,41 +99,95 @@ export default function CoursesPage() {
               <TableCell>Level</TableCell>
               <TableCell>Premium</TableCell>
               <TableCell>Order</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {courses.map((course) => (
               <TableRow key={course.id}>
-                <TableCell>{course.code}</TableCell>
-                <TableCell>{course.titleRu}</TableCell>
-                <TableCell>{course.titleAr || '-'}</TableCell>
-                <TableCell>{course.level || '-'}</TableCell>
                 <TableCell>
                   <Chip
-                    label={course.isPremium ? 'Yes' : 'No'}
-                    color={course.isPremium ? 'primary' : 'default'}
+                    label={course.code}
                     size="small"
+                    sx={{
+                      fontWeight: 700,
+                      fontFamily: 'monospace',
+                      background: 'rgba(99,102,241,0.08)',
+                      color: '#4F46E5',
+                    }}
                   />
                 </TableCell>
-                <TableCell>{course.orderIndex}</TableCell>
                 <TableCell>
-                  <IconButton
+                  <Typography sx={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                    {course.titleRu}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="text.secondary">
+                    {course.titleAr || '—'}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" color="text.secondary">
+                    {course.level || '—'}
+                  </Typography>
+                </TableCell>
+                <TableCell>
+                  <Chip
+                    label={course.isPremium ? 'Premium' : 'Free'}
                     size="small"
-                    onClick={() => navigate(`/courses/${course.id}`)}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => handleDelete(course.id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                    color={course.isPremium ? 'warning' : 'default'}
+                    sx={{
+                      ...(course.isPremium
+                        ? { background: 'rgba(245,158,11,0.1)', color: '#D97706' }
+                        : { background: 'rgba(100,116,139,0.08)', color: '#64748B' }),
+                    }}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: 'monospace' }}>
+                    {course.orderIndex}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                    <Tooltip title="Edit">
+                      <IconButton
+                        size="small"
+                        onClick={() => navigate(`/courses/${course.id}`)}
+                        sx={{
+                          width: 34,
+                          height: 34,
+                          '&:hover': { background: 'rgba(99,102,241,0.08)', color: '#6366F1' },
+                        }}
+                      >
+                        <EditIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(course.id)}
+                        sx={{
+                          width: 34,
+                          height: 34,
+                          '&:hover': { background: 'rgba(239,68,68,0.08)', color: '#EF4444' },
+                        }}
+                      >
+                        <DeleteIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                 </TableCell>
               </TableRow>
             ))}
+            {courses.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 6 }}>
+                  <Typography color="text.secondary">No courses found</Typography>
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
