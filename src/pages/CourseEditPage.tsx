@@ -11,6 +11,8 @@ import {
   FormControlLabel,
   Checkbox,
   CircularProgress,
+  Stack,
+  Divider,
 } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
 import { getCourseById, createCourse, updateCourse } from '../api/adminApi'
@@ -79,26 +81,46 @@ export default function CourseEditPage() {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <CircularProgress sx={{ color: '#6366F1' }} />
       </Box>
     )
   }
 
   return (
-    <Box>
-      <Button
-        startIcon={<ArrowBack />}
-        onClick={() => navigate('/courses')}
-        sx={{ mb: 2 }}
-      >
-        Back to Courses
-      </Button>
-      <Typography variant="h4" gutterBottom>
-        {isNew ? 'Create Course' : 'Edit Course'}
-      </Typography>
-      <Paper sx={{ p: 3, mt: 2 }}>
+    <Box className="animate-fade-in">
+      {/* Header */}
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+        <Button
+          startIcon={<ArrowBack />}
+          onClick={() => navigate('/courses')}
+          variant="outlined"
+          size="small"
+          sx={{
+            borderColor: 'rgba(0,0,0,0.12)',
+            color: 'text.secondary',
+            '&:hover': {
+              borderColor: '#6366F1',
+              color: '#6366F1',
+              background: 'rgba(99,102,241,0.04)',
+            },
+          }}
+        >
+          Back
+        </Button>
+        <Box>
+          <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+            {isNew ? 'Create Course' : 'Edit Course'}
+          </Typography>
+        </Box>
+      </Stack>
+
+      <Paper sx={{ p: { xs: 3, md: 4 } }}>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <Grid container spacing={3}>
+          {/* Section: Basic */}
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>
+            Basic Information
+          </Typography>
+          <Grid container spacing={2.5}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -108,7 +130,7 @@ export default function CourseEditPage() {
                 helperText={errors.code?.message}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={3}>
               <TextField
                 fullWidth
                 label="Order Index"
@@ -118,6 +140,22 @@ export default function CourseEditPage() {
                 helperText={errors.orderIndex?.message}
               />
             </Grid>
+            <Grid item xs={12} md={3}>
+              <TextField
+                fullWidth
+                label="Level"
+                {...register('level')}
+              />
+            </Grid>
+          </Grid>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Section: Titles */}
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>
+            Titles
+          </Typography>
+          <Grid container spacing={2.5}>
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
@@ -141,6 +179,15 @@ export default function CourseEditPage() {
                 {...register('titleAr')}
               />
             </Grid>
+          </Grid>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Section: Descriptions */}
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>
+            Descriptions
+          </Typography>
+          <Grid container spacing={2.5}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -168,24 +215,15 @@ export default function CourseEditPage() {
                 {...register('descriptionAr')}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Level"
-                {...register('level')}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={watch('isPremium')}
-                    {...register('isPremium')}
-                  />
-                }
-                label="Premium"
-              />
-            </Grid>
+          </Grid>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Section: Media & Settings */}
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>
+            Media & Settings
+          </Typography>
+          <Grid container spacing={2.5}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -201,15 +239,49 @@ export default function CourseEditPage() {
               />
             </Grid>
             <Grid item xs={12}>
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={<Save />}
-              >
-                Save
-              </Button>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={watch('isPremium')}
+                    {...register('isPremium')}
+                    sx={{
+                      '&.Mui-checked': {
+                        color: '#6366F1',
+                      },
+                    }}
+                  />
+                }
+                label={
+                  <Typography sx={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                    Premium Course
+                  </Typography>
+                }
+              />
             </Grid>
           </Grid>
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* Actions */}
+          <Stack direction="row" justifyContent="flex-end" spacing={2}>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/courses')}
+              sx={{
+                borderColor: 'rgba(0,0,0,0.12)',
+                color: 'text.secondary',
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              startIcon={<Save />}
+            >
+              {isNew ? 'Create Course' : 'Save Changes'}
+            </Button>
+          </Stack>
         </form>
       </Paper>
     </Box>
