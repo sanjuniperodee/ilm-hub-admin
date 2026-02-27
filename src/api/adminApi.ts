@@ -132,3 +132,19 @@ export const updateTestAnswer = (id: string, data: any) =>
 export const deleteTestAnswer = (id: string) =>
   apiClient.delete(`/courses/admin/tests/answers/${id}`)
 
+// Words / Alphabet (backend-copy words module)
+export const getWordsAlphabet = () => apiClient.get('/admin/words/alphabet')
+
+export const getWordLetter = (code: string) => apiClient.get(`/admin/words/alphabet/${code}`)
+
+export const updateWordLetter = (code: string, data: any) =>
+  apiClient.patch(`/admin/words/alphabet/${code}`, data)
+
+export const uploadWordLetterAudio = (code: string, file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return apiClient.post(`/admin/words/alphabet/${code}/upload-audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+

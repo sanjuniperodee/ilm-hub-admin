@@ -21,6 +21,7 @@ import LessonDetailPage from './pages/LessonDetailPage'
 import TestDetailPage from './pages/TestDetailPage'
 import Layout from './components/Layout'
 import DetailLayout from './components/DetailLayout'
+import WordsAlphabetPage from './pages/WordsAlphabetPage'
 
 const theme = createTheme({
   palette: {
@@ -104,6 +105,7 @@ function App() {
               <Route path="lesson-blocks/new" element={<LessonBlockEditPage />} />
               <Route path="lesson-blocks/:id" element={<LessonBlockEditPage />} />
               <Route path="tests" element={<TestsPage />} />
+              <Route path="words-alphabet" element={<WordsAlphabetPage />} />
             </Route>
             <Route
               path="content-studio/lessons/:lessonId"

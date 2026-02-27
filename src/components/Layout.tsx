@@ -35,6 +35,7 @@ const menuItems = [
   { text: 'Courses', icon: <SchoolIcon />, path: '/courses' },
   { text: 'Lessons', icon: <ArticleIcon />, path: '/lessons' },
   { text: 'Tests', icon: <QuizIcon />, path: '/tests' },
+  { text: 'Words & Alphabet', icon: <ArticleIcon />, path: '/words-alphabet' },
 ]
 
 export default function Layout() {
