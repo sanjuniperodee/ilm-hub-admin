@@ -9,6 +9,10 @@ export const login = async (email: string, password: string) => {
   return response.data
 }
 
+// Dashboard
+export const getDashboardStats = (params?: { days?: number }) =>
+  apiClient.get('/admin/dashboard/stats', { params })
+
 // Users
 export const getUsers = () => apiClient.get('/admin/users')
 export const getUserById = (id: string) => apiClient.get(`/admin/users/${id}`)
