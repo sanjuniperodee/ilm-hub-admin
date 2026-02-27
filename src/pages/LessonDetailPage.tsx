@@ -31,6 +31,7 @@ import {
   deleteBlockMedia,
   deleteMediaFile,
   deleteLessonBlock,
+  getBlockMedia,
   getCourseById,
   getLessonBlocks,
   getLessonById,
@@ -40,6 +41,7 @@ import {
   updateLessonBlock,
 } from '../api/adminApi'
 import RichTextEditor from '../components/RichTextEditor'
+import MediaUploader from '../components/MediaUploader'
 
 type BlockType = 'theory' | 'illustration' | 'audio' | 'video' | 'lesson_complete'
 type DetailTab = 'meta' | 'blocks'
@@ -52,6 +54,16 @@ interface StudioBlock {
   contentRu?: Record<string, any>
   contentKz?: Record<string, any>
   contentAr?: Record<string, any>
+}
+
+interface MediaFile {
+  id: string
+  type: 'image' | 'audio' | 'video'
+  url: string
+  filename: string
+  mimeType: string
+  size: number
+  description?: string
 }
 
 function stripHtml(html: string): string {
@@ -73,6 +85,8 @@ export default function LessonDetailPage() {
   const [module, setModule] = useState<any>(null)
   const [blocks, setBlocks] = useState<StudioBlock[]>([])
   const [lessonDraft, setLessonDraft] = useState<Partial<any>>({})
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
+  const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null)
 
   const [blockDraft, setBlockDraft] = useState<{
     id?: string
@@ -193,6 +207,7 @@ export default function LessonDetailPage() {
       transcription: '',
       translationRu: '',
     })
+    setMediaFiles([])
   }
 
   const editBlock = (block: StudioBlock) => {
@@ -210,15 +225,14 @@ export default function LessonDetailPage() {
       transcription: (block.contentRu?.transcription as string) || '',
       translationRu: (block.contentRu?.translation as string) || (block.contentRu?.translationRu as string) || '',
     })
+    if (block.type === 'illustration') {
+      void loadBlockMedia(block.id)
+    } else {
+      setMediaFiles([])
+    }
   }
 
-  const saveBlock = async () => {
-    if (!lessonId) return
-    if (!blockDraft.type) {
-      setError('Укажите тип блока')
-      return
-    }
-
+  const buildBlockPayload = (includeLessonId: boolean) => {
     const isIllustration = blockDraft.type === 'illustration'
 
     const contentRu = isIllustration
@@ -233,13 +247,61 @@ export default function LessonDetailPage() {
           html: blockDraft.textRuHtml,
         }
 
-    const payload = {
+    const basePayload = {
       type: blockDraft.type,
       orderIndex: Number(blockDraft.orderIndex) || 0,
       contentRu,
       contentKz: { title: blockDraft.titleKz, text: blockDraft.textKz },
       contentAr: { title: blockDraft.titleAr, text: blockDraft.textAr },
     }
+
+    if (includeLessonId && lessonId) {
+      return { lessonId, ...basePayload }
+    }
+
+    return basePayload
+  }
+
+  const ensureBlockIdForMedia = async (): Promise<string> => {
+    let blockId = blockDraft.id
+
+    if (!blockId && lessonId) {
+      const payload = buildBlockPayload(true)
+      const createRes = await createLessonBlock(payload)
+      blockId = createRes.data?.id
+
+      if (blockId) {
+        setBlockDraft((prev) => ({ ...prev, id: blockId }))
+        await loadLessonAndContext()
+        notifySuccess('Блок создан. Можно загружать медиа.')
+      }
+    }
+
+    if (!blockId) {
+      throw new Error('Не удалось определить блок для загрузки')
+    }
+
+    return blockId
+  }
+
+  const loadBlockMedia = async (blockId: string) => {
+    try {
+      const { data } = await getBlockMedia(blockId)
+      setMediaFiles(Array.isArray(data) ? data : [])
+    } catch (e) {
+      // Ошибки загрузки медиа не должны ломать страницу
+      console.error('Failed to load block media', e)
+    }
+  }
+
+  const saveBlock = async () => {
+    if (!lessonId) return
+    if (!blockDraft.type) {
+      setError('Укажите тип блока')
+      return
+    }
+
+    const payload = buildBlockPayload(false)
 
     try {
       if (blockDraft.id) {
@@ -258,18 +320,7 @@ export default function LessonDetailPage() {
   const uploadEditorMedia = async (file: File): Promise<{ id: string; url: string; type: 'image' | 'audio' | 'video'; mimeType?: string }> => {
     let blockId = blockDraft.id
     if (!blockId && lessonId) {
-      const payload = {
-        lessonId,
-        type: blockDraft.type,
-        orderIndex: Number(blockDraft.orderIndex) || 0,
-        contentRu: {
-          title: blockDraft.titleRu,
-          text: stripHtml(blockDraft.textRuHtml),
-          html: blockDraft.textRuHtml,
-        },
-        contentKz: { title: blockDraft.titleKz, text: blockDraft.textKz },
-        contentAr: { title: blockDraft.titleAr, text: blockDraft.textAr },
-      }
+      const payload = buildBlockPayload(true)
       const createRes = await createLessonBlock(payload)
       blockId = createRes.data?.id
       if (blockId) {
@@ -303,6 +354,23 @@ export default function LessonDetailPage() {
     }
   }
 
+  const handleMediaUpload = async (file: File, type: 'image' | 'audio' | 'video') => {
+    const blockId = await ensureBlockIdForMedia()
+    await uploadBlockMedia(blockId, file, type)
+    await loadBlockMedia(blockId)
+  }
+
+  const handleMediaDelete = async (mediaId: string) => {
+    if (!blockDraft.id) return
+    await deleteBlockMedia(blockDraft.id, mediaId)
+    try {
+      await deleteMediaFile(mediaId)
+    } catch {
+      // файл мог использоваться и в других местах
+    }
+    await loadBlockMedia(blockDraft.id)
+  }
+
   const removeBlock = async (id: string) => {
     try {
       await deleteLessonBlock(id)
@@ -316,6 +384,43 @@ export default function LessonDetailPage() {
 
   const openTest = () => {
     navigate(`/content-studio/lessons/${lessonId}/test`)
+  }
+
+  const handleBlockDrop = async (targetBlockId: string) => {
+    if (!draggingBlockId || draggingBlockId === targetBlockId) return
+
+    const currentIndex = blocks.findIndex((b) => b.id === draggingBlockId)
+    const targetIndex = blocks.findIndex((b) => b.id === targetBlockId)
+    if (currentIndex === -1 || targetIndex === -1) return
+
+    const updated = [...blocks]
+    const [moved] = updated.splice(currentIndex, 1)
+    updated.splice(targetIndex, 0, moved)
+
+    const reindexed = updated.map((b, index) => ({ ...b, orderIndex: index + 1 }))
+    setBlocks(reindexed)
+    setDraggingBlockId(null)
+
+    try {
+      const tempOffset = 1000
+
+      // Фаза 1: временные индексы, чтобы не нарушать уникальность
+      for (let i = 0; i < reindexed.length; i += 1) {
+        const b = reindexed[i]
+        await updateLessonBlock(b.id, { orderIndex: tempOffset + i + 1 })
+      }
+
+      // Фаза 2: финальные индексы, идём с конца, чтобы не пересекаться
+      for (let i = reindexed.length - 1; i >= 0; i -= 1) {
+        const b = reindexed[i]
+        await updateLessonBlock(b.id, { orderIndex: i + 1 })
+      }
+
+      notifySuccess('Порядок блоков обновлен')
+    } catch (e) {
+      notifyError(e, 'Не удалось сохранить новый порядок блоков')
+      await loadLessonAndContext()
+    }
   }
 
   if (!lessonId) {
@@ -448,7 +553,20 @@ export default function LessonDetailPage() {
                 </Stack>
                 <Stack spacing={1}>
                   {blocks.map((b) => (
-                    <Card key={b.id} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <Card
+                      key={b.id}
+                      variant="outlined"
+                      draggable
+                      onDragStart={() => setDraggingBlockId(b.id)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => handleBlockDrop(b.id)}
+                      sx={{
+                        borderRadius: 2,
+                        cursor: 'grab',
+                        opacity: draggingBlockId === b.id ? 0.7 : 1,
+                        borderColor: draggingBlockId === b.id ? 'primary.main' : 'divider',
+                      }}
+                    >
                       <CardContent sx={{ py: 1.2 }}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Box>
@@ -515,7 +633,7 @@ export default function LessonDetailPage() {
                     <>
                       <Grid item xs={12}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          Заполните поля для карточки-иллюстрации. Изображение и аудио загружаются через раздел «Медиа файлы» на странице редактирования блока.
+                          Заполните поля для карточки-иллюстрации. Фото / GIF / видео и аудио можно загрузить в секции «Медиа файлы» ниже после создания блока.
                         </Typography>
                       </Grid>
                       <Grid item xs={12}>
@@ -550,6 +668,28 @@ export default function LessonDetailPage() {
                           placeholder="Яблоко"
                         />
                       </Grid>
+                      {blockDraft.id ? (
+                        <Grid item xs={12}>
+                          <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
+                            Медиа файлы
+                          </Typography>
+                          <MediaUploader
+                            blockId={blockDraft.id}
+                            mediaFiles={mediaFiles}
+                            onUpload={handleMediaUpload}
+                            onDelete={handleMediaDelete}
+                            onRefresh={() => loadBlockMedia(blockDraft.id!)}
+                          />
+                        </Grid>
+                      ) : (
+                        <Grid item xs={12}>
+                          <Card variant="outlined" sx={{ borderRadius: 2, bgcolor: 'info.light', p: 2 }}>
+                            <Typography variant="body2">
+                              Сначала сохраните блок или начните загрузку медиа, чтобы он был создан автоматически.
+                            </Typography>
+                          </Card>
+                        </Grid>
+                      )}
                     </>
                   ) : (
                     <>

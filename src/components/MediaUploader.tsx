@@ -32,7 +32,7 @@ interface MediaFile {
 }
 
 interface MediaUploaderProps {
-    blockId: string
+    blockId?: string
     mediaFiles: MediaFile[]
     onUpload: (file: File, type: 'image' | 'audio' | 'video') => Promise<void>
     onDelete: (mediaFileId: string) => Promise<void>
