@@ -33,6 +33,13 @@ import {
   deleteWordLetter,
 } from '../api/adminApi'
 
+interface LetterForms {
+  isolated: string
+  initial: string
+  middle: string
+  final: string
+}
+
 interface WordLetter {
   id: string
   code: string
@@ -42,7 +49,15 @@ interface WordLetter {
   translit?: string | null
   important?: string | null
   audioUrl?: string | null
+  forms?: LetterForms | null
 }
+
+const defaultForms = (arabic: string): LetterForms => ({
+  isolated: arabic,
+  initial: arabic,
+  middle: arabic,
+  final: arabic,
+})
 
 export default function WordsAlphabetPage() {
   const [loading, setLoading] = useState(false)
@@ -60,6 +75,7 @@ export default function WordsAlphabetPage() {
     nameRu: '',
     translit: '',
     important: '',
+    forms: { isolated: '', initial: '', middle: '', final: '' } as LetterForms,
   })
 
   const load = async () => {
@@ -89,11 +105,20 @@ export default function WordsAlphabetPage() {
       setLoading(true)
       setError('')
       setSuccess('')
+      const forms = letter.forms
+        ? {
+            isolated: letter.forms.isolated || letter.arabic,
+            initial: letter.forms.initial || letter.arabic,
+            middle: letter.forms.middle || letter.arabic,
+            final: letter.forms.final || letter.arabic,
+          }
+        : undefined
       await updateWordLetter(letter.code, {
         nameRu: letter.nameRu,
         translit: letter.translit || null,
         important: letter.important || null,
         orderIndex: letter.orderIndex,
+        forms,
       })
       setSuccess(`Буква ${letter.code} обновлена`)
       setEditLetter(null)
@@ -137,9 +162,23 @@ export default function WordsAlphabetPage() {
         nameRu: newLetter.nameRu.trim(),
         translit: newLetter.translit || null,
         important: newLetter.important || null,
+        forms: {
+          isolated: newLetter.forms.isolated.trim() || newLetter.arabic.trim(),
+          initial: newLetter.forms.initial.trim() || newLetter.arabic.trim(),
+          middle: newLetter.forms.middle.trim() || newLetter.arabic.trim(),
+          final: newLetter.forms.final.trim() || newLetter.arabic.trim(),
+        },
       })
       setCreateOpen(false)
-      setNewLetter({ code: '', orderIndex: 0, arabic: '', nameRu: '', translit: '', important: '' })
+      setNewLetter({
+        code: '',
+        orderIndex: 0,
+        arabic: '',
+        nameRu: '',
+        translit: '',
+        important: '',
+        forms: { isolated: '', initial: '', middle: '', final: '' },
+      })
       await load()
       setSuccess('Буква создана')
     } catch (e: any) {
@@ -333,7 +372,12 @@ export default function WordsAlphabetPage() {
                         <Tooltip title="Редактировать">
                           <IconButton
                             size="small"
-                            onClick={() => setEditLetter({ ...letter })}
+                            onClick={() =>
+                              setEditLetter({
+                                ...letter,
+                                forms: letter.forms || defaultForms(letter.arabic),
+                              })
+                            }
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
@@ -406,6 +450,63 @@ export default function WordsAlphabetPage() {
               multiline
               minRows={2}
             />
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+              Формы буквы (позиция в слове)
+            </Typography>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              <TextField
+                label="Изолированная"
+                value={newLetter.forms.isolated}
+                onChange={(e) =>
+                  setNewLetter((prev) => ({
+                    ...prev,
+                    forms: { ...prev.forms, isolated: e.target.value },
+                  }))
+                }
+                size="small"
+                sx={{ minWidth: 100 }}
+                placeholder={newLetter.arabic || 'ا'}
+              />
+              <TextField
+                label="В начале"
+                value={newLetter.forms.initial}
+                onChange={(e) =>
+                  setNewLetter((prev) => ({
+                    ...prev,
+                    forms: { ...prev.forms, initial: e.target.value },
+                  }))
+                }
+                size="small"
+                sx={{ minWidth: 100 }}
+                placeholder={newLetter.arabic || 'ا'}
+              />
+              <TextField
+                label="В середине"
+                value={newLetter.forms.middle}
+                onChange={(e) =>
+                  setNewLetter((prev) => ({
+                    ...prev,
+                    forms: { ...prev.forms, middle: e.target.value },
+                  }))
+                }
+                size="small"
+                sx={{ minWidth: 100 }}
+                placeholder="ـا"
+              />
+              <TextField
+                label="В конце"
+                value={newLetter.forms.final}
+                onChange={(e) =>
+                  setNewLetter((prev) => ({
+                    ...prev,
+                    forms: { ...prev.forms, final: e.target.value },
+                  }))
+                }
+                size="small"
+                sx={{ minWidth: 100 }}
+                placeholder="ـا"
+              />
+            </Stack>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -472,6 +573,87 @@ export default function WordsAlphabetPage() {
                 multiline
                 minRows={3}
               />
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+                Формы буквы (позиция в слове)
+              </Typography>
+              <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                <TextField
+                  label="Изолированная"
+                  value={editLetter.forms?.isolated ?? ''}
+                  onChange={(e) =>
+                    setEditLetter((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            forms: {
+                              ...(prev.forms || defaultForms(prev.arabic)),
+                              isolated: e.target.value,
+                            },
+                          }
+                        : null,
+                    )
+                  }
+                  size="small"
+                  sx={{ minWidth: 100 }}
+                />
+                <TextField
+                  label="В начале"
+                  value={editLetter.forms?.initial ?? ''}
+                  onChange={(e) =>
+                    setEditLetter((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            forms: {
+                              ...(prev.forms || defaultForms(prev.arabic)),
+                              initial: e.target.value,
+                            },
+                          }
+                        : null,
+                    )
+                  }
+                  size="small"
+                  sx={{ minWidth: 100 }}
+                />
+                <TextField
+                  label="В середине"
+                  value={editLetter.forms?.middle ?? ''}
+                  onChange={(e) =>
+                    setEditLetter((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            forms: {
+                              ...(prev.forms || defaultForms(prev.arabic)),
+                              middle: e.target.value,
+                            },
+                          }
+                        : null,
+                    )
+                  }
+                  size="small"
+                  sx={{ minWidth: 100 }}
+                />
+                <TextField
+                  label="В конце"
+                  value={editLetter.forms?.final ?? ''}
+                  onChange={(e) =>
+                    setEditLetter((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            forms: {
+                              ...(prev.forms || defaultForms(prev.arabic)),
+                              final: e.target.value,
+                            },
+                          }
+                        : null,
+                    )
+                  }
+                  size="small"
+                  sx={{ minWidth: 100 }}
+                />
+              </Stack>
             </Stack>
           </DialogContent>
         )}
