@@ -9,6 +9,8 @@ import {
   Button,
   Grid,
   CircularProgress,
+  Stack,
+  Divider,
 } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
 import { getModuleById, createModule, updateModule, getCourses } from '../api/adminApi'
@@ -83,26 +85,36 @@ export default function ModuleEditPage() {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <CircularProgress sx={{ color: '#6366F1' }} />
       </Box>
     )
   }
 
   return (
-    <Box>
-      <Button
-        startIcon={<ArrowBack />}
-        onClick={() => navigate('/modules')}
-        sx={{ mb: 2 }}
-      >
-        Back to Modules
-      </Button>
-      <Typography variant="h4" gutterBottom>
-        {isNew ? 'Create Module' : 'Edit Module'}
-      </Typography>
-      <Paper sx={{ p: 3, mt: 2 }}>
+    <Box className="animate-fade-in">
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+        <Button
+          startIcon={<ArrowBack />}
+          onClick={() => navigate('/modules')}
+          variant="outlined"
+          size="small"
+          sx={{
+            borderColor: 'rgba(0,0,0,0.12)',
+            color: 'text.secondary',
+            '&:hover': { borderColor: '#6366F1', color: '#6366F1', background: 'rgba(99,102,241,0.04)' },
+          }}
+        >
+          Back
+        </Button>
+        <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+          {isNew ? 'Create Module' : 'Edit Module'}
+        </Typography>
+      </Stack>
+
+      <Paper sx={{ p: { xs: 3, md: 4 } }}>
         <form onSubmit={handleSubmit(onSubmit)}>
-          <Grid container spacing={3}>
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>Basic Information</Typography>
+          <Grid container spacing={2.5}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -111,9 +123,7 @@ export default function ModuleEditPage() {
                 {...register('courseId', { required: 'Course is required' })}
                 error={!!errors.courseId}
                 helperText={errors.courseId?.message}
-                SelectProps={{
-                  native: true,
-                }}
+                SelectProps={{ native: true }}
               >
                 <option value="">Select Course</option>
                 {courses.map((course) => (
@@ -133,66 +143,45 @@ export default function ModuleEditPage() {
                 helperText={errors.orderIndex?.message}
               />
             </Grid>
+          </Grid>
+
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>Titles</Typography>
+          <Grid container spacing={2.5}>
             <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Title (RU)"
-                {...register('titleRu', { required: 'Title RU is required' })}
-                error={!!errors.titleRu}
-                helperText={errors.titleRu?.message}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Title (KZ)"
-                {...register('titleKz')}
-              />
+              <TextField fullWidth label="Title (RU)" {...register('titleRu', { required: 'Title RU is required' })} error={!!errors.titleRu} helperText={errors.titleRu?.message} />
             </Grid>
             <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Title (AR)"
-                {...register('titleAr')}
-              />
+              <TextField fullWidth label="Title (KZ)" {...register('titleKz')} />
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Description (RU)"
-                {...register('descriptionRu')}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Description (KZ)"
-                {...register('descriptionKz')}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Description (AR)"
-                {...register('descriptionAr')}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={<Save />}
-              >
-                Save
-              </Button>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="Title (AR)" {...register('titleAr')} />
             </Grid>
           </Grid>
+
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>Descriptions</Typography>
+          <Grid container spacing={2.5}>
+            <Grid item xs={12}>
+              <TextField fullWidth multiline rows={3} label="Description (RU)" {...register('descriptionRu')} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth multiline rows={3} label="Description (KZ)" {...register('descriptionKz')} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth multiline rows={3} label="Description (AR)" {...register('descriptionAr')} />
+            </Grid>
+          </Grid>
+
+          <Divider sx={{ my: 3 }} />
+          <Stack direction="row" justifyContent="flex-end" spacing={2}>
+            <Button variant="outlined" onClick={() => navigate('/modules')} sx={{ borderColor: 'rgba(0,0,0,0.12)', color: 'text.secondary' }}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" startIcon={<Save />}>
+              {isNew ? 'Create Module' : 'Save Changes'}
+            </Button>
+          </Stack>
         </form>
       </Paper>
     </Box>
