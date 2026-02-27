@@ -13,6 +13,18 @@ export const login = async (email: string, password: string) => {
 export const getUsers = () => apiClient.get('/admin/users')
 export const getUserById = (id: string) => apiClient.get(`/admin/users/${id}`)
 
+// User dashboard (admin)
+export const getUserLearningSummary = (userId: string) =>
+  apiClient.get(`/admin/users/${userId}/learning-summary`)
+export const getUserCoursesProgress = (userId: string) =>
+  apiClient.get(`/admin/users/${userId}/courses-progress`)
+export const getUserTestsAttempts = (userId: string, params?: { testType?: string; courseId?: string }) =>
+  apiClient.get(`/admin/users/${userId}/tests-attempts`, { params })
+export const getUserAchievements = (userId: string) =>
+  apiClient.get(`/admin/users/${userId}/achievements`)
+export const getUserStreaks = (userId: string) =>
+  apiClient.get(`/admin/users/${userId}/streaks`)
+
 // Courses
 export const getCourses = () => apiClient.get('/admin/courses')
 export const getCourseById = (id: string) => apiClient.get(`/admin/courses/${id}`)
@@ -95,6 +107,12 @@ export const getTests = (params?: {
   moduleId?: string
   levelCode?: string
 }) => apiClient.get('/courses/admin/tests', { params })
+
+export const getTestAttempts = (testId: string) =>
+  apiClient.get(`/courses/admin/tests/${testId}/attempts`)
+
+export const getTestStats = (testId: string) =>
+  apiClient.get(`/courses/admin/tests/${testId}/stats`)
 
 export const createTest = (data: any) => apiClient.post('/courses/admin/tests', data)
 export const updateTestMeta = (id: string, data: any) => apiClient.patch(`/courses/admin/tests/${id}`, data)

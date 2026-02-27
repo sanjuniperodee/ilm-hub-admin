@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Accordion,
   AccordionDetails,
@@ -20,7 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { ExpandMore } from '@mui/icons-material'
+import { ExpandMore, LibraryBooksOutlined, MenuBookOutlined, QuizOutlined } from '@mui/icons-material'
 import {
   createTest,
   createTestAnswer,
@@ -32,9 +33,13 @@ import {
   getCourses,
   getModules,
   getLessons,
+  getLessonById,
+  getModuleById,
   updateTestAnswer,
   updateTestMeta,
   updateTestQuestion,
+  getTestAttempts,
+  getTestStats,
 } from '../api/adminApi'
 import {
   FillBlankConfigEditor,
@@ -58,8 +63,10 @@ const QUESTION_TYPES: Array<{ value: QuestionType; label: string }> = [
 ]
 
 export default function TestsPage() {
+  const location = useLocation()
   const [tests, setTests] = useState<any[]>([])
   const [selectedTestId, setSelectedTestId] = useState<string>('')
+  const [selectedTab, setSelectedTab] = useState<'questions' | 'attempts' | 'stats'>('questions')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
@@ -69,6 +76,9 @@ export default function TestsPage() {
   const [lessons, setLessons] = useState<any[]>([])
   const [courseId, setCourseId] = useState('')
   const [moduleId, setModuleId] = useState('')
+  const [coursesHierarchy, setCoursesHierarchy] = useState<Record<string, { modules: any[]; lessons: any[] }>>({})
+  const [hierarchyViewMode, setHierarchyViewMode] = useState<'hierarchy' | 'list'>('hierarchy')
+  const [expandedAccordions, setExpandedAccordions] = useState<string[]>([])
 
   const [creating, setCreating] = useState({
     testType: 'lesson' as TestType,
@@ -82,16 +92,46 @@ export default function TestsPage() {
     return tests.filter((t) => (creating.testType ? t.testType === creating.testType : true))
   }, [tests, creating.testType])
 
+  const levelCodeFromCourseCode = (code: string | undefined): string | null => {
+    if (!code) return null
+    const normalized = code.trim().toUpperCase()
+    const match = normalized.match(/^[A-C][0-9]$/)
+    return match ? match[0] : null
+  }
+
+  const { testsByLessonId, testsByModuleId, testsByLevelCode } = useMemo(() => {
+    const byLesson: Record<string, any[]> = {}
+    const byModule: Record<string, any[]> = {}
+    const byLevel: Record<string, any[]> = {}
+    for (const t of tests) {
+      if (t.testType === 'lesson' && t.lessonId) {
+        (byLesson[t.lessonId] = byLesson[t.lessonId] || []).push(t)
+      }
+      if (t.testType === 'module' && t.moduleId) {
+        (byModule[t.moduleId] = byModule[t.moduleId] || []).push(t)
+      }
+      if (t.testType === 'level' && t.levelCode) {
+        (byLevel[t.levelCode] = byLevel[t.levelCode] || []).push(t)
+      }
+    }
+    return { testsByLessonId: byLesson, testsByModuleId: byModule, testsByLevelCode: byLevel }
+  }, [tests])
+
   const selectedTest = useMemo(
     () => tests.find((t) => t.id === selectedTestId) || null,
     [tests, selectedTestId],
   )
 
-  const load = async () => {
+  const load = async (filters?: {
+    testType?: TestType
+    lessonId?: string
+    moduleId?: string
+    levelCode?: string
+  }) => {
     setLoading(true)
     setError('')
     try {
-      const [testsRes, coursesRes] = await Promise.all([getTests(), getCourses()])
+      const [testsRes, coursesRes] = await Promise.all([getTests(filters), getCourses()])
       const nextTests = Array.isArray(testsRes.data) ? testsRes.data : []
       setTests(nextTests)
       setCourses(Array.isArray(coursesRes.data) ? coursesRes.data : [])
@@ -117,9 +157,87 @@ export default function TestsPage() {
     setLessons(Array.isArray(data) ? data : [])
   }
 
+  const loadCourseHierarchy = async (cId: string) => {
+    if (coursesHierarchy[cId]) return
+    try {
+      const [modRes, lesRes] = await Promise.all([getModules(cId), getLessons(cId)])
+      const mods = Array.isArray(modRes.data) ? modRes.data : []
+      const les = Array.isArray(lesRes.data) ? lesRes.data : []
+      setCoursesHierarchy((prev) => ({ ...prev, [cId]: { modules: mods, lessons: les } }))
+    } catch {
+      setCoursesHierarchy((prev) => ({ ...prev, [cId]: { modules: [], lessons: [] } }))
+    }
+  }
+
   useEffect(() => {
-    void load()
-  }, [])
+    const params = new URLSearchParams(location.search)
+    const typeParam = (params.get('testType') || params.get('type')) as TestType | null
+    const lessonIdParam = params.get('lessonId') || ''
+    const moduleIdParam = params.get('moduleId') || ''
+    const levelCodeParam = params.get('levelCode') || ''
+
+    const filters: {
+      testType?: TestType
+      lessonId?: string
+      moduleId?: string
+      levelCode?: string
+    } = {}
+
+    if (typeParam && ['lesson', 'module', 'level'].includes(typeParam)) {
+      filters.testType = typeParam
+      setCreating((p) => ({ ...p, testType: typeParam }))
+    }
+    if (lessonIdParam) filters.lessonId = lessonIdParam
+    if (moduleIdParam) filters.moduleId = moduleIdParam
+    if (levelCodeParam) filters.levelCode = levelCodeParam
+
+    void load(Object.keys(filters).length ? filters : undefined)
+  }, [location.search])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const lessonIdParam = params.get('lessonId') || ''
+    const moduleIdParam = params.get('moduleId') || ''
+    const levelCodeParam = params.get('levelCode') || ''
+
+    const syncFromUrl = async () => {
+      if (lessonIdParam) {
+        try {
+          const { data: lesson } = await getLessonById(lessonIdParam)
+          const cId = lesson?.courseId
+          if (cId) {
+            setExpandedAccordions((prev) => (prev.includes(cId) ? prev : [...prev, cId]))
+            const [modRes, lesRes] = await Promise.all([getModules(cId), getLessons(cId)])
+            setCoursesHierarchy((prev) => ({
+              ...prev,
+              [cId]: { modules: Array.isArray(modRes.data) ? modRes.data : [], lessons: Array.isArray(lesRes.data) ? lesRes.data : [] },
+            }))
+          }
+        } catch {
+          // ignore
+        }
+      } else if (moduleIdParam) {
+        try {
+          const { data: mod } = await getModuleById(moduleIdParam)
+          const cId = mod?.courseId
+          if (cId) {
+            setExpandedAccordions((prev) => (prev.includes(cId) ? prev : [...prev, cId]))
+            const [modRes, lesRes] = await Promise.all([getModules(cId), getLessons(cId)])
+            setCoursesHierarchy((prev) => ({
+              ...prev,
+              [cId]: { modules: Array.isArray(modRes.data) ? modRes.data : [], lessons: Array.isArray(lesRes.data) ? lesRes.data : [] },
+            }))
+          }
+        } catch {
+          // ignore
+        }
+      } else if (levelCodeParam) {
+        setExpandedAccordions((prev) => (prev.includes('level') ? prev : ['level', ...prev]))
+      }
+    }
+
+    void syncFromUrl()
+  }, [location.search])
 
   useEffect(() => {
     if (!courseId) {
@@ -315,31 +433,66 @@ export default function TestsPage() {
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
-          <Card>
+          <Card sx={{ maxHeight: { md: 'calc(100vh - 200px)' }, overflow: 'auto' }}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Список тестов ({filteredTests.length})
-              </Typography>
-              <Stack spacing={1}>
-                {filteredTests.map((t) => (
-                  <Card
-                    key={t.id}
-                    variant={selectedTestId === t.id ? 'elevation' : 'outlined'}
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => setSelectedTestId(t.id)}
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="h6">
+                  {hierarchyViewMode === 'hierarchy' ? 'Тесты по иерархии' : `Список (${filteredTests.length})`}
+                </Typography>
+                <Stack direction="row" spacing={0.5}>
+                  <Button
+                    size="small"
+                    variant={hierarchyViewMode === 'hierarchy' ? 'contained' : 'outlined'}
+                    onClick={() => setHierarchyViewMode('hierarchy')}
                   >
-                    <CardContent>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography fontWeight={700}>{t.titleRu || t.id}</Typography>
-                        <Chip size="small" label={t.testType} />
-                      </Stack>
-                      <Typography variant="caption" color="text.secondary">
-                        lesson: {t.lessonId || '-'} | module: {t.moduleId || '-'} | level: {t.levelCode || '-'}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                ))}
+                    Иерархия
+                  </Button>
+                  <Button
+                    size="small"
+                    variant={hierarchyViewMode === 'list' ? 'contained' : 'outlined'}
+                    onClick={() => setHierarchyViewMode('list')}
+                  >
+                    Список
+                  </Button>
+                </Stack>
               </Stack>
+
+              {hierarchyViewMode === 'hierarchy' ? (
+                <TestsHierarchyTree
+                  courses={courses}
+                  coursesHierarchy={coursesHierarchy}
+                  loadCourseHierarchy={loadCourseHierarchy}
+                  testsByLessonId={testsByLessonId}
+                  testsByModuleId={testsByModuleId}
+                  testsByLevelCode={testsByLevelCode}
+                  levelCodeFromCourseCode={levelCodeFromCourseCode}
+                  selectedTestId={selectedTestId}
+                  onSelectTest={setSelectedTestId}
+                  expandedAccordions={expandedAccordions}
+                  onExpandedChange={setExpandedAccordions}
+                />
+              ) : (
+                <Stack spacing={1}>
+                  {filteredTests.map((t) => (
+                    <Card
+                      key={t.id}
+                      variant={selectedTestId === t.id ? 'elevation' : 'outlined'}
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => setSelectedTestId(t.id)}
+                    >
+                      <CardContent>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography fontWeight={700}>{t.titleRu || t.id}</Typography>
+                          <Chip size="small" label={t.testType} />
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          lesson: {t.lessonId || '-'} | module: {t.moduleId || '-'} | level: {t.levelCode || '-'}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -350,12 +503,41 @@ export default function TestsPage() {
               {!selectedTest ? (
                 <Typography color="text.secondary">Выберите тест слева</Typography>
               ) : (
-                <TestEditor
-                  test={selectedTest}
-                  reload={load}
-                  onError={setError}
-                  onSuccess={setToast}
-                />
+                <Box>
+                  <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                    <Button
+                      size="small"
+                      variant={selectedTab === 'questions' ? 'contained' : 'text'}
+                      onClick={() => setSelectedTab('questions')}
+                    >
+                      Вопросы
+                    </Button>
+                    <Button
+                      size="small"
+                      variant={selectedTab === 'attempts' ? 'contained' : 'text'}
+                      onClick={() => setSelectedTab('attempts')}
+                    >
+                      Попытки
+                    </Button>
+                    <Button
+                      size="small"
+                      variant={selectedTab === 'stats' ? 'contained' : 'text'}
+                      onClick={() => setSelectedTab('stats')}
+                    >
+                      Статистика
+                    </Button>
+                  </Stack>
+                  {selectedTab === 'questions' && (
+                    <TestEditor
+                      test={selectedTest}
+                      reload={load}
+                      onError={setError}
+                      onSuccess={setToast}
+                    />
+                  )}
+                  {selectedTab === 'attempts' && <TestAttemptsPanel testId={selectedTest.id} />}
+                  {selectedTab === 'stats' && <TestStatsPanel testId={selectedTest.id} />}
+                </Box>
               )}
             </CardContent>
           </Card>
@@ -376,6 +558,413 @@ export default function TestsPage() {
   )
 }
 
+function TestsHierarchyTree({
+  courses,
+  coursesHierarchy,
+  loadCourseHierarchy,
+  testsByLessonId,
+  testsByModuleId,
+  testsByLevelCode,
+  levelCodeFromCourseCode,
+  selectedTestId,
+  onSelectTest,
+  expandedAccordions,
+  onExpandedChange,
+}: {
+  courses: any[]
+  coursesHierarchy: Record<string, { modules: any[]; lessons: any[] }>
+  loadCourseHierarchy: (courseId: string) => Promise<void>
+  testsByLessonId: Record<string, any[]>
+  testsByModuleId: Record<string, any[]>
+  testsByLevelCode: Record<string, any[]>
+  levelCodeFromCourseCode: (code: string | undefined) => string | null
+  selectedTestId: string
+  onSelectTest: (id: string) => void
+  expandedAccordions: string[]
+  onExpandedChange: (ids: string[]) => void
+}) {
+  const toggleAccordion = (id: string) => {
+    onExpandedChange(expandedAccordions.includes(id) ? expandedAccordions.filter((x) => x !== id) : [...expandedAccordions, id])
+  }
+  const sortedCourses = useMemo(
+    () => [...courses].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)),
+    [courses],
+  )
+
+  const standaloneLevelCodes = useMemo(() => {
+    const matched = new Set(sortedCourses.map((c) => levelCodeFromCourseCode(c.code)).filter(Boolean))
+    return Object.keys(testsByLevelCode).filter((lc) => !matched.has(lc))
+  }, [sortedCourses, testsByLevelCode, levelCodeFromCourseCode])
+
+  return (
+    <Stack spacing={1}>
+      {standaloneLevelCodes.length > 0 && (
+        <Accordion
+          variant="outlined"
+          expanded={expandedAccordions.includes('level')}
+          onChange={() => toggleAccordion('level')}
+          sx={{ borderRadius: 1, '&:before': { display: 'none' } }}
+        >
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <QuizOutlined sx={{ fontSize: 18 }} />
+              <Typography variant="subtitle2" fontWeight={600}>
+                Тесты уровней
+              </Typography>
+              <Chip
+                size="small"
+                label={standaloneLevelCodes.reduce((s, lc) => s + (testsByLevelCode[lc]?.length || 0), 0)}
+                color="primary"
+                variant="outlined"
+              />
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Stack spacing={0.5}>
+              {standaloneLevelCodes.map((lc) =>
+                (testsByLevelCode[lc] || []).map((t) => (
+                  <Chip
+                    key={t.id}
+                    label={`${lc}: ${t.titleRu || t.id}`}
+                    size="small"
+                    onClick={() => onSelectTest(t.id)}
+                    color={selectedTestId === t.id ? 'primary' : 'default'}
+                    sx={{ cursor: 'pointer', alignSelf: 'flex-start' }}
+                  />
+                )),
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+      )}
+      {sortedCourses.map((c) => {
+        const levelCode = levelCodeFromCourseCode(c.code)
+        const levelTests = levelCode ? (testsByLevelCode[levelCode] || []) : []
+        const hierarchy = coursesHierarchy[c.id]
+
+        return (
+          <Accordion
+            key={c.id}
+            variant="outlined"
+            expanded={expandedAccordions.includes(c.id)}
+            onChange={() => {
+              toggleAccordion(c.id)
+              if (!expandedAccordions.includes(c.id)) void loadCourseHierarchy(c.id)
+            }}
+            sx={{ borderRadius: 1, '&:before': { display: 'none' } }}
+          >
+            <AccordionSummary expandIcon={<ExpandMore />}>
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <Typography variant="subtitle2" fontWeight={600}>
+                  {c.orderIndex ?? ''}. {c.titleRu || c.code}
+                </Typography>
+                <Chip size="small" label={c.code} variant="outlined" />
+                {(() => {
+                  const total =
+                    levelTests.length +
+                    (hierarchy
+                      ? hierarchy.modules.reduce(
+                          (sum: number, m: any) =>
+                            sum + (testsByModuleId[m.id]?.length || 0) + hierarchy.lessons.filter((l: any) => l.moduleId === m.id).reduce((s: number, l: any) => s + (testsByLessonId[l.id]?.length || 0), 0),
+                          0,
+                        ) + hierarchy.lessons.filter((l: any) => !l.moduleId).reduce((s: number, l: any) => s + (testsByLessonId[l.id]?.length || 0), 0)
+                      : 0)
+                  return total > 0 ? <Chip size="small" label={total} color="primary" variant="outlined" /> : null
+                })()}
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Stack spacing={1.5}>
+                {levelTests.length > 0 && (
+                  <Box sx={{ p: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                      <QuizOutlined sx={{ fontSize: 18 }} />
+                      <Typography variant="caption" fontWeight={600}>
+                        Тест курса ({levelCode})
+                      </Typography>
+                    </Stack>
+                    {levelTests.map((t) => (
+                      <Chip
+                        key={t.id}
+                        label={t.titleRu || t.id}
+                        size="small"
+                        onClick={() => onSelectTest(t.id)}
+                        color={selectedTestId === t.id ? 'primary' : 'default'}
+                        sx={{ mr: 0.5, mb: 0.5, cursor: 'pointer' }}
+                      />
+                    ))}
+                  </Box>
+                )}
+                {!hierarchy ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Раскройте для загрузки модулей и уроков
+                  </Typography>
+                ) : (
+                  <>
+                    {hierarchy.modules
+                      .sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+                      .map((m: any) => {
+                        const moduleTests = testsByModuleId[m.id] || []
+                        const moduleLessons = hierarchy.lessons.filter((l: any) => l.moduleId === m.id).sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+                        return (
+                          <Box key={m.id} sx={{ p: 1, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                              <Stack direction="row" alignItems="center" spacing={0.5}>
+                                <MenuBookOutlined sx={{ fontSize: 16 }} />
+                                <Typography variant="caption" fontWeight={600}>
+                                  {m.orderIndex}. {m.titleRu}
+                                </Typography>
+                              </Stack>
+                              {moduleTests.map((t) => (
+                                <Chip
+                                  key={t.id}
+                                  label="Тест модуля"
+                                  size="small"
+                                  onClick={() => onSelectTest(t.id)}
+                                  color={selectedTestId === t.id ? 'primary' : 'default'}
+                                  sx={{ cursor: 'pointer' }}
+                                />
+                              ))}
+                            </Stack>
+                            <Stack spacing={0.25} sx={{ pl: 1.5 }}>
+                              {moduleLessons.map((l: any) => {
+                                const lessonTests = testsByLessonId[l.id] || []
+                                return (
+                                  <Stack key={l.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ py: 0.25 }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {l.orderIndex}. {l.titleRu}
+                                    </Typography>
+                                    {lessonTests.map((t) => (
+                                      <Chip
+                                        key={t.id}
+                                        label="Тест"
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => onSelectTest(t.id)}
+                                        color={selectedTestId === t.id ? 'primary' : 'default'}
+                                        sx={{ cursor: 'pointer' }}
+                                      />
+                                    ))}
+                                  </Stack>
+                                )
+                              })}
+                            </Stack>
+                          </Box>
+                        )
+                      })}
+                    {hierarchy.lessons.filter((l: any) => !l.moduleId).length > 0 && (
+                      <Box sx={{ p: 1, borderRadius: 1, border: '1px dashed', borderColor: 'divider' }}>
+                        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 0.5 }}>
+                          <LibraryBooksOutlined sx={{ fontSize: 16 }} />
+                          <Typography variant="caption" fontWeight={600}>
+                            Уроки без модуля
+                          </Typography>
+                        </Stack>
+                        <Stack spacing={0.25} sx={{ pl: 1.5 }}>
+                          {hierarchy.lessons
+                            .filter((l: any) => !l.moduleId)
+                            .sort((a: any, b: any) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0))
+                            .map((l: any) => {
+                              const lessonTests = testsByLessonId[l.id] || []
+                              return (
+                                <Stack key={l.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ py: 0.25 }}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {l.orderIndex}. {l.titleRu}
+                                  </Typography>
+                                  {lessonTests.map((t) => (
+                                    <Chip
+                                      key={t.id}
+                                      label="Тест"
+                                      size="small"
+                                      variant="outlined"
+                                      onClick={() => onSelectTest(t.id)}
+                                      color={selectedTestId === t.id ? 'primary' : 'default'}
+                                      sx={{ cursor: 'pointer' }}
+                                    />
+                                  ))}
+                                </Stack>
+                              )
+                            })}
+                        </Stack>
+                      </Box>
+                    )}
+                  </>
+                )}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        )
+      })}
+    </Stack>
+  )
+}
+
+function TestAttemptsPanel({ testId }: { testId: string }) {
+  const [attempts, setAttempts] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await getTestAttempts(testId)
+      setAttempts(Array.isArray(data) ? data : [])
+    } catch (e: any) {
+      setError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить попытки')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [testId])
+
+  if (loading && !attempts.length) {
+    return <Typography color="text.secondary">Загрузка попыток…</Typography>
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mt: 1 }}>
+        {error}
+      </Alert>
+    )
+  }
+
+  if (!attempts.length) {
+    return <Typography color="text.secondary">Пока нет попыток по этому тесту.</Typography>
+  }
+
+  return (
+    <Stack spacing={1.5}>
+      <Typography variant="subtitle1">
+        Всего попыток: {attempts.length}
+      </Typography>
+      {attempts.map((a) => {
+        const createdAt = a.createdAt ? new Date(a.createdAt) : null
+        const completedAt = a.completedAt ? new Date(a.completedAt) : null
+        const userLabel = a.user?.email || a.user?.phone || a.userId
+        return (
+          <Card key={a.id} variant="outlined">
+            <CardContent>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle2">
+                    Попытка #{a.attemptNumber} — {a.score ?? 0}%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Пользователь: {userLabel}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Создана: {createdAt ? createdAt.toLocaleString('ru-RU') : '—'}
+                    {completedAt && ` · Завершена: ${completedAt.toLocaleString('ru-RU')}`}
+                  </Typography>
+                </Stack>
+                <Chip
+                  size="small"
+                  label={a.isPassed ? 'Пройдено' : 'Не пройдено'}
+                  color={a.isPassed ? 'success' : 'default'}
+                />
+              </Stack>
+            </CardContent>
+          </Card>
+        )
+      })}
+    </Stack>
+  )
+}
+
+function TestStatsPanel({ testId }: { testId: string }) {
+  const [stats, setStats] = useState<{
+    attemptsTotal: number
+    usersTotal: number
+    passedCount: number
+    avgScore: number
+    bestScore: number
+  } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const load = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await getTestStats(testId)
+      setStats(data || null)
+    } catch (e: any) {
+      setError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить статистику')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [testId])
+
+  if (loading && !stats) {
+    return <Typography color="text.secondary">Загрузка статистики…</Typography>
+  }
+
+  if (error) {
+    return (
+      <Alert severity="error" sx={{ mt: 1 }}>
+        {error}
+      </Alert>
+    )
+  }
+
+  if (!stats) {
+    return <Typography color="text.secondary">Статистика пока недоступна.</Typography>
+  }
+
+  const passRate = stats.attemptsTotal
+    ? Math.round((stats.passedCount / stats.attemptsTotal) * 100)
+    : 0
+
+  return (
+    <Stack spacing={1.5}>
+      <Typography variant="subtitle1">Сводка по тесту</Typography>
+      <Grid container spacing={2}>
+        <Grid item xs={6} md={3}>
+          <Typography variant="body2" color="text.secondary">
+            Всего попыток
+          </Typography>
+          <Typography variant="h6">{stats.attemptsTotal}</Typography>
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Typography variant="body2" color="text.secondary">
+            Пользователей
+          </Typography>
+          <Typography variant="h6">{stats.usersTotal}</Typography>
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Typography variant="body2" color="text.secondary">
+            Пройдено
+          </Typography>
+          <Typography variant="h6">
+            {stats.passedCount} ({passRate}%)
+          </Typography>
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Typography variant="body2" color="text.secondary">
+            Лучший результат
+          </Typography>
+          <Typography variant="h6">{Math.round(stats.bestScore)}%</Typography>
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Typography variant="body2" color="text.secondary">
+            Средний балл
+          </Typography>
+          <Typography variant="h6">{Math.round(stats.avgScore)}%</Typography>
+        </Grid>
+      </Grid>
+    </Stack>
+  )
+}
+
 function TestEditor({
   test,
   reload,
@@ -388,6 +977,10 @@ function TestEditor({
   onSuccess: (msg: string) => void
 }) {
   const [local, setLocal] = useState<any>(test)
+
+  useEffect(() => {
+    setLocal(test)
+  }, [test])
 
   useEffect(() => {
     setLocal(test)

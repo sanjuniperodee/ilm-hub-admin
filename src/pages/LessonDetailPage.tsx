@@ -383,7 +383,8 @@ export default function LessonDetailPage() {
   }
 
   const openTest = () => {
-    navigate(`/content-studio/lessons/${lessonId}/test`)
+    if (!lessonId) return
+    navigate(`/tests?testType=lesson&lessonId=${lessonId}`)
   }
 
   const handleBlockDrop = async (targetBlockId: string) => {

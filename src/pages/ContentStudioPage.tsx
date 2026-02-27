@@ -102,6 +102,13 @@ export default function ContentStudioPage() {
     [lessons, selectedCourseId],
   )
 
+  const levelCodeFromCourseCode = (code: string | undefined): string | null => {
+    if (!code) return null
+    const normalized = code.trim().toUpperCase()
+    const match = normalized.match(/^[A-C][0-9]$/)
+    return match ? match[0] : null
+  }
+
   const notifyError = (e: any, fallback: string) => {
     const msg = e?.response?.data?.message?.[0] || e?.message || fallback
     setError(msg)
@@ -310,17 +317,42 @@ export default function ContentStudioPage() {
                 <Button size="small" variant="outlined" startIcon={<Add />} onClick={() => setCreateLessonOpen(true)} disabled={!selectedCourseId}>
                   Урок
                 </Button>
+                {selectedCourse && levelCodeFromCourseCode(selectedCourse.code) && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<QuizOutlined />}
+                    onClick={() => {
+                      const levelCode = levelCodeFromCourseCode(selectedCourse.code)
+                      if (levelCode) {
+                        navigate(`/tests?testType=level&levelCode=${levelCode}`)
+                      }
+                    }}
+                  >
+                    Тест уровня
+                  </Button>
+                )}
               </Stack>
 
               <Divider sx={{ my: 1 }} />
 
               {moduleListForSelectedCourse.map((m) => (
                 <Box key={m.id} sx={{ mb: 1.25, p: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                    <MenuBookOutlined sx={{ fontSize: 18, color: 'text.secondary' }} />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {m.orderIndex}. {m.titleRu}
-                    </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1, justifyContent: 'space-between' }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <MenuBookOutlined sx={{ fontSize: 18, color: 'text.secondary' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {m.orderIndex}. {m.titleRu}
+                      </Typography>
+                    </Stack>
+                    <Button
+                      size="small"
+                      variant="text"
+                      startIcon={<QuizOutlined sx={{ fontSize: 16 }} />}
+                      onClick={() => navigate(`/tests?testType=module&moduleId=${m.id}`)}
+                    >
+                      Тест модуля
+                    </Button>
                   </Stack>
                   <Stack spacing={0.6}>
                     {lessonListForSelectedCourse
