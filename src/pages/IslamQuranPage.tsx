@@ -292,17 +292,27 @@ export default function IslamQuranPage() {
                       <Chip label={s.revelationType === 'meccan' ? 'Мекк.' : 'Медин.'} size="small" color={s.revelationType === 'meccan' ? 'primary' : 'warning'} />
                     </TableCell>
                     <TableCell>
-                      {s.audioUrl ? (
-                        <Chip label="Есть" color="success" size="small" icon={<Audiotrack />} />
-                      ) : (
-                        <label>
-                          <input type="file" accept="audio/*" hidden onChange={(e) => {
+                      <label>
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          hidden
+                          onChange={(e) => {
                             const file = e.target.files?.[0]
                             if (file) handleUploadSurahAudio(s.id, file)
-                          }} />
-                          <Chip label="Загрузить" size="small" clickable variant="outlined" icon={<Audiotrack />} />
-                        </label>
-                      )}
+                            e.target.value = ''
+                          }}
+                        />
+                        <Chip
+                          label={s.audioUrl ? 'Заменить' : 'Загрузить'}
+                          color={s.audioUrl ? 'success' : 'default'}
+                          size="small"
+                          clickable
+                          variant={s.audioUrl ? 'filled' : 'outlined'}
+                          icon={<Audiotrack />}
+                          component="span"
+                        />
+                      </label>
                     </TableCell>
                     <TableCell>
                       <Chip label={s.isActive ? 'Акт.' : 'Скр.'} size="small" color={s.isActive ? 'success' : 'default'} />
