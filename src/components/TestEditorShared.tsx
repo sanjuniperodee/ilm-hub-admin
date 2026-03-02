@@ -36,12 +36,11 @@ import {
   FillBlankConfigEditor,
   MatchPairsConfigEditor,
   ManualInputConfigEditor,
-  DragDropConfigEditor,
   MultipleChoiceConfigEditor,
   getConfigTemplate,
 } from './QuestionConfigEditors'
 
-type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'drag_drop'
+type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
 
 const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'multiple_choice', label: 'Multiple choice' },
@@ -49,7 +48,6 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'fill_blank', label: 'Fill blank' },
   { value: 'match_pairs', label: 'Match pairs' },
   { value: 'manual_input', label: 'Manual input' },
-  { value: 'drag_drop', label: 'Drag drop' },
 ]
 
 export interface TestEditorSharedProps {
@@ -392,7 +390,6 @@ function QuestionCard({
     if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'drag_drop') return <DragDropConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     return <MultipleChoiceConfigEditor />
   }
 

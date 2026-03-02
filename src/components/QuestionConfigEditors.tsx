@@ -10,7 +10,7 @@ import {
 } from '@mui/material'
 import { Add, Delete } from '@mui/icons-material'
 
-export type ConfigEditorType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'drag_drop'
+export type ConfigEditorType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
 
 interface EditorProps {
   value: Record<string, any>
@@ -281,14 +281,6 @@ export function ManualInputConfigEditor({ value, onChange }: EditorProps) {
 }
 
 // ----------------------------------------------------------------------
-// DragDropConfigEditor  (same UI as fill_blank: sentence + word chips)
-// ----------------------------------------------------------------------
-
-export function DragDropConfigEditor({ value, onChange }: EditorProps) {
-  return <FillBlankConfigEditor value={value} onChange={onChange} />
-}
-
-// ----------------------------------------------------------------------
 // MultipleChoiceConfigEditor (no config)
 // ----------------------------------------------------------------------
 
@@ -327,15 +319,6 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
       instructionRu: 'Введи ответ',
       correctAnswer: '',
       hintRu: '',
-    }
-  }
-  if (type === 'drag_drop') {
-    return {
-      instructionRu: 'Заполни пропуск',
-      sentenceTemplateRu: 'Это ________ пример',
-      options: [{ id: 'opt_1', text: 'правильный' }, { id: 'opt_2', text: 'неверный' }],
-      correctAnswerId: 'opt_1',
-      explanationRu: '',
     }
   }
   return { instructionRu: 'Выберите правильный вариант', explanationRu: '' }

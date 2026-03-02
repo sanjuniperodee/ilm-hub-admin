@@ -62,14 +62,12 @@ import MediaUploader from '../components/MediaUploader'
 import {
   MultipleChoiceEditor,
   MatchPairsEditor,
-  FillBlankEditor,
   ManualInputEditor,
 } from '../components/ExerciseEditors'
 import {
   FillBlankConfigEditor,
   MatchPairsConfigEditor,
   ManualInputConfigEditor,
-  DragDropConfigEditor,
   MultipleChoiceConfigEditor,
   getConfigTemplate,
 } from '../components/QuestionConfigEditors'
@@ -85,9 +83,8 @@ type BlockType =
   | 'match_pairs'
   | 'fill_blank'
   | 'manual_input'
-  | 'drag_drop'
 type DetailTab = 'meta' | 'blocks' | 'test'
-type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'drag_drop'
+type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
 
 const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'theory', label: 'Теория' },
@@ -100,7 +97,6 @@ const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'match_pairs', label: 'Match Pairs' },
   { value: 'fill_blank', label: 'Fill Blank' },
   { value: 'manual_input', label: 'Manual Input' },
-  { value: 'drag_drop', label: 'Drag & Drop' },
 ]
 
 interface StudioBlock {
@@ -135,7 +131,6 @@ const EXERCISE_BLOCK_TYPES: BlockType[] = [
   'match_pairs',
   'fill_blank',
   'manual_input',
-  'drag_drop',
 ]
 
 function buildExerciseConfigFromBlock(block: StudioBlock): any {
@@ -177,11 +172,6 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
   }
   if (type === 'fill_blank') {
     return {
-      text: { ru: ru.text, kz: kz.text, ar: ar.text },
-    }
-  }
-  if (type === 'drag_drop') {
-    return {
       instructionRu: ru.instructionRu,
       sentenceTemplateRu: ru.sentenceTemplateRu,
       options: ru.options,
@@ -208,9 +198,6 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
       }
     }
     if (type === 'fill_blank') {
-      return { text: config.text?.[lang] }
-    }
-    if (type === 'drag_drop') {
       return {
         instructionRu: config.instructionRu,
         sentenceTemplateRu: config.sentenceTemplateRu,
@@ -996,20 +983,14 @@ export default function LessonEditorPage() {
                         />
                       )}
                       {blockDraft.type === 'fill_blank' && (
-                        <FillBlankEditor
-                          value={blockDraft.exerciseConfig}
+                        <FillBlankConfigEditor
+                          value={blockDraft.exerciseConfig || {}}
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
                         />
                       )}
                       {blockDraft.type === 'manual_input' && (
                         <ManualInputEditor
                           value={blockDraft.exerciseConfig}
-                          onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
-                        />
-                      )}
-                      {blockDraft.type === 'drag_drop' && (
-                        <FillBlankConfigEditor
-                          value={blockDraft.exerciseConfig || {}}
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
                         />
                       )}
@@ -1233,7 +1214,7 @@ export default function LessonEditorPage() {
                       Вопросы и ответы
                     </Typography>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {(['multiple_choice', 'single_choice', 'fill_blank', 'match_pairs', 'manual_input', 'drag_drop'] as QuestionType[]).map((t) => (
+                      {(['multiple_choice', 'single_choice', 'fill_blank', 'match_pairs', 'manual_input'] as QuestionType[]).map((t) => (
                         <Button key={t} size="small" variant="outlined" onClick={() => addQuestion(t)}>
                           + {t}
                         </Button>
@@ -1295,7 +1276,6 @@ function TestQuestionCard({
     if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
     if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
     if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'drag_drop') return <DragDropConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
     return <MultipleChoiceConfigEditor />
   }
 
@@ -1319,7 +1299,6 @@ function TestQuestionCard({
                 <MenuItem value="fill_blank">fill_blank</MenuItem>
                 <MenuItem value="match_pairs">match_pairs</MenuItem>
                 <MenuItem value="manual_input">manual_input</MenuItem>
-                <MenuItem value="drag_drop">drag_drop</MenuItem>
               </Select>
             </FormControl>
           </Grid>
