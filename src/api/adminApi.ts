@@ -17,6 +17,14 @@ export const getDashboardStats = (params?: { days?: number }) =>
 export const getUsers = () => apiClient.get('/admin/users')
 export const getUserById = (id: string) => apiClient.get(`/admin/users/${id}`)
 
+export type UserRole = 'user' | 'content_manager' | 'support' | 'admin'
+export const assignUserRole = (userId: string, role: UserRole) =>
+  apiClient.patch(`/admin/users/${userId}/role`, { role })
+
+// Audit (Admin only)
+export const getAuditLogs = (params?: { limit?: number; resource?: string; resourceId?: string; userId?: string }) =>
+  apiClient.get('/admin/audit', { params })
+
 // User dashboard (admin)
 export const getUserLearningSummary = (userId: string) =>
   apiClient.get(`/admin/users/${userId}/learning-summary`)

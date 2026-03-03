@@ -38,6 +38,8 @@ import {
   getUserOAuthProviders,
   getUserStudyPlan,
   getUserWordsSummary,
+  assignUserRole,
+  type UserRole,
 } from '../api/adminApi'
 import { format } from 'date-fns'
 
@@ -49,6 +51,7 @@ export default function UserDetailPage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<TabValue>('overview')
+  const [roleSaving, setRoleSaving] = useState(false)
 
   useEffect(() => {
     if (id) {
@@ -129,6 +132,34 @@ export default function UserDetailPage() {
                     до {format(new Date(user.subscriptionExpiresAt), 'dd.MM.yyyy')}
                   </Typography>
                 )}
+              </Grid>
+              <Grid item xs={6}>
+                <Typography variant="subtitle2" color="text.secondary">Роль</Typography>
+                <FormControl size="small" sx={{ minWidth: 140 }} disabled={roleSaving}>
+                  <InputLabel>Роль</InputLabel>
+                  <Select
+                    value={user.role || 'user'}
+                    label="Роль"
+                    onChange={async (e) => {
+                      const newRole = e.target.value as UserRole
+                      setRoleSaving(true)
+                      try {
+                        await assignUserRole(user.id, newRole)
+                        setUser((u: any) => ({ ...u, role: newRole }))
+                      } catch (err: any) {
+                        console.error('Role update failed:', err)
+                        alert(err?.response?.data?.message || 'Не удалось изменить роль')
+                      } finally {
+                        setRoleSaving(false)
+                      }
+                    }}
+                  >
+                    <MenuItem value="user">User</MenuItem>
+                    <MenuItem value="content_manager">Content Manager</MenuItem>
+                    <MenuItem value="support">Support</MenuItem>
+                    <MenuItem value="admin">Admin</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2" color="text.secondary">Цель мин/день</Typography>

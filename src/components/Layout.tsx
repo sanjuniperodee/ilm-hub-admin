@@ -29,6 +29,7 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   ImportContacts as ImportContactsIcon,
   Explore as ExploreIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -48,6 +49,7 @@ const navSections = [
     label: 'УПРАВЛЕНИЕ',
     items: [
       { text: 'Пользователи', icon: <PeopleIcon />, path: '/users' },
+      { text: 'Аудит', icon: <HistoryIcon />, path: '/audit' },
     ],
   },
   {

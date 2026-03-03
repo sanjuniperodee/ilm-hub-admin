@@ -20,6 +20,7 @@ import WordsCardsPage from './pages/WordsCardsPage'
 import IslamAllahNamesPage from './pages/IslamAllahNamesPage'
 import IslamQuranPage from './pages/IslamQuranPage'
 import IslamHajjGuidePage from './pages/IslamHajjGuidePage'
+import AuditPage from './pages/AuditPage'
 
 const theme = createTheme({
   palette: {
@@ -510,6 +511,7 @@ function App() {
               <Route path="content/level-tests/:levelCode" element={<LevelTestPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="users/:id" element={<UserDetailPage />} />
+              <Route path="audit" element={<AuditPage />} />
               <Route path="words-alphabet" element={<WordsAlphabetPage />} />
               <Route path="words-dictionary" element={<WordsDictionaryPage />} />
               <Route path="words-cards" element={<WordsCardsPage />} />

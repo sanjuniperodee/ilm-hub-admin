@@ -28,6 +28,8 @@ interface User {
   name: string
   avatarUrl?: string
   isPremium: boolean
+  subscriptionStatus?: string
+  role?: string
   createdAt: string
   lastActiveAt?: string
 }
@@ -102,6 +104,7 @@ export default function UsersPage() {
               <TableCell>User</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Role</TableCell>
               <TableCell>Created</TableCell>
               <TableCell>Last Active</TableCell>
               <TableCell align="right">Actions</TableCell>
@@ -150,6 +153,14 @@ export default function UsersPage() {
                   />
                 </TableCell>
                 <TableCell>
+                  <Chip
+                    label={user.role || 'user'}
+                    size="small"
+                    variant="outlined"
+                    sx={{ fontSize: '0.75rem' }}
+                  />
+                </TableCell>
+                <TableCell>
                   <Typography variant="body2" color="text.secondary">
                     {format(new Date(user.createdAt), 'MMM dd, yyyy')}
                   </Typography>
@@ -178,7 +189,7 @@ export default function UsersPage() {
             ))}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} sx={{ textAlign: 'center', py: 6 }}>
+                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 6 }}>
                   <Typography color="text.secondary">No users found</Typography>
                 </TableCell>
               </TableRow>
