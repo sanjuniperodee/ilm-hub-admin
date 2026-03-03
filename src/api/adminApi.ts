@@ -6,6 +6,9 @@ export const login = async (email: string, password: string) => {
   if (response.data.accessToken) {
     localStorage.setItem('admin_token', response.data.accessToken)
   }
+  if (response.data.refreshToken) {
+    localStorage.setItem('admin_refresh_token', response.data.refreshToken)
+  }
   return response.data
 }
 
@@ -167,7 +170,7 @@ export const updateWordLetter = (code: string, data: any) =>
   apiClient.patch(`/admin/words/alphabet/${code}`, data)
 
 export const deleteWordLetter = (code: string) =>
-  apiClient.post(`/admin/words/alphabet/delete/${code}`)
+  apiClient.delete(`/admin/words/alphabet/${code}`)
 
 export const uploadWordLetterAudio = (code: string, file: File) => {
   const formData = new FormData()
@@ -190,7 +193,7 @@ export const updateWordsDictionaryEntry = (id: string, data: any) =>
   apiClient.patch(`/admin/words/dictionary/${id}`, data)
 
 export const deleteWordsDictionaryEntry = (id: string) =>
-  apiClient.post(`/admin/words/dictionary/delete/${id}`)
+  apiClient.delete(`/admin/words/dictionary/${id}`)
 
 export const uploadWordsDictionaryEntryAudio = (id: string, file: File) => {
   const formData = new FormData()
@@ -207,7 +210,7 @@ export const updateWordsDictionaryExample = (id: string, data: any) =>
   apiClient.patch(`/admin/words/dictionary/examples/${id}`, data)
 
 export const deleteWordsDictionaryExample = (id: string) =>
-  apiClient.post(`/admin/words/dictionary/examples/delete/${id}`)
+  apiClient.delete(`/admin/words/dictionary/examples/${id}`)
 
 export const uploadWordsDictionaryExampleAudio = (id: string, file: File) => {
   const formData = new FormData()
@@ -230,7 +233,7 @@ export const updateWordCardTheme = (id: string, data: any) =>
   apiClient.patch(`/admin/words/cards/themes/${id}`, data)
 
 export const deleteWordCardTheme = (id: string) =>
-  apiClient.post(`/admin/words/cards/themes/delete/${id}`)
+  apiClient.delete(`/admin/words/cards/themes/${id}`)
 
 export const getWordCardQuizStats = (themeId: string) =>
   apiClient.get(`/admin/words/cards/themes/${themeId}/quiz-stats`)
@@ -245,7 +248,7 @@ export const updateWordCard = (id: string, data: any) =>
   apiClient.patch(`/admin/words/cards/${id}`, data)
 
 export const deleteWordCard = (id: string) =>
-  apiClient.post(`/admin/words/cards/delete/${id}`)
+  apiClient.delete(`/admin/words/cards/${id}`)
 
 export const uploadWordCardAudio = (id: string, file: File) => {
   const formData = new FormData()
@@ -274,7 +277,7 @@ export const updateIslamAllahName = (id: string, data: any) =>
   apiClient.patch(`/admin/islam/allah-names/${id}`, data)
 
 export const deleteIslamAllahName = (id: string) =>
-  apiClient.post(`/admin/islam/allah-names/delete/${id}`)
+  apiClient.delete(`/admin/islam/allah-names/${id}`)
 
 export const uploadIslamAllahNameAudio = (id: string, file: File) => {
   const formData = new FormData()
@@ -295,7 +298,7 @@ export const updateIslamSurah = (id: string, data: any) =>
   apiClient.patch(`/admin/islam/surahs/${id}`, data)
 
 export const deleteIslamSurah = (id: string) =>
-  apiClient.post(`/admin/islam/surahs/delete/${id}`)
+  apiClient.delete(`/admin/islam/surahs/${id}`)
 
 export const getIslamSurahAyahs = (surahId: string) =>
   apiClient.get(`/admin/islam/surahs/${surahId}/ayahs`)
@@ -307,7 +310,7 @@ export const updateIslamAyah = (id: string, data: any) =>
   apiClient.patch(`/admin/islam/ayahs/${id}`, data)
 
 export const deleteIslamAyah = (id: string) =>
-  apiClient.post(`/admin/islam/ayahs/delete/${id}`)
+  apiClient.delete(`/admin/islam/ayahs/${id}`)
 
 export const uploadIslamSurahAudio = (surahId: string, file: File) => {
   const formData = new FormData()
@@ -329,7 +332,7 @@ export const updateIslamHajjSection = (id: string, data: any) =>
   apiClient.patch(`/admin/islam/hajj-sections/${id}`, data)
 
 export const deleteIslamHajjSection = (id: string) =>
-  apiClient.post(`/admin/islam/hajj-sections/delete/${id}`)
+  apiClient.delete(`/admin/islam/hajj-sections/${id}`)
 
 export const getIslamHajjSectionDetails = (id: string) =>
   apiClient.get(`/admin/islam/hajj-sections/${id}/details`)
@@ -341,7 +344,7 @@ export const updateIslamHajjInstruction = (id: string, data: any) =>
   apiClient.patch(`/admin/islam/hajj-instructions/${id}`, data)
 
 export const deleteIslamHajjInstruction = (id: string) =>
-  apiClient.post(`/admin/islam/hajj-instructions/delete/${id}`)
+  apiClient.delete(`/admin/islam/hajj-instructions/${id}`)
 
 export const createIslamHajjPhrase = (sectionId: string, data: any) =>
   apiClient.post(`/admin/islam/hajj-sections/${sectionId}/phrases`, data)
@@ -350,7 +353,7 @@ export const updateIslamHajjPhrase = (id: string, data: any) =>
   apiClient.patch(`/admin/islam/hajj-phrases/${id}`, data)
 
 export const deleteIslamHajjPhrase = (id: string) =>
-  apiClient.post(`/admin/islam/hajj-phrases/delete/${id}`)
+  apiClient.delete(`/admin/islam/hajj-phrases/${id}`)
 
 export const uploadIslamHajjPhraseAudio = (id: string, file: File) => {
   const formData = new FormData()

@@ -15,3 +15,27 @@ export const PrivateRoute = ({ children }: { children: ReactNode }) => {
 
   return <>{children}</>
 }
+
+export const RoleRoute = ({
+  children,
+  requiredRoles,
+}: {
+  children: ReactNode
+  requiredRoles: string[]
+}) => {
+  const { isAuthenticated, userRole, loading } = useAuth()
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!userRole || !requiredRoles.includes(userRole)) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <>{children}</>
+}
