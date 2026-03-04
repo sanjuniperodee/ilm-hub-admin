@@ -70,6 +70,10 @@ export const getModuleById = (id: string) => apiClient.get(`/admin/modules/${id}
 export const createModule = (data: any) => apiClient.post('/admin/modules', data)
 export const updateModule = (id: string, data: any) => apiClient.patch(`/admin/modules/${id}`, data)
 export const deleteModule = (id: string) => apiClient.delete(`/admin/modules/${id}`)
+export const reorderModules = (courseId: string, moduleIds: string[]) =>
+  apiClient.patch(`/admin/courses/${courseId}/modules/reorder`, { moduleIds })
+export const reorderLessons = (moduleId: string, lessonIds: string[]) =>
+  apiClient.patch(`/admin/modules/${moduleId}/lessons/reorder`, { lessonIds })
 
 // Lessons
 export const getLessons = (courseId?: string, moduleId?: string) => {

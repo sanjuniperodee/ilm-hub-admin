@@ -32,6 +32,7 @@ import {
   SchoolOutlined,
   QuizOutlined,
   ArticleOutlined,
+  DragIndicator,
 } from '@mui/icons-material'
 import {
   createCourse,
@@ -40,7 +41,26 @@ import {
   getCourses,
   getLessons,
   getModules,
+  reorderModules,
+  reorderLessons,
 } from '../api/adminApi'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface HubCourse {
   id: string
@@ -62,6 +82,155 @@ interface HubLesson {
   moduleId?: string
   titleRu: string
   orderIndex: number
+}
+
+function SortableModuleRow({
+  module,
+  courseId,
+  expandedModules,
+  toggleModule,
+  openModuleEdit,
+  openModuleTest,
+  setContextCourseId,
+  setContextModuleId,
+                               setCreateLessonOpen,
+  moduleLessons,
+  children,
+}: {
+  module: HubModule
+  courseId: string
+  expandedModules: Set<string>
+  toggleModule: (id: string) => void
+  openModuleEdit: (cid: string, mid: string) => void
+  openModuleTest: (cid: string, mid: string) => void
+  setContextCourseId: (id: string) => void
+  setContextModuleId: (id: string) => void
+  setCreateModuleOpen: (v: boolean) => void
+  setCreateLessonOpen: (v: boolean) => void
+  moduleLessons: HubLesson[]
+  children: React.ReactNode
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: module.id,
+    data: { type: 'module', courseId },
+  })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+  const moduleExpanded = expandedModules.has(module.id)
+  return (
+    <Box ref={setNodeRef} style={style} sx={{ mb: 1, opacity: isDragging ? 0.5 : 1 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        sx={{
+          p: 1,
+          borderRadius: 1.5,
+          bgcolor: 'action.hover',
+          '&:hover': { bgcolor: 'action.selected' },
+        }}
+      >
+        <Box
+          {...attributes}
+          {...listeners}
+          sx={{ cursor: 'grab', display: 'flex', color: 'text.secondary', '&:active': { cursor: 'grabbing' } }}
+        >
+          <DragIndicator sx={{ fontSize: 20 }} />
+        </Box>
+        <Box
+          component="span"
+          sx={{ width: 28, display: 'flex', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+          onClick={() => toggleModule(module.id)}
+        >
+          {moduleExpanded ? <ExpandLess sx={{ fontSize: 20, color: 'text.secondary' }} /> : <ExpandMore sx={{ fontSize: 20, color: 'text.secondary' }} />}
+        </Box>
+        <MenuBookOutlined sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0 }} />
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1, minWidth: 0 }} onClick={() => openModuleEdit(courseId, module.id)}>
+          <Typography variant="body2" sx={{ fontWeight: 600, cursor: 'pointer' }}>
+            {module.orderIndex}. {module.titleRu}
+          </Typography>
+          <Chip label={`${moduleLessons.length} уроков`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+        </Stack>
+        <Tooltip title="Редактировать модуль">
+          <Button size="small" variant="text" sx={{ minWidth: 0, p: 0.5 }} onClick={() => openModuleEdit(courseId, module.id)}>
+            <EditIcon sx={{ fontSize: 16 }} />
+          </Button>
+        </Tooltip>
+        <Tooltip title="Тест модуля">
+          <Button size="small" variant="text" sx={{ minWidth: 0, p: 0.5 }} onClick={() => openModuleTest(courseId, module.id)}>
+            <QuizOutlined sx={{ fontSize: 16 }} />
+          </Button>
+        </Tooltip>
+        <Tooltip title={`Добавить урок в ${module.titleRu}`}>
+          <Button
+            size="small"
+            variant="text"
+            sx={{ minWidth: 0, p: 0.5 }}
+            onClick={() => {
+              setContextCourseId(courseId)
+              setContextModuleId(module.id)
+              setCreateLessonOpen(true)
+            }}
+          >
+            <Add sx={{ fontSize: 16 }} />
+          </Button>
+        </Tooltip>
+      </Stack>
+      {children}
+    </Box>
+  )
+}
+
+function SortableLessonRow({
+  lesson,
+  courseId,
+  moduleId,
+  navigate,
+}: {
+  lesson: HubLesson
+  courseId: string
+  moduleId: string
+  navigate: (path: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: lesson.id,
+    data: { type: 'lesson', moduleId, courseId },
+  })
+  const style = { transform: CSS.Transform.toString(transform), transition }
+  return (
+    <Stack
+      ref={setNodeRef}
+      style={style}
+      direction="row"
+      alignItems="center"
+      spacing={1}
+      sx={{
+        p: 0.75,
+        borderRadius: 1,
+        '&:hover': { bgcolor: 'action.hover' },
+        opacity: isDragging ? 0.5 : 1,
+      }}
+    >
+      <Box {...attributes} {...listeners} sx={{ cursor: 'grab', display: 'flex', color: 'text.secondary', '&:active': { cursor: 'grabbing' } }}>
+        <DragIndicator sx={{ fontSize: 16 }} />
+      </Box>
+      <ArticleOutlined sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+      <Typography
+        variant="body2"
+        sx={{ flex: 1, cursor: 'pointer' }}
+        onClick={() => navigate(`/content/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`)}
+      >
+        {lesson.orderIndex}. {lesson.titleRu}
+      </Typography>
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<EditIcon sx={{ fontSize: 14 }} />}
+        onClick={() => navigate(`/content/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`)}
+      >
+        Редактировать
+      </Button>
+    </Stack>
+  )
 }
 
 function levelCodeFromCourseCode(code: string | undefined): string | null {
@@ -111,6 +280,63 @@ export default function ContentHubPage() {
   const notifySuccess = (msg: string) => {
     setSuccess(msg)
     setError('')
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const activeData = active.data.current as { type?: string; courseId?: string; moduleId?: string }
+    const overData = over.data.current as { type?: string; courseId?: string; moduleId?: string }
+    if (!activeData?.type || activeData.type !== overData?.type) return
+
+    if (activeData.type === 'module' && activeData.courseId) {
+      const mods = (modulesByCourse[activeData.courseId] || []).sort((a, b) => a.orderIndex - b.orderIndex)
+      const oldIndex = mods.findIndex((m) => m.id === active.id)
+      const newIndex = mods.findIndex((m) => m.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return
+      const reordered = arrayMove(mods, oldIndex, newIndex)
+      try {
+        await reorderModules(activeData.courseId, reordered.map((m) => m.id))
+        setModulesByCourse((prev) => ({
+          ...prev,
+          [activeData.courseId]: reordered.map((m, i) => ({ ...m, orderIndex: i })),
+        }))
+        notifySuccess('Порядок модулей обновлён')
+      } catch (e) {
+        notifyError(e, 'Не удалось изменить порядок модулей')
+      }
+    } else if (activeData.type === 'lesson' && activeData.moduleId && activeData.courseId) {
+      const les = (lessonsByCourse[activeData.courseId] || [])
+        .filter((l) => l.moduleId === activeData.moduleId)
+        .sort((a, b) => a.orderIndex - b.orderIndex)
+      const oldIndex = les.findIndex((l) => l.id === active.id)
+      const newIndex = les.findIndex((l) => l.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return
+      const reordered = arrayMove(les, oldIndex, newIndex)
+      try {
+        await reorderLessons(activeData.moduleId, reordered.map((l) => l.id))
+        const cid = activeData.courseId
+        setLessonsByCourse((prev) => {
+          const list = prev[cid] || []
+          return {
+            ...prev,
+            [cid]: list.map((l) => {
+              if (l.moduleId !== activeData.moduleId) return l
+              const idx = reordered.findIndex((r) => r.id === l.id)
+              return idx >= 0 ? { ...l, orderIndex: idx } : l
+            }),
+          }
+        })
+        notifySuccess('Порядок уроков обновлён')
+      } catch (e) {
+        notifyError(e, 'Не удалось изменить порядок уроков')
+      }
+    }
   }
 
   const loadCourses = async () => {
@@ -290,6 +516,7 @@ export default function ContentHubPage() {
       : null
 
   return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
     <Box>
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
         <Box>
@@ -445,130 +672,43 @@ export default function ContentHubPage() {
                           </Tooltip>
                         )}
 
+                        <SortableContext items={mods.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                         {mods.map((m) => {
-                          const moduleExpanded = expandedModules.has(m.id)
                           const moduleLessons = les.filter((l) => l.moduleId === m.id)
-
                           return (
-                            <Box key={m.id} sx={{ mb: 1 }}>
-                              <Stack
-                                direction="row"
-                                alignItems="center"
-                                spacing={1}
-                                sx={{
-                                  p: 1,
-                                  borderRadius: 1.5,
-                                  bgcolor: 'action.hover',
-                                  '&:hover': { bgcolor: 'action.selected' },
-                                }}
-                              >
-                                <Box
-                                  component="span"
-                                  sx={{
-                                    width: 28,
-                                    display: 'flex',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer',
-                                    flexShrink: 0,
-                                  }}
-                                  onClick={() => toggleModule(m.id)}
-                                >
-                                  {moduleExpanded ? (
-                                    <ExpandLess sx={{ fontSize: 20, color: 'text.secondary' }} />
-                                  ) : (
-                                    <ExpandMore sx={{ fontSize: 20, color: 'text.secondary' }} />
-                                  )}
-                                </Box>
-                                <MenuBookOutlined sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0 }} />
-                                <Stack
-                                  direction="row"
-                                  alignItems="center"
-                                  spacing={1}
-                                  sx={{ flex: 1, minWidth: 0 }}
-                                  onClick={() => openModuleEdit(c.id, m.id)}
-                                >
-                                  <Typography variant="body2" sx={{ fontWeight: 600, cursor: 'pointer' }}>
-                                    {m.orderIndex}. {m.titleRu}
-                                  </Typography>
-                                  <Chip label={`${moduleLessons.length} уроков`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
-                                </Stack>
-                                <Tooltip title="Редактировать модуль">
-                                  <Button
-                                    size="small"
-                                    variant="text"
-                                    sx={{ minWidth: 0, p: 0.5 }}
-                                    onClick={() => openModuleEdit(c.id, m.id)}
-                                  >
-                                    <EditIcon sx={{ fontSize: 16 }} />
-                                  </Button>
-                                </Tooltip>
-                                <Tooltip title="Тест модуля">
-                                  <Button
-                                    size="small"
-                                    variant="text"
-                                    sx={{ minWidth: 0, p: 0.5 }}
-                                    onClick={() => openModuleTest(c.id, m.id)}
-                                  >
-                                    <QuizOutlined sx={{ fontSize: 16 }} />
-                                  </Button>
-                                </Tooltip>
-                                <Tooltip title={`Добавить урок в ${m.titleRu}`}>
-                                  <Button
-                                    size="small"
-                                    variant="text"
-                                    sx={{ minWidth: 0, p: 0.5 }}
-                                    onClick={() => {
-                                      setContextCourseId(c.id)
-                                      setContextModuleId(m.id)
-                                      setCreateLessonOpen(true)
-                                    }}
-                                  >
-                                    <Add sx={{ fontSize: 16 }} />
-                                  </Button>
-                                </Tooltip>
-                              </Stack>
-
-                              {moduleExpanded && (
-                                <Stack sx={{ pl: 6, mt: 0.5 }} spacing={0.25}>
-                                  {moduleLessons.map((l) => (
-                                    <Stack
-                                      key={l.id}
-                                      direction="row"
-                                      alignItems="center"
-                                      spacing={1}
-                                      sx={{
-                                        p: 0.75,
-                                        borderRadius: 1,
-                                        '&:hover': { bgcolor: 'action.hover' },
-                                      }}
-                                    >
-                                      <ArticleOutlined sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
-                                      <Typography
-                                        variant="body2"
-                                        sx={{ flex: 1, cursor: 'pointer' }}
-                                        onClick={() =>
-                                          navigate(`/content/courses/${c.id}/modules/${m.id}/lessons/${l.id}`)
-                                        }
-                                      >
-                                        {l.orderIndex}. {l.titleRu}
-                                      </Typography>
-                                      <Button
-                                        size="small"
-                                        variant="outlined"
-                                        startIcon={<EditIcon sx={{ fontSize: 14 }} />}
-                                        onClick={() =>
-                                          navigate(`/content/courses/${c.id}/modules/${m.id}/lessons/${l.id}`)
-                                        }
-                                      >
-                                        Редактировать
-                                      </Button>
-                                    </Stack>
-                                  ))}
-                                </Stack>
+                            <SortableModuleRow
+                              key={m.id}
+                              module={m}
+                              courseId={c.id}
+                              expandedModules={expandedModules}
+                              toggleModule={toggleModule}
+                              openModuleEdit={openModuleEdit}
+                              openModuleTest={openModuleTest}
+                              setContextCourseId={setContextCourseId}
+                              setContextModuleId={setContextModuleId}
+                              setCreateModuleOpen={setCreateModuleOpen}
+                              setCreateLessonOpen={setCreateLessonOpen}
+                              moduleLessons={moduleLessons}
+                            >
+                              {expandedModules.has(m.id) && (
+                                <SortableContext items={moduleLessons.map((l) => l.id)} strategy={verticalListSortingStrategy}>
+                                  <Stack sx={{ pl: 6, mt: 0.5 }} spacing={0.25}>
+                                    {moduleLessons.map((l) => (
+                                      <SortableLessonRow
+                                        key={l.id}
+                                        lesson={l}
+                                        courseId={c.id}
+                                        moduleId={m.id}
+                                        navigate={navigate}
+                                      />
+                                    ))}
+                                  </Stack>
+                                </SortableContext>
                               )}
-                            </Box>
+                            </SortableModuleRow>
                           )
                         })}
+                        </SortableContext>
 
                         {les.filter((l) => !l.moduleId).length > 0 && (
                           <Box
@@ -716,5 +856,6 @@ export default function ContentHubPage() {
         </DialogActions>
       </Dialog>
     </Box>
+    </DndContext>
   )
 }
