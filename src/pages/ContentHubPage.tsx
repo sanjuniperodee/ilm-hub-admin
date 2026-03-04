@@ -295,38 +295,40 @@ export default function ContentHubPage() {
     if (!activeData?.type || activeData.type !== overData?.type) return
 
     if (activeData.type === 'module' && activeData.courseId) {
-      const mods = (modulesByCourse[activeData.courseId] || []).sort((a, b) => a.orderIndex - b.orderIndex)
+      const courseId = String(activeData.courseId)
+      const mods = (modulesByCourse[courseId] || []).sort((a, b) => a.orderIndex - b.orderIndex)
       const oldIndex = mods.findIndex((m) => m.id === active.id)
       const newIndex = mods.findIndex((m) => m.id === over.id)
       if (oldIndex === -1 || newIndex === -1) return
       const reordered = arrayMove(mods, oldIndex, newIndex)
       try {
-        await reorderModules(activeData.courseId, reordered.map((m) => m.id))
+        await reorderModules(courseId, reordered.map((m) => m.id))
         setModulesByCourse((prev) => ({
           ...prev,
-          [activeData.courseId]: reordered.map((m, i) => ({ ...m, orderIndex: i })),
+          [courseId]: reordered.map((m, i) => ({ ...m, orderIndex: i })),
         }))
         notifySuccess('Порядок модулей обновлён')
       } catch (e) {
         notifyError(e, 'Не удалось изменить порядок модулей')
       }
     } else if (activeData.type === 'lesson' && activeData.moduleId && activeData.courseId) {
-      const les = (lessonsByCourse[activeData.courseId] || [])
-        .filter((l) => l.moduleId === activeData.moduleId)
+      const courseId = String(activeData.courseId)
+      const moduleId = String(activeData.moduleId)
+      const les = (lessonsByCourse[courseId] || [])
+        .filter((l) => l.moduleId === moduleId)
         .sort((a, b) => a.orderIndex - b.orderIndex)
       const oldIndex = les.findIndex((l) => l.id === active.id)
       const newIndex = les.findIndex((l) => l.id === over.id)
       if (oldIndex === -1 || newIndex === -1) return
       const reordered = arrayMove(les, oldIndex, newIndex)
       try {
-        await reorderLessons(activeData.moduleId, reordered.map((l) => l.id))
-        const cid = activeData.courseId
+        await reorderLessons(moduleId, reordered.map((l) => l.id))
         setLessonsByCourse((prev) => {
-          const list = prev[cid] || []
+          const list = prev[courseId] || []
           return {
             ...prev,
-            [cid]: list.map((l) => {
-              if (l.moduleId !== activeData.moduleId) return l
+            [courseId]: list.map((l) => {
+              if (l.moduleId !== moduleId) return l
               const idx = reordered.findIndex((r) => r.id === l.id)
               return idx >= 0 ? { ...l, orderIndex: idx } : l
             }),
