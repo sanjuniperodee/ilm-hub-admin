@@ -8,6 +8,8 @@ import {
     Checkbox,
     Tabs,
     Tab,
+    Alert,
+    Paper,
 } from '@mui/material'
 import { Add, Delete } from '@mui/icons-material'
 
@@ -340,6 +342,102 @@ export const FillBlankEditor = ({ value, onChange }: EditorProps) => {
                 onChange={(e) => updateText(e.target.value, currentLang)}
                 inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
             />
+        </Box>
+    )
+}
+
+// ----------------------------------------------------------------------
+// Manual Input Editor
+// ----------------------------------------------------------------------
+
+// ----------------------------------------------------------------------
+// Image Word Match Editor
+// ----------------------------------------------------------------------
+
+export const ImageWordMatchEditor = ({ value, onChange }: EditorProps) => {
+    const content = value || { instruction: '', pairs: [] }
+
+    const pairs: Array<{ id: string; word: string; imageMediaId?: string }> =
+        content.pairs ?? []
+
+    const addPair = () => {
+        onChange({
+            ...content,
+            pairs: [
+                ...pairs,
+                { id: crypto.randomUUID(), word: '', imageMediaId: '' },
+            ],
+        })
+    }
+
+    const removePair = (id: string) => {
+        onChange({
+            ...content,
+            pairs: pairs.filter((p) => p.id !== id),
+        })
+    }
+
+    const updatePair = (id: string, field: 'word' | 'imageMediaId', val: string) => {
+        onChange({
+            ...content,
+            pairs: pairs.map((p) => (p.id === id ? { ...p, [field]: val } : p)),
+        })
+    }
+
+    useEffect(() => {
+        if (!content.pairs || content.pairs.length === 0) {
+            addPair()
+        }
+    }, [])
+
+    return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+                fullWidth
+                label="Инструкция"
+                value={content.instruction ?? ''}
+                onChange={(e) => onChange({ ...content, instruction: e.target.value })}
+                placeholder="Соедините картинки и слова"
+            />
+            <Alert severity="info">
+                Загрузите изображения через раздел <strong>Медиа</strong> после сохранения блока.
+                Затем скопируйте UUID медиафайла в поле «ID изображения» нужной пары.
+            </Alert>
+            {pairs.map((pair, idx) => (
+                <Paper key={pair.id} variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                        Пара {idx + 1}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                            label="Слово (арабский)"
+                            value={pair.word ?? ''}
+                            onChange={(e) => updatePair(pair.id, 'word', e.target.value)}
+                            inputProps={{ dir: 'rtl', style: { fontSize: 20 } }}
+                            sx={{ flex: 1 }}
+                            size="small"
+                        />
+                        <TextField
+                            label="ID изображения (imageMediaId)"
+                            value={pair.imageMediaId ?? ''}
+                            onChange={(e) => updatePair(pair.id, 'imageMediaId', e.target.value)}
+                            placeholder="uuid медиафайла"
+                            sx={{ flex: 1 }}
+                            size="small"
+                        />
+                        <IconButton
+                            onClick={() => removePair(pair.id)}
+                            color="error"
+                            disabled={pairs.length <= 1}
+                        >
+                            <Delete />
+                        </IconButton>
+                    </Box>
+                </Paper>
+            ))}
+            <Button startIcon={<Add />} onClick={addPair} variant="outlined" size="small">
+                Добавить пару
+            </Button>
         </Box>
     )
 }

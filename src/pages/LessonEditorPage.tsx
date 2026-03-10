@@ -65,6 +65,7 @@ import {
   MatchPairsEditor,
   ManualInputEditor,
   ListenRepeatEditor,
+  ImageWordMatchEditor,
 } from '../components/ExerciseEditors'
 import {
   FillBlankConfigEditor,
@@ -87,6 +88,7 @@ type BlockType =
   | 'fill_blank'
   | 'manual_input'
   | 'listen_repeat'
+  | 'image_word_match'
 type DetailTab = 'meta' | 'blocks' | 'test'
 type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
 
@@ -103,6 +105,7 @@ const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'fill_blank', label: 'Fill Blank' },
   { value: 'manual_input', label: 'Manual Input' },
   { value: 'listen_repeat', label: 'Listen Repeat' },
+  { value: 'image_word_match', label: 'Картинка ↔ Слово' },
 ]
 
 interface StudioBlock {
@@ -139,6 +142,7 @@ const EXERCISE_BLOCK_TYPES: BlockType[] = [
   'fill_blank',
   'manual_input',
   'listen_repeat',
+  'image_word_match',
 ]
 
 function buildExerciseConfigFromBlock(block: StudioBlock): any {
@@ -209,6 +213,12 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
       explanationRu: ru.explanationRu,
     }
   }
+  if (type === 'image_word_match') {
+    return {
+      instruction: ru.instruction ?? '',
+      pairs: ru.pairs ?? [],
+    }
+  }
   return {}
 }
 
@@ -249,6 +259,12 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
         options: config.options,
         correctAnswerId: config.correctAnswerId,
         explanationRu: config.explanationRu,
+      }
+    }
+    if (type === 'image_word_match') {
+      return {
+        instruction: config.instruction,
+        pairs: config.pairs,
       }
     }
     return {}
@@ -1080,9 +1096,17 @@ export default function LessonEditorPage() {
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
                         />
                       )}
-                      {(blockDraft.type === 'audio_multiple_choice' || blockDraft.type === 'listen_repeat') && blockDraft.id ? (
+                      {blockDraft.type === 'image_word_match' && (
+                        <ImageWordMatchEditor
+                          value={blockDraft.exerciseConfig}
+                          onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
+                        />
+                      )}
+                      {(blockDraft.type === 'audio_multiple_choice' || blockDraft.type === 'listen_repeat' || blockDraft.type === 'image_word_match') && blockDraft.id ? (
                         <Box sx={{ mt: 2 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1 }}>Аудио</Typography>
+                          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                            {blockDraft.type === 'image_word_match' ? 'Изображения для пар' : 'Аудио'}
+                          </Typography>
                           <MediaUploader
                             blockId={blockDraft.id}
                             mediaFiles={mediaFiles}
