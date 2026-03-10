@@ -37,10 +37,12 @@ import {
   MatchPairsConfigEditor,
   ManualInputConfigEditor,
   MultipleChoiceConfigEditor,
+  AudioMultipleChoiceConfigEditor,
+  ImageWordMatchConfigEditor,
   getConfigTemplate,
 } from './QuestionConfigEditors'
 
-type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
+type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'audio_multiple_choice' | 'image_word_match'
 
 const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'multiple_choice', label: 'Multiple choice' },
@@ -48,6 +50,8 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'fill_blank', label: 'Fill blank' },
   { value: 'match_pairs', label: 'Match pairs' },
   { value: 'manual_input', label: 'Manual input' },
+  { value: 'audio_multiple_choice', label: 'Аудио + выбор' },
+  { value: 'image_word_match', label: 'Картинка ↔ Слово' },
 ]
 
 export interface TestEditorSharedProps {
@@ -390,6 +394,8 @@ function QuestionCard({
     if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
+    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
+    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     return <MultipleChoiceConfigEditor />
   }
 

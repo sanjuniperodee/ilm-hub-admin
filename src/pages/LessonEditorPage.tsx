@@ -175,6 +175,24 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
     }
   }
   if (type === 'match_pairs') {
+    // New format: leftItems/rightItems/correctPairs (supports distractors)
+    if (Array.isArray(ru.leftItems)) {
+      return {
+        instructionRu: ru.instructionRu ?? '',
+        leftItems: ru.leftItems.map((item: any, i: number) => ({
+          id: item.id,
+          text: { ru: item.text, kz: kz.leftItems?.[i]?.text ?? '', ar: ar.leftItems?.[i]?.text ?? '' },
+          imageUrl: item.imageUrl ?? '',
+        })),
+        rightItems: (ru.rightItems ?? []).map((item: any, i: number) => ({
+          id: item.id,
+          text: { ru: item.text, kz: kz.rightItems?.[i]?.text ?? '', ar: ar.rightItems?.[i]?.text ?? '' },
+          imageUrl: item.imageUrl ?? '',
+        })),
+        correctPairs: ru.correctPairs ?? [],
+      }
+    }
+    // Legacy pairs format (backward compat)
     return {
       pairs: (ru.pairs || []).map((p: any, i: number) => ({
         left: { ru: p.left, kz: kz.pairs?.[i]?.left, ar: ar.pairs?.[i]?.left },
@@ -237,6 +255,24 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
       }
     }
     if (type === 'match_pairs') {
+      // New format with distractors
+      if (Array.isArray(config.leftItems)) {
+        return {
+          instructionRu: config.instructionRu ?? '',
+          leftItems: config.leftItems.map((item: any) => ({
+            id: item.id,
+            text: item.text?.[lang] ?? '',
+            imageUrl: item.imageUrl ?? '',
+          })),
+          rightItems: (config.rightItems ?? []).map((item: any) => ({
+            id: item.id,
+            text: item.text?.[lang] ?? '',
+            imageUrl: item.imageUrl ?? '',
+          })),
+          correctPairs: config.correctPairs ?? [],
+        }
+      }
+      // Legacy pairs format
       return {
         pairs: config.pairs?.map((p: any) => ({
           left: p.left?.[lang],

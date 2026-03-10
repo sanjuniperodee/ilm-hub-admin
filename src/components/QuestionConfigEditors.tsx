@@ -1,16 +1,21 @@
 import { useEffect, useRef } from 'react'
 import {
+  Alert,
   Box,
   Button,
+  Chip,
+  Divider,
   IconButton,
+  MenuItem,
   Radio,
+  Select,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
-import { Add, Delete } from '@mui/icons-material'
+import { Add, Delete, LinkOff } from '@mui/icons-material'
 
-export type ConfigEditorType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
+export type ConfigEditorType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'audio_multiple_choice' | 'image_word_match'
 
 interface EditorProps {
   value: Record<string, any>
@@ -131,7 +136,7 @@ export function FillBlankConfigEditor({ value, onChange }: EditorProps) {
 }
 
 // ----------------------------------------------------------------------
-// MatchPairsConfigEditor
+// MatchPairsConfigEditor (supports distractors: more right items than left)
 // ----------------------------------------------------------------------
 
 function normalizeMatchPairs(value: Record<string, any>): {
@@ -181,18 +186,26 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
     })
   }
 
-  const removePair = (index: number) => {
-    const leftId = leftItems[index]?.id
-    const rightId = rightItems[index]?.id
-    const nextLeft = leftItems.filter((_, i) => i !== index)
-    const nextRight = rightItems.filter((_, i) => i !== index)
-    const nextPairs = correctPairs.filter((p) => p.leftId !== leftId && p.rightId !== rightId)
+  const addDistractor = () => {
+    const n = rightItems.length + 1
+    const rightId = `d${n}`
     onChange({
       ...value,
-      leftItems: nextLeft,
-      rightItems: nextRight,
-      correctPairs: nextPairs,
+      rightItems: [...rightItems, { id: rightId, text: '' }],
     })
+  }
+
+  const removeLeftItem = (index: number) => {
+    const leftId = leftItems[index]?.id
+    const nextLeft = leftItems.filter((_, i) => i !== index)
+    const nextPairs = correctPairs.filter((p) => p.leftId !== leftId)
+    onChange({ ...value, leftItems: nextLeft, correctPairs: nextPairs })
+  }
+
+  const removeRightItem = (rightId: string) => {
+    const nextRight = rightItems.filter((r) => r.id !== rightId)
+    const nextPairs = correctPairs.filter((p) => p.rightId !== rightId)
+    onChange({ ...value, rightItems: nextRight, correctPairs: nextPairs })
   }
 
   const updateLeft = (index: number, text: string) => {
@@ -200,8 +213,8 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
     onChange({ ...value, leftItems: next })
   }
 
-  const updateRight = (index: number, text: string) => {
-    const next = rightItems.map((o, i) => (i === index ? { ...o, text } : o))
+  const updateRight = (rightId: string, text: string) => {
+    const next = rightItems.map((o) => (o.id === rightId ? { ...o, text } : o))
     onChange({ ...value, rightItems: next })
   }
 
@@ -210,10 +223,19 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
     onChange({ ...value, leftItems: next })
   }
 
-  const updateRightImageUrl = (index: number, imageUrl: string) => {
-    const next = rightItems.map((o, i) => (i === index ? { ...o, imageUrl } : o))
+  const updateRightImageUrl = (rightId: string, imageUrl: string) => {
+    const next = rightItems.map((o) => (o.id === rightId ? { ...o, imageUrl } : o))
     onChange({ ...value, rightItems: next })
   }
+
+  const setPairRight = (leftId: string, rightId: string) => {
+    const next = correctPairs.filter((p) => p.leftId !== leftId)
+    if (rightId) next.push({ leftId, rightId })
+    onChange({ ...value, correctPairs: next })
+  }
+
+  const getPairedRight = (leftId: string) => correctPairs.find((p) => p.leftId === leftId)?.rightId ?? ''
+  const usedRightIds = new Set(correctPairs.map((p) => p.rightId))
 
   return (
     <Stack spacing={2}>
@@ -225,52 +247,103 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
         onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Сопоставь пары"
       />
-      <Typography variant="subtitle2">Пары (слева — слева, справа — справа). Опционально: URL изображения.</Typography>
-      {leftItems.map((_, i) => (
-        <Box key={i} sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+
+      {/* Left column */}
+      <Typography variant="subtitle2">Левые элементы (вопросы)</Typography>
+      {leftItems.map((item, i) => (
+        <Box key={item.id} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
             <TextField
               fullWidth
               size="small"
-              value={leftItems[i]?.text || ''}
+              label={`Левая часть ${i + 1}`}
+              value={item.text}
               onChange={(e) => updateLeft(i, e.target.value)}
-              placeholder="Левая часть"
+              placeholder="Текст левой части"
             />
-            <Typography variant="body2" color="text.secondary">=</Typography>
-            <TextField
-              fullWidth
-              size="small"
-              value={rightItems[i]?.text || ''}
-              onChange={(e) => updateRight(i, e.target.value)}
-              placeholder="Правая часть"
-            />
-            <IconButton size="small" color="error" onClick={() => removePair(i)} disabled={leftItems.length <= 1}>
+            <IconButton size="small" color="error" onClick={() => removeLeftItem(i)} disabled={leftItems.length <= 1}>
               <Delete fontSize="small" />
             </IconButton>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <TextField
               size="small"
               label="URL изображения (левая)"
-              value={leftItems[i]?.imageUrl || ''}
+              value={item.imageUrl || ''}
               onChange={(e) => updateLeftImageUrl(i, e.target.value)}
               placeholder="https://..."
               sx={{ flex: 1 }}
             />
-            <TextField
-              size="small"
-              label="URL изображения (правая)"
-              value={rightItems[i]?.imageUrl || ''}
-              onChange={(e) => updateRightImageUrl(i, e.target.value)}
-              placeholder="https://..."
-              sx={{ flex: 1 }}
-            />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                Правильный правый элемент
+              </Typography>
+              <Select
+                size="small"
+                fullWidth
+                value={getPairedRight(item.id)}
+                onChange={(e) => setPairRight(item.id, e.target.value as string)}
+                displayEmpty
+              >
+                <MenuItem value=""><em>— не выбрано —</em></MenuItem>
+                {rightItems.map((r) => (
+                  <MenuItem key={r.id} value={r.id} disabled={usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id}>
+                    {r.text || `[${r.id}]`}
+                    {usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id && ' (занято)'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
           </Box>
         </Box>
       ))}
-      <Button size="small" startIcon={<Add />} onClick={addPair} variant="outlined">
-        Добавить пару
-      </Button>
+
+      <Divider />
+
+      {/* Right column (all items including distractors) */}
+      <Typography variant="subtitle2">
+        Правые элементы (варианты ответов)
+        {rightItems.length > leftItems.length && (
+          <Chip size="small" label={`${rightItems.length - leftItems.length} дистракторов`} color="warning" sx={{ ml: 1 }} />
+        )}
+      </Typography>
+      {rightItems.map((item) => {
+        const isPaired = usedRightIds.has(item.id)
+        return (
+          <Box key={item.id} sx={{ p: 1.5, border: '1px solid', borderColor: isPaired ? 'success.light' : 'warning.light', borderRadius: 1, bgcolor: isPaired ? 'success.50' : 'warning.50' }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+              <Chip size="small" label={isPaired ? 'правильный' : 'дистрактор'} color={isPaired ? 'success' : 'warning'} variant="outlined" />
+              <TextField
+                fullWidth
+                size="small"
+                value={item.text}
+                onChange={(e) => updateRight(item.id, e.target.value)}
+                placeholder="Текст правой части"
+              />
+              <IconButton size="small" color="error" onClick={() => removeRightItem(item.id)} disabled={rightItems.length <= 1}>
+                <Delete fontSize="small" />
+              </IconButton>
+            </Box>
+            <TextField
+              size="small"
+              fullWidth
+              label="URL изображения (правая)"
+              value={item.imageUrl || ''}
+              onChange={(e) => updateRightImageUrl(item.id, e.target.value)}
+              placeholder="https://..."
+            />
+          </Box>
+        )
+      })}
+
+      <Stack direction="row" spacing={1}>
+        <Button size="small" startIcon={<Add />} onClick={addPair} variant="outlined">
+          Добавить пару
+        </Button>
+        <Button size="small" startIcon={<LinkOff />} onClick={addDistractor} variant="outlined" color="warning">
+          Добавить дистрактор
+        </Button>
+      </Stack>
     </Stack>
   )
 }
@@ -323,6 +396,198 @@ export function MultipleChoiceConfigEditor() {
 }
 
 // ----------------------------------------------------------------------
+// AudioMultipleChoiceConfigEditor
+// ----------------------------------------------------------------------
+
+function normalizeAudioOptions(raw: any): Array<{ id: string; text: string; isCorrect: boolean }> {
+  if (!Array.isArray(raw)) return []
+  return raw.map((o, i) => ({
+    id: o?.id ?? `opt_${i + 1}`,
+    text: o?.text ?? '',
+    isCorrect: !!o?.isCorrect,
+  }))
+}
+
+export function AudioMultipleChoiceConfigEditor({ value, onChange }: EditorProps) {
+  const options = normalizeAudioOptions(value?.options)
+  const normalized = useRef(false)
+
+  useEffect(() => {
+    if (normalized.current) return
+    if (options.length === 0) {
+      normalized.current = true
+      onChange({
+        ...value,
+        audioUrl: value?.audioUrl ?? '',
+        options: [
+          { id: 'opt_1', text: '', isCorrect: true },
+          { id: 'opt_2', text: '', isCorrect: false },
+          { id: 'opt_3', text: '', isCorrect: false },
+          { id: 'opt_4', text: '', isCorrect: false },
+        ],
+      })
+    }
+  }, [])
+
+  const updateOption = (id: string, field: 'text' | 'isCorrect', val: string | boolean) => {
+    const next = options.map((o) => (o.id === id ? { ...o, [field]: val } : o))
+    onChange({ ...value, options: next })
+  }
+
+  const addOption = () => {
+    const nextId = `opt_${options.length + 1}`
+    onChange({ ...value, options: [...options, { id: nextId, text: '', isCorrect: false }] })
+  }
+
+  const removeOption = (id: string) => {
+    onChange({ ...value, options: options.filter((o) => o.id !== id) })
+  }
+
+  return (
+    <Stack spacing={2}>
+      <Alert severity="info" sx={{ fontSize: 13 }}>
+        Введите URL аудиофайла. Пользователь прослушает его, а затем выберет правильный вариант.
+      </Alert>
+      <TextField
+        fullWidth
+        size="small"
+        label="URL аудио"
+        value={(value?.audioUrl as string) || ''}
+        onChange={(e) => onChange({ ...value, audioUrl: e.target.value })}
+        placeholder="https://storage.example.com/audio.mp3"
+      />
+      <Typography variant="subtitle2">Варианты ответов (отметьте правильный)</Typography>
+      {options.map((opt) => (
+        <Box key={opt.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Radio
+            checked={opt.isCorrect}
+            onChange={() => {
+              const next = options.map((o) => ({ ...o, isCorrect: o.id === opt.id }))
+              onChange({ ...value, options: next })
+            }}
+            size="small"
+          />
+          <TextField
+            fullWidth
+            size="small"
+            value={opt.text}
+            onChange={(e) => updateOption(opt.id, 'text', e.target.value)}
+            placeholder="Текст варианта"
+          />
+          <IconButton size="small" color="error" onClick={() => removeOption(opt.id)} disabled={options.length <= 2}>
+            <Delete fontSize="small" />
+          </IconButton>
+        </Box>
+      ))}
+      <Button size="small" startIcon={<Add />} onClick={addOption} variant="outlined">
+        Добавить вариант
+      </Button>
+      <TextField
+        fullWidth
+        size="small"
+        label="explanationRu (опционально)"
+        value={(value?.explanationRu as string) || ''}
+        onChange={(e) => onChange({ ...value, explanationRu: e.target.value })}
+      />
+    </Stack>
+  )
+}
+
+// ----------------------------------------------------------------------
+// ImageWordMatchConfigEditor
+// ----------------------------------------------------------------------
+
+export function ImageWordMatchConfigEditor({ value, onChange }: EditorProps) {
+  const pairs: Array<{ id: string; word: string; imageUrl: string }> = Array.isArray(value?.pairs)
+    ? value.pairs.map((p: any) => ({ id: p.id ?? crypto.randomUUID(), word: p.word ?? '', imageUrl: p.imageUrl ?? '' }))
+    : []
+
+  const normalized = useRef(false)
+  useEffect(() => {
+    if (normalized.current) return
+    if (pairs.length === 0) {
+      normalized.current = true
+      onChange({
+        ...value,
+        instruction: value?.instruction ?? 'Соедини картинку и слово',
+        pairs: [
+          { id: crypto.randomUUID(), word: '', imageUrl: '' },
+          { id: crypto.randomUUID(), word: '', imageUrl: '' },
+        ],
+      })
+    }
+  }, [])
+
+  const addPair = () => {
+    onChange({ ...value, pairs: [...pairs, { id: crypto.randomUUID(), word: '', imageUrl: '' }] })
+  }
+
+  const removePair = (id: string) => {
+    onChange({ ...value, pairs: pairs.filter((p) => p.id !== id) })
+  }
+
+  const updatePair = (id: string, field: 'word' | 'imageUrl', val: string) => {
+    onChange({ ...value, pairs: pairs.map((p) => (p.id === id ? { ...p, [field]: val } : p)) })
+  }
+
+  return (
+    <Stack spacing={2}>
+      <TextField
+        fullWidth
+        size="small"
+        label="Инструкция"
+        value={(value?.instruction as string) || ''}
+        onChange={(e) => onChange({ ...value, instruction: e.target.value })}
+        placeholder="Соедини картинку и слово"
+      />
+      <Alert severity="info" sx={{ fontSize: 13 }}>
+        Введите прямой URL изображения (HTTPS). Арабское слово отображается справа.
+      </Alert>
+      {pairs.map((pair, idx) => (
+        <Box key={pair.id} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+            <Typography variant="caption" sx={{ minWidth: 20, color: 'text.secondary' }}>{idx + 1}.</Typography>
+            <TextField
+              fullWidth
+              size="small"
+              label="Арабское слово"
+              value={pair.word}
+              onChange={(e) => updatePair(pair.id, 'word', e.target.value)}
+              inputProps={{ dir: 'rtl', style: { fontSize: 18, fontFamily: 'serif' } }}
+              placeholder="بَيْت"
+            />
+            <IconButton size="small" color="error" onClick={() => removePair(pair.id)} disabled={pairs.length <= 1}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="URL изображения"
+              value={pair.imageUrl}
+              onChange={(e) => updatePair(pair.id, 'imageUrl', e.target.value)}
+              placeholder="https://..."
+            />
+            {pair.imageUrl && (
+              <Box
+                component="img"
+                src={pair.imageUrl}
+                sx={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 1, border: '1px solid', borderColor: 'divider', flexShrink: 0 }}
+                onError={(e: any) => { e.target.style.display = 'none' }}
+              />
+            )}
+          </Box>
+        </Box>
+      ))}
+      <Button size="small" startIcon={<Add />} onClick={addPair} variant="outlined">
+        Добавить пару
+      </Button>
+    </Stack>
+  )
+}
+
+// ----------------------------------------------------------------------
 // getConfigTemplate
 // ----------------------------------------------------------------------
 
@@ -349,6 +614,27 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
       instructionRu: 'Введи ответ',
       correctAnswer: '',
       hintRu: '',
+    }
+  }
+  if (type === 'audio_multiple_choice') {
+    return {
+      audioUrl: '',
+      options: [
+        { id: 'opt_1', text: 'Вариант 1', isCorrect: true },
+        { id: 'opt_2', text: 'Вариант 2', isCorrect: false },
+        { id: 'opt_3', text: 'Вариант 3', isCorrect: false },
+        { id: 'opt_4', text: 'Вариант 4', isCorrect: false },
+      ],
+      explanationRu: '',
+    }
+  }
+  if (type === 'image_word_match') {
+    return {
+      instruction: 'Соедини картинку и слово',
+      pairs: [
+        { id: crypto.randomUUID(), word: '', imageUrl: '' },
+        { id: crypto.randomUUID(), word: '', imageUrl: '' },
+      ],
     }
   }
   return { instructionRu: 'Выберите правильный вариант', explanationRu: '' }

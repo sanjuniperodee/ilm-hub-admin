@@ -3,7 +3,12 @@ import {
     Box,
     TextField,
     Button,
+    Chip,
+    Divider,
     IconButton,
+    MenuItem,
+    Select,
+    Stack,
     Typography,
     Checkbox,
     Tabs,
@@ -11,7 +16,7 @@ import {
     Alert,
     Paper,
 } from '@mui/material'
-import { Add, Delete } from '@mui/icons-material'
+import { Add, Delete, LinkOff } from '@mui/icons-material'
 
 interface EditorProps {
     value: any
@@ -188,53 +193,124 @@ export const ListenRepeatEditor = ({ value, onChange }: EditorProps) => {
 // Match Pairs Editor
 // ----------------------------------------------------------------------
 
+// MatchPairsEditor supports distractors (more right items than left)
+// Data shape: { leftItems, rightItems, correctPairs, instructionRu }
+// Compatible with leftColumn/rightColumn on mobile
+
+type MatchItem = { id: string; text: { ru: string; kz: string; ar: string }; imageUrl: string }
+type CorrectPair = { leftId: string; rightId: string }
+
+function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItems: MatchItem[]; correctPairs: CorrectPair[]; instructionRu: string } {
+    // Old format: { pairs: [{left:{ru,kz,ar}, right:{ru,kz,ar}, leftImageUrl, rightImageUrl}] }
+    if (Array.isArray(value?.pairs) && value.pairs.length > 0 && value.pairs[0]?.left) {
+        const leftItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
+            id: `l${i + 1}`,
+            text: { ru: p.left?.ru ?? '', kz: p.left?.kz ?? '', ar: p.left?.ar ?? '' },
+            imageUrl: p.leftImageUrl ?? '',
+        }))
+        const rightItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
+            id: `r${i + 1}`,
+            text: { ru: p.right?.ru ?? '', kz: p.right?.kz ?? '', ar: p.right?.ar ?? '' },
+            imageUrl: p.rightImageUrl ?? '',
+        }))
+        const correctPairs: CorrectPair[] = value.pairs.map((_: any, i: number) => ({ leftId: `l${i + 1}`, rightId: `r${i + 1}` }))
+        return { leftItems, rightItems, correctPairs, instructionRu: value.instructionRu ?? '' }
+    }
+    // New format: { leftItems, rightItems, correctPairs }
+    if (Array.isArray(value?.leftItems)) {
+        return {
+            leftItems: value.leftItems.map((item: any) => ({ id: item.id, text: item.text ?? { ru: '', kz: '', ar: '' }, imageUrl: item.imageUrl ?? '' })),
+            rightItems: (value.rightItems ?? []).map((item: any) => ({ id: item.id, text: item.text ?? { ru: '', kz: '', ar: '' }, imageUrl: item.imageUrl ?? '' })),
+            correctPairs: value.correctPairs ?? [],
+            instructionRu: value.instructionRu ?? '',
+        }
+    }
+    return { leftItems: [], rightItems: [], correctPairs: [], instructionRu: '' }
+}
+
 export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
     const [activeTab, setActiveTab] = useState(0)
-    const content = value || { pairs: [] }
-
-    const langMap = ['ru', 'kz', 'ar']
+    const langMap = ['ru', 'kz', 'ar'] as const
     const currentLang = langMap[activeTab]
 
-    const addPair = () => {
-        const newContent = { ...content }
-        if (!newContent.pairs) newContent.pairs = []
-        newContent.pairs.push({
-            left: { ru: '', kz: '', ar: '' },
-            right: { ru: '', kz: '', ar: '' },
-            leftImageUrl: '',
-            rightImageUrl: '',
-        })
-        onChange(newContent)
+    const { leftItems, rightItems, correctPairs, instructionRu } = migrateMatchPairsValue(value)
+
+    const emit = (li: MatchItem[], ri: MatchItem[], cp: CorrectPair[], instr?: string) => {
+        onChange({ leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr ?? instructionRu })
     }
 
-    const updatePair = (index: number, side: 'left' | 'right', text: string, lang: string) => {
-        const newContent = { ...content }
-        if (!newContent.pairs[index]) return
-        if (!newContent.pairs[index][side]) newContent.pairs[index][side] = {}
-        newContent.pairs[index][side][lang] = text
-        onChange(newContent)
-    }
-
-    const updatePairImageUrl = (index: number, side: 'left' | 'right', url: string) => {
-        const newContent = { ...content }
-        if (!newContent.pairs[index]) return
-        const key = side === 'left' ? 'leftImageUrl' : 'rightImageUrl'
-        newContent.pairs[index][key] = url
-        onChange(newContent)
-    }
-
-    const removePair = (index: number) => {
-        const newContent = { ...content }
-        newContent.pairs = newContent.pairs.filter((_: any, i: number) => i !== index)
-        onChange(newContent)
-    }
-
-    // Initialize with one pair if empty
     useEffect(() => {
-        if (!content.pairs || content.pairs.length === 0) {
-            addPair()
+        if (leftItems.length === 0) {
+            const li: MatchItem[] = [{ id: 'l1', text: { ru: '', kz: '', ar: '' }, imageUrl: '' }]
+            const ri: MatchItem[] = [{ id: 'r1', text: { ru: '', kz: '', ar: '' }, imageUrl: '' }]
+            emit(li, ri, [{ leftId: 'l1', rightId: 'r1' }])
         }
     }, [])
+
+    const addPair = () => {
+        const n = Math.max(leftItems.length, rightItems.length) + 1
+        const lId = `l${n}`
+        const rId = `r${n}`
+        emit(
+            [...leftItems, { id: lId, text: { ru: '', kz: '', ar: '' }, imageUrl: '' }],
+            [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '' }],
+            [...correctPairs, { leftId: lId, rightId: rId }],
+        )
+    }
+
+    const addDistractor = () => {
+        const n = rightItems.length + 1
+        const rId = `d${n}`
+        emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '' }], correctPairs)
+    }
+
+    const removeLeft = (id: string) => {
+        emit(
+            leftItems.filter((i) => i.id !== id),
+            rightItems,
+            correctPairs.filter((p) => p.leftId !== id),
+        )
+    }
+
+    const removeRight = (id: string) => {
+        emit(
+            leftItems,
+            rightItems.filter((i) => i.id !== id),
+            correctPairs.filter((p) => p.rightId !== id),
+        )
+    }
+
+    const updateLeftText = (id: string, text: string, lang: string) => {
+        emit(
+            leftItems.map((i) => i.id === id ? { ...i, text: { ...i.text, [lang]: text } } : i),
+            rightItems, correctPairs,
+        )
+    }
+
+    const updateRightText = (id: string, text: string, lang: string) => {
+        emit(
+            leftItems,
+            rightItems.map((i) => i.id === id ? { ...i, text: { ...i.text, [lang]: text } } : i),
+            correctPairs,
+        )
+    }
+
+    const updateLeftImageUrl = (id: string, url: string) => {
+        emit(leftItems.map((i) => i.id === id ? { ...i, imageUrl: url } : i), rightItems, correctPairs)
+    }
+
+    const updateRightImageUrl = (id: string, url: string) => {
+        emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, imageUrl: url } : i), correctPairs)
+    }
+
+    const setPairRight = (leftId: string, rightId: string) => {
+        const next = correctPairs.filter((p) => p.leftId !== leftId)
+        if (rightId) next.push({ leftId, rightId })
+        emit(leftItems, rightItems, next)
+    }
+
+    const getPairedRight = (leftId: string) => correctPairs.find((p) => p.leftId === leftId)?.rightId ?? ''
+    const usedRightIds = new Set(correctPairs.map((p) => p.rightId))
 
     return (
         <Box>
@@ -244,58 +320,113 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
                 <Tab label="Арабский" />
             </Tabs>
 
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                Введите пары значений. Опционально: URL изображения для левой или правой части.
-            </Typography>
+            <TextField
+                fullWidth
+                size="small"
+                label="Инструкция"
+                value={instructionRu}
+                onChange={(e) => emit(leftItems, rightItems, correctPairs, e.target.value)}
+                sx={{ mb: 2 }}
+            />
 
-            {content.pairs?.map((pair: any, index: number) => (
-                <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+            {/* Left items */}
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>Левые элементы (вопросы)</Typography>
+            {leftItems.map((item, i) => (
+                <Box key={item.id} sx={{ mb: 1.5, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
                         <TextField
                             fullWidth
                             size="small"
-                            label={`Левая часть ${index + 1}`}
-                            value={pair.left?.[currentLang] || ''}
-                            onChange={(e) => updatePair(index, 'left', e.target.value, currentLang)}
+                            label={`Левая часть ${i + 1}`}
+                            value={item.text[currentLang] || ''}
+                            onChange={(e) => updateLeftText(item.id, e.target.value, currentLang)}
                             inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
                         />
-                        <Typography variant="h6">=</Typography>
-                        <TextField
-                            fullWidth
-                            size="small"
-                            label={`Правая часть ${index + 1}`}
-                            value={pair.right?.[currentLang] || ''}
-                            onChange={(e) => updatePair(index, 'right', e.target.value, currentLang)}
-                            inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
-                        />
-                        <IconButton onClick={() => removePair(index)} color="error">
+                        <IconButton size="small" color="error" onClick={() => removeLeft(item.id)} disabled={leftItems.length <= 1}>
                             <Delete />
                         </IconButton>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                         <TextField
                             size="small"
                             label="URL изображения (левая)"
-                            value={pair.leftImageUrl || ''}
-                            onChange={(e) => updatePairImageUrl(index, 'left', e.target.value)}
+                            value={item.imageUrl || ''}
+                            onChange={(e) => updateLeftImageUrl(item.id, e.target.value)}
                             placeholder="https://..."
-                            sx={{ flex: 1, minWidth: 150 }}
+                            sx={{ flex: 1 }}
                         />
-                        <TextField
-                            size="small"
-                            label="URL изображения (правая)"
-                            value={pair.rightImageUrl || ''}
-                            onChange={(e) => updatePairImageUrl(index, 'right', e.target.value)}
-                            placeholder="https://..."
-                            sx={{ flex: 1, minWidth: 150 }}
-                        />
+                        <Box sx={{ flex: 1 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                Правильный ответ (правая сторона)
+                            </Typography>
+                            <Select
+                                size="small"
+                                fullWidth
+                                value={getPairedRight(item.id)}
+                                onChange={(e) => setPairRight(item.id, e.target.value as string)}
+                                displayEmpty
+                            >
+                                <MenuItem value=""><em>— не выбрано —</em></MenuItem>
+                                {rightItems.map((r) => (
+                                    <MenuItem key={r.id} value={r.id}
+                                        disabled={usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id}>
+                                        {r.text[currentLang] || `[${r.id}]`}
+                                        {usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id ? ' (занято)' : ''}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </Box>
                     </Box>
                 </Box>
             ))}
 
-            <Button startIcon={<Add />} onClick={addPair} variant="outlined" size="small">
-                Добавить пару
-            </Button>
+            <Divider sx={{ my: 2 }} />
+
+            {/* Right items (including distractors) */}
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Typography variant="subtitle2">Правые элементы (варианты ответов)</Typography>
+                {rightItems.length > leftItems.length && (
+                    <Chip size="small" label={`${rightItems.length - leftItems.length} дистракторов`} color="warning" />
+                )}
+            </Stack>
+            {rightItems.map((item) => {
+                const isPaired = usedRightIds.has(item.id)
+                return (
+                    <Box key={item.id} sx={{ mb: 1.5, p: 1.5, border: '1px solid', borderColor: isPaired ? 'success.light' : 'warning.light', borderRadius: 1, bgcolor: isPaired ? 'rgba(76,175,80,0.04)' : 'rgba(255,152,0,0.04)' }}>
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                            <Chip size="small" label={isPaired ? '✓ правильный' : '✗ дистрактор'} color={isPaired ? 'success' : 'warning'} variant="outlined" sx={{ flexShrink: 0 }} />
+                            <TextField
+                                fullWidth
+                                size="small"
+                                value={item.text[currentLang] || ''}
+                                onChange={(e) => updateRightText(item.id, e.target.value, currentLang)}
+                                placeholder="Текст правой части"
+                                inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                            />
+                            <IconButton size="small" color="error" onClick={() => removeRight(item.id)} disabled={rightItems.length <= 1}>
+                                <Delete />
+                            </IconButton>
+                        </Box>
+                        <TextField
+                            size="small"
+                            fullWidth
+                            label="URL изображения (правая)"
+                            value={item.imageUrl || ''}
+                            onChange={(e) => updateRightImageUrl(item.id, e.target.value)}
+                            placeholder="https://..."
+                        />
+                    </Box>
+                )
+            })}
+
+            <Stack direction="row" spacing={1}>
+                <Button startIcon={<Add />} onClick={addPair} variant="outlined" size="small">
+                    Добавить пару
+                </Button>
+                <Button startIcon={<LinkOff />} onClick={addDistractor} variant="outlined" size="small" color="warning">
+                    Добавить дистрактор
+                </Button>
+            </Stack>
         </Box>
     )
 }
