@@ -315,7 +315,7 @@ export default function MediaUploader({
                             )}
                             {media.type === 'audio' && (
                                 <Box sx={{ mr: 2 }}>
-                                    <audio src={media.url} controls style={{ height: 32, width: 150 }} />
+                                    <AudioPlayer url={media.url} filename={media.filename} />
                                 </Box>
                             )}
                             <ListItemSecondaryAction>
