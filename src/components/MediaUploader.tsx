@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
     Box,
     Typography,
@@ -11,6 +11,7 @@ import {
     CircularProgress,
     Alert,
     Paper,
+    Slider,
 } from '@mui/material'
 import {
     CloudUpload,
@@ -19,6 +20,8 @@ import {
     Audiotrack,
     Videocam,
     InsertDriveFile,
+    PlayArrow,
+    Pause,
 } from '@mui/icons-material'
 
 interface MediaFile {
@@ -55,6 +58,129 @@ const getMediaIcon = (type: string) => {
         default: return <InsertDriveFile />
     }
 }
+
+// ── Inline audio player ────────────────────────────────────────────────────
+
+function formatTime(seconds: number): string {
+    if (!isFinite(seconds) || isNaN(seconds)) return '0:00'
+    const m = Math.floor(seconds / 60)
+    const s = Math.floor(seconds % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function AudioPlayer({ url, filename }: { url: string; filename: string }) {
+    const audioRef = useRef<HTMLAudioElement>(null)
+    const [playing, setPlaying] = useState(false)
+    const [current, setCurrent] = useState(0)
+    const [duration, setDuration] = useState(0)
+    const [seeking, setSeeking] = useState(false)
+
+    useEffect(() => {
+        const el = audioRef.current
+        if (!el) return
+        const onTime = () => { if (!seeking) setCurrent(el.currentTime) }
+        const onDuration = () => setDuration(el.duration)
+        const onEnded = () => setPlaying(false)
+        el.addEventListener('timeupdate', onTime)
+        el.addEventListener('loadedmetadata', onDuration)
+        el.addEventListener('durationchange', onDuration)
+        el.addEventListener('ended', onEnded)
+        return () => {
+            el.removeEventListener('timeupdate', onTime)
+            el.removeEventListener('loadedmetadata', onDuration)
+            el.removeEventListener('durationchange', onDuration)
+            el.removeEventListener('ended', onEnded)
+        }
+    }, [seeking])
+
+    const togglePlay = () => {
+        const el = audioRef.current
+        if (!el) return
+        if (playing) { el.pause(); setPlaying(false) }
+        else { el.play(); setPlaying(true) }
+    }
+
+    const handleSeekChange = (_: Event, val: number | number[]) => {
+        setCurrent(val as number)
+    }
+
+    const handleSeekCommit = (_: Event | React.SyntheticEvent, val: number | number[]) => {
+        const el = audioRef.current
+        if (el) el.currentTime = val as number
+        setSeeking(false)
+    }
+
+    return (
+        <Box
+            sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                px: 1.5,
+                py: 1,
+                borderRadius: 2,
+                bgcolor: 'grey.100',
+                border: '1px solid',
+                borderColor: 'grey.200',
+                minWidth: 260,
+                maxWidth: 360,
+            }}
+        >
+            <audio ref={audioRef} src={url} preload="metadata" />
+
+            {/* Play / Pause */}
+            <IconButton
+                onClick={togglePlay}
+                size="small"
+                sx={{
+                    bgcolor: 'primary.main',
+                    color: '#fff',
+                    width: 32,
+                    height: 32,
+                    flexShrink: 0,
+                    '&:hover': { bgcolor: 'primary.dark' },
+                }}
+            >
+                {playing ? <Pause sx={{ fontSize: 18 }} /> : <PlayArrow sx={{ fontSize: 18 }} />}
+            </IconButton>
+
+            {/* Progress + time */}
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <Typography
+                    variant="caption"
+                    noWrap
+                    sx={{ color: 'text.secondary', fontSize: 10, lineHeight: 1.2, maxWidth: 200 }}
+                >
+                    {filename}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Slider
+                        size="small"
+                        value={current}
+                        min={0}
+                        max={duration || 1}
+                        step={0.1}
+                        onChange={handleSeekChange}
+                        onChangeCommitted={handleSeekCommit}
+                        onMouseDown={() => setSeeking(true)}
+                        sx={{
+                            flex: 1,
+                            py: 0,
+                            color: 'primary.main',
+                            '& .MuiSlider-thumb': { width: 10, height: 10 },
+                            '& .MuiSlider-rail': { opacity: 0.3 },
+                        }}
+                    />
+                    <Typography variant="caption" sx={{ fontSize: 10, color: 'text.secondary', whiteSpace: 'nowrap', minWidth: 60, textAlign: 'right' }}>
+                        {formatTime(current)} / {formatTime(duration)}
+                    </Typography>
+                </Box>
+            </Box>
+        </Box>
+    )
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`

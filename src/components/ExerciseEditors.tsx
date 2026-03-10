@@ -354,11 +354,24 @@ export const FillBlankEditor = ({ value, onChange }: EditorProps) => {
 // Image Word Match Editor
 // ----------------------------------------------------------------------
 
-export const ImageWordMatchEditor = ({ value, onChange }: EditorProps) => {
+interface MediaFileItem {
+    id: string
+    url: string
+    type: string
+    filename?: string
+}
+
+interface ImageWordMatchEditorProps extends EditorProps {
+    mediaFiles?: MediaFileItem[]
+}
+
+export const ImageWordMatchEditor = ({ value, onChange, mediaFiles = [] }: ImageWordMatchEditorProps) => {
     const content = value || { instruction: '', pairs: [] }
 
     const pairs: Array<{ id: string; word: string; imageMediaId?: string }> =
         content.pairs ?? []
+
+    const images = mediaFiles.filter((f) => f.type === 'image')
 
     const addPair = () => {
         onChange({
@@ -377,10 +390,22 @@ export const ImageWordMatchEditor = ({ value, onChange }: EditorProps) => {
         })
     }
 
-    const updatePair = (id: string, field: 'word' | 'imageMediaId', val: string) => {
+    const updateWord = (id: string, word: string) => {
         onChange({
             ...content,
-            pairs: pairs.map((p) => (p.id === id ? { ...p, [field]: val } : p)),
+            pairs: pairs.map((p) => (p.id === id ? { ...p, word } : p)),
+        })
+    }
+
+    const assignImage = (pairId: string, mediaId: string) => {
+        onChange({
+            ...content,
+            // If already assigned — clicking again deselects
+            pairs: pairs.map((p) =>
+                p.id === pairId
+                    ? { ...p, imageMediaId: p.imageMediaId === mediaId ? '' : mediaId }
+                    : p,
+            ),
         })
     }
 
@@ -399,42 +424,120 @@ export const ImageWordMatchEditor = ({ value, onChange }: EditorProps) => {
                 onChange={(e) => onChange({ ...content, instruction: e.target.value })}
                 placeholder="Соедините картинки и слова"
             />
-            <Alert severity="info">
-                Загрузите изображения через раздел <strong>Медиа</strong> после сохранения блока.
-                Затем скопируйте UUID медиафайла в поле «ID изображения» нужной пары.
-            </Alert>
-            {pairs.map((pair, idx) => (
-                <Paper key={pair.id} variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <Typography variant="caption" color="text.secondary">
-                        Пара {idx + 1}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+
+            {images.length === 0 && (
+                <Alert severity="info">
+                    Сначала сохраните блок, затем загрузите изображения через раздел{' '}
+                    <strong>Изображения для пар</strong> ниже — и они появятся здесь для выбора.
+                </Alert>
+            )}
+
+            {pairs.map((pair, idx) => {
+                const assignedImage = images.find((img) => img.id === pair.imageMediaId)
+
+                return (
+                    <Paper key={pair.id} variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                                Пара {idx + 1}
+                            </Typography>
+                            <IconButton
+                                onClick={() => removePair(pair.id)}
+                                color="error"
+                                size="small"
+                                disabled={pairs.length <= 1}
+                            >
+                                <Delete fontSize="small" />
+                            </IconButton>
+                        </Box>
+
+                        {/* Arabic word input */}
                         <TextField
+                            fullWidth
                             label="Слово (арабский)"
                             value={pair.word ?? ''}
-                            onChange={(e) => updatePair(pair.id, 'word', e.target.value)}
-                            inputProps={{ dir: 'rtl', style: { fontSize: 20 } }}
-                            sx={{ flex: 1 }}
+                            onChange={(e) => updateWord(pair.id, e.target.value)}
+                            inputProps={{ dir: 'rtl', style: { fontSize: 22 } }}
                             size="small"
                         />
-                        <TextField
-                            label="ID изображения (imageMediaId)"
-                            value={pair.imageMediaId ?? ''}
-                            onChange={(e) => updatePair(pair.id, 'imageMediaId', e.target.value)}
-                            placeholder="uuid медиафайла"
-                            sx={{ flex: 1 }}
-                            size="small"
-                        />
-                        <IconButton
-                            onClick={() => removePair(pair.id)}
-                            color="error"
-                            disabled={pairs.length <= 1}
-                        >
-                            <Delete />
-                        </IconButton>
-                    </Box>
-                </Paper>
-            ))}
+
+                        {/* Image picker */}
+                        {images.length > 0 ? (
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                                    Выберите картинку для этой пары:
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                    {images.map((img) => {
+                                        const isSelected = pair.imageMediaId === img.id
+                                        return (
+                                            <Box
+                                                key={img.id}
+                                                onClick={() => assignImage(pair.id, img.id)}
+                                                sx={{
+                                                    width: 72,
+                                                    height: 72,
+                                                    borderRadius: 2,
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer',
+                                                    border: isSelected
+                                                        ? '3px solid #2e7d32'
+                                                        : '2px solid transparent',
+                                                    outline: isSelected
+                                                        ? '2px solid #81c784'
+                                                        : '2px solid #e0e0e0',
+                                                    position: 'relative',
+                                                    transition: 'all .15s',
+                                                    '&:hover': { outline: '2px solid #66bb6a' },
+                                                }}
+                                            >
+                                                <img
+                                                    src={img.url}
+                                                    alt={img.filename ?? ''}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                                />
+                                                {isSelected && (
+                                                    <Box
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            top: 2,
+                                                            right: 2,
+                                                            width: 18,
+                                                            height: 18,
+                                                            borderRadius: '50%',
+                                                            background: '#2e7d32',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                        }}
+                                                    >
+                                                        <Typography sx={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>✓</Typography>
+                                                    </Box>
+                                                )}
+                                            </Box>
+                                        )
+                                    })}
+                                </Box>
+                                {assignedImage && (
+                                    <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block' }}>
+                                        Выбрано: {assignedImage.filename ?? assignedImage.id}
+                                    </Typography>
+                                )}
+                                {!pair.imageMediaId && (
+                                    <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
+                                        Картинка не выбрана
+                                    </Typography>
+                                )}
+                            </Box>
+                        ) : (
+                            <Typography variant="caption" color="text.disabled">
+                                — изображения появятся здесь после загрузки —
+                            </Typography>
+                        )}
+                    </Paper>
+                )
+            })}
+
             <Button startIcon={<Add />} onClick={addPair} variant="outlined" size="small">
                 Добавить пару
             </Button>

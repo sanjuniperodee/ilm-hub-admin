@@ -1100,6 +1100,7 @@ export default function LessonEditorPage() {
                         <ImageWordMatchEditor
                           value={blockDraft.exerciseConfig}
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
+                          mediaFiles={mediaFiles}
                         />
                       )}
                       {(blockDraft.type === 'audio_multiple_choice' || blockDraft.type === 'listen_repeat' || blockDraft.type === 'image_word_match') && blockDraft.id ? (
