@@ -135,15 +135,15 @@ export function FillBlankConfigEditor({ value, onChange }: EditorProps) {
 // ----------------------------------------------------------------------
 
 function normalizeMatchPairs(value: Record<string, any>): {
-  leftItems: Array<{ id: string; text: string }>
-  rightItems: Array<{ id: string; text: string }>
+  leftItems: Array<{ id: string; text: string; imageUrl?: string }>
+  rightItems: Array<{ id: string; text: string; imageUrl?: string }>
   correctPairs: Array<{ leftId: string; rightId: string }>
 } {
-  const left = (value?.leftItems ?? value?.leftColumn) as Array<{ id: string; text: string }> | undefined
-  const right = (value?.rightItems ?? value?.rightColumn) as Array<{ id: string; text: string }> | undefined
+  const left = (value?.leftItems ?? value?.leftColumn) as Array<{ id: string; text: string; imageUrl?: string }> | undefined
+  const right = (value?.rightItems ?? value?.rightColumn) as Array<{ id: string; text: string; imageUrl?: string }> | undefined
   const pairs = (value?.correctPairs as Array<{ leftId: string; rightId: string }>) || []
-  const leftItems = Array.isArray(left) ? left.map((o, i) => (typeof o === 'string' ? { id: `l${i + 1}`, text: o } : { id: (o as any)?.id ?? `l${i + 1}`, text: (o as any)?.text ?? (o as any)?.textRu ?? '' })) : []
-  const rightItems = Array.isArray(right) ? right.map((o, i) => (typeof o === 'string' ? { id: `r${i + 1}`, text: o } : { id: (o as any)?.id ?? `r${i + 1}`, text: (o as any)?.text ?? (o as any)?.textRu ?? '' })) : []
+  const leftItems = Array.isArray(left) ? left.map((o, i) => (typeof o === 'string' ? { id: `l${i + 1}`, text: o } : { id: (o as any)?.id ?? `l${i + 1}`, text: (o as any)?.text ?? (o as any)?.textRu ?? '', imageUrl: (o as any)?.imageUrl })) : []
+  const rightItems = Array.isArray(right) ? right.map((o, i) => (typeof o === 'string' ? { id: `r${i + 1}`, text: o } : { id: (o as any)?.id ?? `r${i + 1}`, text: (o as any)?.text ?? (o as any)?.textRu ?? '', imageUrl: (o as any)?.imageUrl })) : []
   return { leftItems, rightItems, correctPairs: pairs }
 }
 
@@ -205,6 +205,16 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
     onChange({ ...value, rightItems: next })
   }
 
+  const updateLeftImageUrl = (index: number, imageUrl: string) => {
+    const next = leftItems.map((o, i) => (i === index ? { ...o, imageUrl } : o))
+    onChange({ ...value, leftItems: next })
+  }
+
+  const updateRightImageUrl = (index: number, imageUrl: string) => {
+    const next = rightItems.map((o, i) => (i === index ? { ...o, imageUrl } : o))
+    onChange({ ...value, rightItems: next })
+  }
+
   return (
     <Stack spacing={2}>
       <TextField
@@ -215,27 +225,47 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
         onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Сопоставь пары"
       />
-      <Typography variant="subtitle2">Пары (слева — слева, справа — справа)</Typography>
+      <Typography variant="subtitle2">Пары (слева — слева, справа — справа). Опционально: URL изображения.</Typography>
       {leftItems.map((_, i) => (
-        <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TextField
-            fullWidth
-            size="small"
-            value={leftItems[i]?.text || ''}
-            onChange={(e) => updateLeft(i, e.target.value)}
-            placeholder="Левая часть"
-          />
-          <Typography variant="body2" color="text.secondary">=</Typography>
-          <TextField
-            fullWidth
-            size="small"
-            value={rightItems[i]?.text || ''}
-            onChange={(e) => updateRight(i, e.target.value)}
-            placeholder="Правая часть"
-          />
-          <IconButton size="small" color="error" onClick={() => removePair(i)} disabled={leftItems.length <= 1}>
-            <Delete fontSize="small" />
-          </IconButton>
+        <Box key={i} sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TextField
+              fullWidth
+              size="small"
+              value={leftItems[i]?.text || ''}
+              onChange={(e) => updateLeft(i, e.target.value)}
+              placeholder="Левая часть"
+            />
+            <Typography variant="body2" color="text.secondary">=</Typography>
+            <TextField
+              fullWidth
+              size="small"
+              value={rightItems[i]?.text || ''}
+              onChange={(e) => updateRight(i, e.target.value)}
+              placeholder="Правая часть"
+            />
+            <IconButton size="small" color="error" onClick={() => removePair(i)} disabled={leftItems.length <= 1}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              size="small"
+              label="URL изображения (левая)"
+              value={leftItems[i]?.imageUrl || ''}
+              onChange={(e) => updateLeftImageUrl(i, e.target.value)}
+              placeholder="https://..."
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              size="small"
+              label="URL изображения (правая)"
+              value={rightItems[i]?.imageUrl || ''}
+              onChange={(e) => updateRightImageUrl(i, e.target.value)}
+              placeholder="https://..."
+              sx={{ flex: 1 }}
+            />
+          </Box>
         </Box>
       ))}
       <Button size="small" startIcon={<Add />} onClick={addPair} variant="outlined">

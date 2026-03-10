@@ -61,8 +61,10 @@ import RichTextEditor from '../components/RichTextEditor'
 import MediaUploader from '../components/MediaUploader'
 import {
   MultipleChoiceEditor,
+  AudioMultipleChoiceEditor,
   MatchPairsEditor,
   ManualInputEditor,
+  ListenRepeatEditor,
 } from '../components/ExerciseEditors'
 import {
   FillBlankConfigEditor,
@@ -79,10 +81,12 @@ type BlockType =
   | 'video'
   | 'lesson_complete'
   | 'multiple_choice'
+  | 'audio_multiple_choice'
   | 'single_choice'
   | 'match_pairs'
   | 'fill_blank'
   | 'manual_input'
+  | 'listen_repeat'
 type DetailTab = 'meta' | 'blocks' | 'test'
 type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
 
@@ -93,10 +97,12 @@ const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'video', label: 'Видео' },
   { value: 'lesson_complete', label: 'Завершение урока' },
   { value: 'multiple_choice', label: 'Multiple Choice' },
+  { value: 'audio_multiple_choice', label: 'Audio Multiple Choice' },
   { value: 'single_choice', label: 'Single Choice' },
   { value: 'match_pairs', label: 'Match Pairs' },
   { value: 'fill_blank', label: 'Fill Blank' },
   { value: 'manual_input', label: 'Manual Input' },
+  { value: 'listen_repeat', label: 'Listen Repeat' },
 ]
 
 interface StudioBlock {
@@ -127,10 +133,12 @@ function stripHtml(html: string): string {
 
 const EXERCISE_BLOCK_TYPES: BlockType[] = [
   'multiple_choice',
+  'audio_multiple_choice',
   'single_choice',
   'match_pairs',
   'fill_blank',
   'manual_input',
+  'listen_repeat',
 ]
 
 function buildExerciseConfigFromBlock(block: StudioBlock): any {
@@ -167,7 +175,29 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
       pairs: (ru.pairs || []).map((p: any, i: number) => ({
         left: { ru: p.left, kz: kz.pairs?.[i]?.left, ar: ar.pairs?.[i]?.left },
         right: { ru: p.right, kz: kz.pairs?.[i]?.right, ar: ar.pairs?.[i]?.right },
+        leftImageUrl: p.leftImageUrl,
+        rightImageUrl: p.rightImageUrl,
       })),
+    }
+  }
+  if (type === 'audio_multiple_choice') {
+    return {
+      question: { ru: ru.question, kz: kz.question, ar: ar.question },
+      options: (ru.options || []).map((opt: any, i: number) => ({
+        text: {
+          ru: opt.text,
+          kz: kz.options?.[i]?.text,
+          ar: ar.options?.[i]?.text,
+        },
+        isCorrect: opt.isCorrect,
+      })),
+      audioUrl: ru.audioUrl,
+    }
+  }
+  if (type === 'listen_repeat') {
+    return {
+      instructionRu: ru.instructionRu || 'Слушай и повторяй',
+      audioUrl: ru.audioUrl,
     }
   }
   if (type === 'fill_blank') {
@@ -185,16 +215,31 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
 function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: any; contentKz: any; contentAr: any } {
   if (!config) return { contentRu: {}, contentKz: {}, contentAr: {} }
   const mapContent = (lang: string) => {
-    if (type === 'multiple_choice' || type === 'single_choice' || type === 'manual_input') {
+    if (type === 'multiple_choice' || type === 'single_choice' || type === 'audio_multiple_choice' || type === 'manual_input') {
       return {
         question: config.question?.[lang],
-        options: config.options?.map((o: any) => ({ text: o.text?.[lang], isCorrect: o.isCorrect })),
+        options: config.options?.map((o: any, i: number) => ({
+          id: o.id || `opt_${i + 1}`,
+          text: o.text?.[lang] ?? (typeof o.text === 'string' ? o.text : ''),
+          isCorrect: o.isCorrect,
+        })),
         correctAnswers: config.correctAnswers?.[lang],
       }
     }
     if (type === 'match_pairs') {
       return {
-        pairs: config.pairs?.map((p: any) => ({ left: p.left?.[lang], right: p.right?.[lang] })),
+        pairs: config.pairs?.map((p: any) => ({
+          left: p.left?.[lang],
+          right: p.right?.[lang],
+          leftImageUrl: p.leftImageUrl,
+          rightImageUrl: p.rightImageUrl,
+        })),
+      }
+    }
+    if (type === 'listen_repeat') {
+      return {
+        instructionRu: config.instructionRu,
+        audioUrl: config.audioUrl,
       }
     }
     if (type === 'fill_blank') {
@@ -256,6 +301,10 @@ export default function LessonEditorPage() {
     transcription: string
     translationRu: string
     exerciseConfig?: any
+    messageRu?: string
+    summaryRu?: string
+    nextActionRu?: string
+    nextActionButtonRu?: string
   }>({
     type: 'theory',
     orderIndex: 1,
@@ -387,12 +436,17 @@ export default function LessonEditorPage() {
       transcription: '',
       translationRu: '',
       exerciseConfig: undefined,
+      messageRu: undefined,
+      summaryRu: undefined,
+      nextActionRu: undefined,
+      nextActionButtonRu: undefined,
     })
     setMediaFiles([])
   }
 
   const editBlock = (block: StudioBlock) => {
     const isExercise = EXERCISE_BLOCK_TYPES.includes(block.type as BlockType)
+    const isLessonComplete = block.type === 'lesson_complete'
     setBlockDraft({
       id: block.id,
       type: block.type as BlockType,
@@ -407,8 +461,12 @@ export default function LessonEditorPage() {
       transcription: (block.contentRu?.transcription as string) || '',
       translationRu: (block.contentRu?.translation as string) || (block.contentRu?.translationRu as string) || '',
       exerciseConfig: isExercise ? buildExerciseConfigFromBlock(block) : undefined,
+      messageRu: isLessonComplete ? (block.contentRu?.messageRu as string) || '' : undefined,
+      summaryRu: isLessonComplete ? (block.contentRu?.summaryRu as string) || '' : undefined,
+      nextActionRu: isLessonComplete ? (block.contentRu?.nextActionRu as string) || '' : undefined,
+      nextActionButtonRu: isLessonComplete ? (block.contentRu?.nextActionButtonRu as string) || '' : undefined,
     })
-    if (block.type === 'illustration') {
+    if (block.type === 'illustration' || block.type === 'audio_multiple_choice' || block.type === 'listen_repeat') {
       void loadBlockMedia(block.id)
     } else {
       setMediaFiles([])
@@ -416,6 +474,22 @@ export default function LessonEditorPage() {
   }
 
   const buildBlockPayload = (includeLessonId: boolean) => {
+    if (blockDraft.type === 'lesson_complete') {
+      const base = {
+        type: 'lesson_complete',
+        orderIndex: Number(blockDraft.orderIndex) || 0,
+        contentRu: {
+          messageRu: blockDraft.messageRu || 'Вы завершили урок!',
+          summaryRu: blockDraft.summaryRu || '',
+          nextActionRu: blockDraft.nextActionRu || '',
+          nextActionButtonRu: blockDraft.nextActionButtonRu || 'Перейти к мини-тесту',
+        },
+        contentKz: {},
+        contentAr: {},
+      }
+      return includeLessonId && lessonId ? { lessonId, ...base } : base
+    }
+
     const isExercise = EXERCISE_BLOCK_TYPES.includes(blockDraft.type)
     if (isExercise && blockDraft.exerciseConfig) {
       const { contentRu, contentKz, contentAr } = mapExerciseConfigToContent(
@@ -976,6 +1050,12 @@ export default function LessonEditorPage() {
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
                         />
                       )}
+                      {blockDraft.type === 'audio_multiple_choice' && (
+                        <AudioMultipleChoiceEditor
+                          value={blockDraft.exerciseConfig}
+                          onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
+                        />
+                      )}
                       {blockDraft.type === 'match_pairs' && (
                         <MatchPairsEditor
                           value={blockDraft.exerciseConfig}
@@ -994,7 +1074,72 @@ export default function LessonEditorPage() {
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
                         />
                       )}
+                      {blockDraft.type === 'listen_repeat' && (
+                        <ListenRepeatEditor
+                          value={blockDraft.exerciseConfig}
+                          onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
+                        />
+                      )}
+                      {(blockDraft.type === 'audio_multiple_choice' || blockDraft.type === 'listen_repeat') && blockDraft.id ? (
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="subtitle2" sx={{ mb: 1 }}>Аудио</Typography>
+                          <MediaUploader
+                            blockId={blockDraft.id}
+                            mediaFiles={mediaFiles}
+                            onUpload={handleMediaUpload}
+                            onDelete={handleMediaDelete}
+                            onRefresh={() => blockDraft.id && loadBlockMedia(blockDraft.id)}
+                          />
+                        </Box>
+                      ) : null}
                     </Grid>
+                  ) : blockDraft.type === 'lesson_complete' ? (
+                    <>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Заголовок (messageRu)"
+                          value={blockDraft.messageRu || ''}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, messageRu: e.target.value }))}
+                          placeholder="Вы завершили урок!"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          minRows={2}
+                          size="small"
+                          label="Краткий итог урока (summaryRu)"
+                          value={blockDraft.summaryRu || ''}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, summaryRu: e.target.value }))}
+                          placeholder="Что изучено в этом уроке"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          minRows={2}
+                          size="small"
+                          label="Следующее действие (nextActionRu)"
+                          value={blockDraft.nextActionRu || ''}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, nextActionRu: e.target.value }))}
+                          placeholder="Теперь проверим, как вы усвоили материал"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Текст кнопки (nextActionButtonRu)"
+                          value={blockDraft.nextActionButtonRu || ''}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, nextActionButtonRu: e.target.value }))}
+                          placeholder="Перейти к мини-тесту"
+                        />
+                      </Grid>
+                    </>
                   ) : blockDraft.type === 'illustration' ? (
                     <>
                       <Grid item xs={12}>

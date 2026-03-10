@@ -126,6 +126,63 @@ export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
 }
 
 // ----------------------------------------------------------------------
+// Audio Multiple Choice Editor (multiple_choice + audio upload)
+// ----------------------------------------------------------------------
+
+export const AudioMultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
+    const content = value || {
+        question: { ru: '', kz: '', ar: '' },
+        options: [{ text: { ru: '', kz: '', ar: '' }, isCorrect: false }],
+        audioUrl: '',
+    }
+
+    return (
+        <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Аудио для вопроса (загрузите в медиа блока после сохранения)
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                Создайте блок, сохраните его, затем загрузите аудио через «Медиа файлы» ниже. Пользователь сначала прослушает аудио, затем выберет ответ.
+            </Typography>
+            <MultipleChoiceEditor value={content} onChange={onChange} />
+        </Box>
+    )
+}
+
+// ----------------------------------------------------------------------
+// Listen Repeat Editor
+// ----------------------------------------------------------------------
+
+export const ListenRepeatEditor = ({ value, onChange }: EditorProps) => {
+    const content = value || {
+        instructionRu: 'Слушай и повторяй',
+        audioUrl: '',
+    }
+
+    const updateInstruction = (text: string) => {
+        onChange({ ...content, instructionRu: text })
+    }
+
+    return (
+        <Box>
+            <TextField
+                fullWidth
+                label="Инструкция (RU)"
+                value={content.instructionRu || 'Слушай и повторяй'}
+                onChange={(e) => updateInstruction(e.target.value)}
+                multiline
+                rows={2}
+                sx={{ mb: 2 }}
+                placeholder="Слушай и повторяй"
+            />
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+                Загрузите аудио через «Медиа файлы» после сохранения блока.
+            </Typography>
+        </Box>
+    )
+}
+
+// ----------------------------------------------------------------------
 // Match Pairs Editor
 // ----------------------------------------------------------------------
 
@@ -139,10 +196,11 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
     const addPair = () => {
         const newContent = { ...content }
         if (!newContent.pairs) newContent.pairs = []
-        // Each pair has { left: {ru, kz, ar}, right: {ru, kz, ar} }
         newContent.pairs.push({
             left: { ru: '', kz: '', ar: '' },
-            right: { ru: '', kz: '', ar: '' }
+            right: { ru: '', kz: '', ar: '' },
+            leftImageUrl: '',
+            rightImageUrl: '',
         })
         onChange(newContent)
     }
@@ -152,6 +210,14 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
         if (!newContent.pairs[index]) return
         if (!newContent.pairs[index][side]) newContent.pairs[index][side] = {}
         newContent.pairs[index][side][lang] = text
+        onChange(newContent)
+    }
+
+    const updatePairImageUrl = (index: number, side: 'left' | 'right', url: string) => {
+        const newContent = { ...content }
+        if (!newContent.pairs[index]) return
+        const key = side === 'left' ? 'leftImageUrl' : 'rightImageUrl'
+        newContent.pairs[index][key] = url
         onChange(newContent)
     }
 
@@ -177,31 +243,51 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
             </Tabs>
 
             <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                Введите пары значений, которые нужно сопоставить
+                Введите пары значений. Опционально: URL изображения для левой или правой части.
             </Typography>
 
             {content.pairs?.map((pair: any, index: number) => (
-                <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label={`Левая часть ${index + 1}`}
-                        value={pair.left?.[currentLang] || ''}
-                        onChange={(e) => updatePair(index, 'left', e.target.value, currentLang)}
-                        inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
-                    />
-                    <Typography variant="h6">=</Typography>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label={`Правая часть ${index + 1}`}
-                        value={pair.right?.[currentLang] || ''}
-                        onChange={(e) => updatePair(index, 'right', e.target.value, currentLang)}
-                        inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
-                    />
-                    <IconButton onClick={() => removePair(index)} color="error">
-                        <Delete />
-                    </IconButton>
+                <Box key={index} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label={`Левая часть ${index + 1}`}
+                            value={pair.left?.[currentLang] || ''}
+                            onChange={(e) => updatePair(index, 'left', e.target.value, currentLang)}
+                            inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                        />
+                        <Typography variant="h6">=</Typography>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label={`Правая часть ${index + 1}`}
+                            value={pair.right?.[currentLang] || ''}
+                            onChange={(e) => updatePair(index, 'right', e.target.value, currentLang)}
+                            inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                        />
+                        <IconButton onClick={() => removePair(index)} color="error">
+                            <Delete />
+                        </IconButton>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        <TextField
+                            size="small"
+                            label="URL изображения (левая)"
+                            value={pair.leftImageUrl || ''}
+                            onChange={(e) => updatePairImageUrl(index, 'left', e.target.value)}
+                            placeholder="https://..."
+                            sx={{ flex: 1, minWidth: 150 }}
+                        />
+                        <TextField
+                            size="small"
+                            label="URL изображения (правая)"
+                            value={pair.rightImageUrl || ''}
+                            onChange={(e) => updatePairImageUrl(index, 'right', e.target.value)}
+                            placeholder="https://..."
+                            sx={{ flex: 1, minWidth: 150 }}
+                        />
+                    </Box>
                 </Box>
             ))}
 
