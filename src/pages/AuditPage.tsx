@@ -9,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -32,21 +33,28 @@ interface AuditLog {
 
 export default function AuditPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [resourceFilter, setResourceFilter] = useState<string>('')
-  const [limit, setLimit] = useState(50)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(50)
 
   useEffect(() => {
     fetchLogs()
-  }, [resourceFilter, limit])
+  }, [resourceFilter, page, rowsPerPage])
 
   const fetchLogs = async () => {
     setLoading(true)
     try {
-      const params: Record<string, string | number> = { limit }
+      const params: Record<string, string | number> = {
+        page: page + 1,
+        limit: rowsPerPage,
+      }
       if (resourceFilter) params.resource = resourceFilter
       const response = await getAuditLogs(params)
-      setLogs(Array.isArray(response.data) ? response.data : [])
+      const res = response.data as { data?: AuditLog[]; total?: number }
+      setLogs(res.data ?? [])
+      setTotal(res.total ?? 0)
     } catch (error) {
       console.error('Error fetching audit logs:', error)
       setLogs([])
@@ -80,7 +88,10 @@ export default function AuditPage() {
             <Select
               value={resourceFilter}
               label="Ресурс"
-              onChange={(e) => setResourceFilter(e.target.value)}
+              onChange={(e) => {
+                setResourceFilter(e.target.value)
+                setPage(0)
+              }}
             >
               <MenuItem value="">Все</MenuItem>
               <MenuItem value="courses">Курсы</MenuItem>
@@ -89,15 +100,6 @@ export default function AuditPage() {
               <MenuItem value="users">Пользователи</MenuItem>
               <MenuItem value="words">Слова</MenuItem>
               <MenuItem value="islam">Ислам</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 80 }}>
-            <InputLabel>Лимит</InputLabel>
-            <Select value={limit} label="Лимит" onChange={(e) => setLimit(Number(e.target.value))}>
-              <MenuItem value={25}>25</MenuItem>
-              <MenuItem value={50}>50</MenuItem>
-              <MenuItem value={100}>100</MenuItem>
-              <MenuItem value={200}>200</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -148,6 +150,19 @@ export default function AuditPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      <TablePagination
+        component="div"
+        count={total}
+        page={page}
+        onPageChange={(_, p) => setPage(p)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10))
+          setPage(0)
+        }}
+        rowsPerPageOptions={[25, 50, 100, 200]}
+        labelRowsPerPage="Строк на странице:"
+      />
     </Box>
   )
 }

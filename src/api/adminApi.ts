@@ -17,7 +17,8 @@ export const getDashboardStats = (params?: { days?: number }) =>
   apiClient.get('/admin/dashboard/stats', { params })
 
 // Users
-export const getUsers = () => apiClient.get('/admin/users')
+export const getUsers = (params?: { page?: number; limit?: number }) =>
+  apiClient.get('/admin/users', { params })
 export const getUserById = (id: string) => apiClient.get(`/admin/users/${id}`)
 
 export type UserRole = 'user' | 'content_manager' | 'support' | 'admin'
@@ -25,8 +26,13 @@ export const assignUserRole = (userId: string, role: UserRole) =>
   apiClient.patch(`/admin/users/${userId}/role`, { role })
 
 // Audit (Admin only)
-export const getAuditLogs = (params?: { limit?: number; resource?: string; resourceId?: string; userId?: string }) =>
-  apiClient.get('/admin/audit', { params })
+export const getAuditLogs = (params?: {
+  page?: number
+  limit?: number
+  resource?: string
+  resourceId?: string
+  userId?: string
+}) => apiClient.get('/admin/audit', { params })
 
 // User dashboard (admin)
 export const getUserLearningSummary = (userId: string) =>
@@ -185,7 +191,8 @@ export const uploadWordLetterAudio = (code: string, file: File) => {
 }
 
 // Words / Dictionary (backend-copy words module)
-export const getWordsDictionary = () => apiClient.get('/admin/words/dictionary')
+export const getWordsDictionary = (params?: { page?: number; limit?: number }) =>
+  apiClient.get('/admin/words/dictionary', { params })
 
 export const getWordsDictionaryEntry = (id: string) =>
   apiClient.get(`/admin/words/dictionary/${id}`)

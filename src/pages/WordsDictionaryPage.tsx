@@ -12,6 +12,7 @@ import {
   IconButton,
   LinearProgress,
   Stack,
+  TablePagination,
   TextField,
   Tooltip,
   Typography,
@@ -63,6 +64,9 @@ export default function WordsDictionaryPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [entries, setEntries] = useState<DictionaryEntry[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(50)
   const [editOpen, setEditOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DictionaryEntry | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DictionaryEntry | null>(null)
@@ -73,11 +77,12 @@ export default function WordsDictionaryPage() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await getWordsDictionary()
-      const list: DictionaryEntry[] = (data.entries || []).sort((a: DictionaryEntry, b: DictionaryEntry) =>
+      const { data } = await getWordsDictionary({ page: page + 1, limit: rowsPerPage })
+      const list: DictionaryEntry[] = (data.data || data.entries || []).sort((a: DictionaryEntry, b: DictionaryEntry) =>
         a.arabic.localeCompare(b.arabic),
       )
       setEntries(list)
+      setTotal(data.total ?? list.length)
     } catch (e: any) {
       const msg =
         e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка загрузки словаря'
@@ -89,7 +94,7 @@ export default function WordsDictionaryPage() {
 
   useEffect(() => {
     load()
-  }, [])
+  }, [page, rowsPerPage])
 
   const openCreateDialog = () => {
     setEditingEntry({
@@ -445,6 +450,21 @@ export default function WordsDictionaryPage() {
           )}
         </CardContent>
       </Card>
+      {total > rowsPerPage && (
+        <TablePagination
+          component="div"
+          count={total}
+          page={page}
+          onPageChange={(_, p) => setPage(p)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10))
+            setPage(0)
+          }}
+          rowsPerPageOptions={[25, 50, 100, 200]}
+          labelRowsPerPage="Строк на странице:"
+        />
+      )}
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md">
         <DialogTitle>{editingEntry?.id ? 'Редактирование слова' : 'Новое слово'}</DialogTitle>

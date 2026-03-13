@@ -10,6 +10,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   Button,
   CircularProgress,
   Chip,
@@ -36,18 +37,24 @@ interface User {
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(50)
   const navigate = useNavigate()
 
   useEffect(() => {
     fetchUsers()
-  }, [])
+  }, [page, rowsPerPage])
 
   const fetchUsers = async () => {
+    setLoading(true)
     try {
-      const response = await getUsers()
-      setUsers(response.data)
+      const response = await getUsers({ page: page + 1, limit: rowsPerPage })
+      const res = response.data as { data?: User[]; total?: number }
+      setUsers(res.data ?? [])
+      setTotal(res.total ?? 0)
     } catch (error) {
       console.error('Error fetching users:', error)
     } finally {
@@ -78,7 +85,7 @@ export default function UsersPage() {
             Пользователи
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            {users.length} зарегистрировано
+            {total} зарегистрировано
           </Typography>
         </Box>
         <TextField
@@ -197,6 +204,19 @@ export default function UsersPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      <TablePagination
+        component="div"
+        count={total}
+        page={page}
+        onPageChange={(_, p) => setPage(p)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={(e) => {
+          setRowsPerPage(parseInt(e.target.value, 10))
+          setPage(0)
+        }}
+        rowsPerPageOptions={[25, 50, 100, 200]}
+        labelRowsPerPage="Строк на странице:"
+      />
     </Box>
   )
 }
