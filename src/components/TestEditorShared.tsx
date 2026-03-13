@@ -39,10 +39,13 @@ import {
   MultipleChoiceConfigEditor,
   AudioMultipleChoiceConfigEditor,
   ImageWordMatchConfigEditor,
+  AudioChoiceConfigEditor,
+  FindLetterInWordConfigEditor,
+  ListenAndChooseWordConfigEditor,
   getConfigTemplate,
 } from './QuestionConfigEditors'
 
-type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'audio_multiple_choice' | 'image_word_match'
+type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'audio_multiple_choice' | 'image_word_match' | 'audio_choice' | 'find_letter_in_word' | 'listen_and_choose_word'
 
 const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'multiple_choice', label: 'Multiple choice' },
@@ -52,6 +55,9 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'manual_input', label: 'Manual input' },
   { value: 'audio_multiple_choice', label: 'Аудио + выбор' },
   { value: 'image_word_match', label: 'Картинка ↔ Слово' },
+  { value: 'audio_choice', label: 'Аудио → Буква (Махрадж)' },
+  { value: 'find_letter_in_word', label: 'Найди букву в слове' },
+  { value: 'listen_and_choose_word', label: 'Послушай → Слово' },
 ]
 
 export interface TestEditorSharedProps {
@@ -396,6 +402,9 @@ function QuestionCard({
     if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
+    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
+    if (type === 'find_letter_in_word') return <FindLetterInWordConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
+    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
     return <MultipleChoiceConfigEditor />
   }
 

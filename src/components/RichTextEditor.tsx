@@ -1,4 +1,4 @@
-import { Box, IconButton, Paper, Stack, Tooltip } from '@mui/material'
+import { Box, IconButton, MenuItem, Paper, Select, Stack, Tooltip } from '@mui/material'
 import {
   FormatBold,
   FormatItalic,
@@ -16,7 +16,28 @@ import {
   ZoomOutMap,
   ZoomInMap,
 } from '@mui/icons-material'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+
+const FONT_FAMILIES = [
+  { value: '', label: 'Шрифт' },
+  { value: 'NotoSansArabic', label: 'Noto Sans Arabic' },
+  { value: 'Amiri', label: 'Amiri' },
+  { value: 'Scheherazade New', label: 'Scheherazade' },
+  { value: 'Arial', label: 'Arial' },
+  { value: 'Georgia', label: 'Georgia' },
+]
+
+// execCommand fontSize uses 1–7; we map to human-readable px labels
+const FONT_SIZES = [
+  { value: '', label: 'Размер' },
+  { value: '1', label: '10px' },
+  { value: '2', label: '13px' },
+  { value: '3', label: '16px' },
+  { value: '4', label: '18px' },
+  { value: '5', label: '24px' },
+  { value: '6', label: '32px' },
+  { value: '7', label: '48px' },
+]
 
 interface RichTextEditorProps {
   value: string
@@ -41,11 +62,18 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const selectionRef = useRef<Range | null>(null)
+  const [currentFontFamily, setCurrentFontFamily] = useState('')
+  const [currentFontSize, setCurrentFontSize] = useState('')
 
   const rememberSelection = () => {
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return
     selectionRef.current = selection.getRangeAt(0)
+    // Read current font state at caret position
+    const fontName = document.queryCommandValue('fontName')
+    const fontSize = document.queryCommandValue('fontSize')
+    setCurrentFontFamily(fontName || '')
+    setCurrentFontSize(fontSize || '')
   }
 
   const restoreSelection = () => {
@@ -329,6 +357,58 @@ export default function RichTextEditor({
             <Clear fontSize="small" />
           </IconButton>
         </Tooltip>
+
+        {/* Font Family selector */}
+        <Select
+          size="small"
+          value={currentFontFamily}
+          displayEmpty
+          onMouseDown={rememberSelection}
+          onChange={(e) => {
+            const font = e.target.value as string
+            setCurrentFontFamily(font)
+            editorRef.current?.focus()
+            restoreSelection()
+            if (font) {
+              toolbarAction('styleWithCSS', 'true')
+              toolbarAction('fontName', font)
+            }
+            if (editorRef.current) onChange(editorRef.current.innerHTML)
+          }}
+          sx={{ height: 32, minWidth: 150, fontSize: 13 }}
+        >
+          {FONT_FAMILIES.map((f) => (
+            <MenuItem key={f.value} value={f.value} sx={{ fontSize: 13 }}>
+              {f.label}
+            </MenuItem>
+          ))}
+        </Select>
+
+        {/* Font Size selector */}
+        <Select
+          size="small"
+          value={currentFontSize}
+          displayEmpty
+          onMouseDown={rememberSelection}
+          onChange={(e) => {
+            const sz = e.target.value as string
+            setCurrentFontSize(sz)
+            editorRef.current?.focus()
+            restoreSelection()
+            if (sz) {
+              toolbarAction('styleWithCSS', 'true')
+              toolbarAction('fontSize', sz)
+            }
+            if (editorRef.current) onChange(editorRef.current.innerHTML)
+          }}
+          sx={{ height: 32, width: 90, fontSize: 13 }}
+        >
+          {FONT_SIZES.map((s) => (
+            <MenuItem key={s.value} value={s.value} sx={{ fontSize: 13 }}>
+              {s.label}
+            </MenuItem>
+          ))}
+        </Select>
       </Stack>
 
       <Box

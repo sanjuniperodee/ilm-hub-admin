@@ -66,12 +66,20 @@ import {
   ManualInputEditor,
   ListenRepeatEditor,
   ImageWordMatchEditor,
+  AudioChoiceEditor,
+  FindLetterInWordEditor,
+  ListenAndChooseWordEditor,
 } from '../components/ExerciseEditors'
 import {
   FillBlankConfigEditor,
   MatchPairsConfigEditor,
   ManualInputConfigEditor,
   MultipleChoiceConfigEditor,
+  AudioMultipleChoiceConfigEditor,
+  AudioChoiceConfigEditor,
+  FindLetterInWordConfigEditor,
+  ListenAndChooseWordConfigEditor,
+  ImageWordMatchConfigEditor,
   getConfigTemplate,
 } from '../components/QuestionConfigEditors'
 
@@ -89,6 +97,9 @@ type BlockType =
   | 'manual_input'
   | 'listen_repeat'
   | 'image_word_match'
+  | 'audio_choice'
+  | 'find_letter_in_word'
+  | 'listen_and_choose_word'
 type DetailTab = 'meta' | 'blocks' | 'test'
 type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
 
@@ -104,8 +115,11 @@ const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'match_pairs', label: 'Match Pairs' },
   { value: 'fill_blank', label: 'Fill Blank' },
   { value: 'manual_input', label: 'Manual Input' },
-  { value: 'listen_repeat', label: 'Listen Repeat' },
+  { value: 'listen_repeat', label: 'Послушай и повтори' },
   { value: 'image_word_match', label: 'Картинка ↔ Слово' },
+  { value: 'audio_choice', label: 'Аудио → Буква (Махрадж)' },
+  { value: 'find_letter_in_word', label: 'Найди букву в слове' },
+  { value: 'listen_and_choose_word', label: 'Послушай → Слово' },
 ]
 
 interface StudioBlock {
@@ -143,6 +157,17 @@ const EXERCISE_BLOCK_TYPES: BlockType[] = [
   'manual_input',
   'listen_repeat',
   'image_word_match',
+  'audio_choice',
+  'find_letter_in_word',
+  'listen_and_choose_word',
+]
+
+/** Block types that use the MediaUploader for audio files */
+const AUDIO_MEDIA_BLOCK_TYPES: BlockType[] = [
+  'audio_multiple_choice',
+  'listen_repeat',
+  'audio_choice',
+  'listen_and_choose_word',
 ]
 
 function buildExerciseConfigFromBlock(block: StudioBlock): any {
@@ -237,6 +262,35 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
       pairs: ru.pairs ?? [],
     }
   }
+  if (type === 'audio_choice') {
+    return {
+      instructionRu: ru.instructionRu ?? '',
+      audioUrl: ru.audioUrl ?? '',
+      options: (ru.options || []).map((opt: any) => ({
+        id: opt.id,
+        text: opt.text ?? '',
+        isCorrect: opt.isCorrect ?? false,
+      })),
+    }
+  }
+  if (type === 'find_letter_in_word') {
+    return {
+      instructionRu: ru.instructionRu ?? 'Найдите букву в слове',
+      word: ru.word ?? '',
+      targetLetter: ru.targetLetter ?? '',
+    }
+  }
+  if (type === 'listen_and_choose_word') {
+    return {
+      instructionRu: ru.instructionRu ?? '',
+      audioUrl: ru.audioUrl ?? '',
+      options: (ru.options || []).map((opt: any) => ({
+        id: opt.id,
+        text: opt.text ?? '',
+        isCorrect: opt.isCorrect ?? false,
+      })),
+    }
+  }
   return {}
 }
 
@@ -263,11 +317,15 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
             id: item.id,
             text: item.text?.[lang] ?? '',
             imageUrl: item.imageUrl ?? '',
+            itemType: item.itemType ?? 'text',
+            audioUrl: item.audioUrl ?? '',
           })),
           rightItems: (config.rightItems ?? []).map((item: any) => ({
             id: item.id,
             text: item.text?.[lang] ?? '',
             imageUrl: item.imageUrl ?? '',
+            itemType: item.itemType ?? 'text',
+            audioUrl: item.audioUrl ?? '',
           })),
           correctPairs: config.correctPairs ?? [],
         }
@@ -301,6 +359,35 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
       return {
         instruction: config.instruction,
         pairs: config.pairs,
+      }
+    }
+    if (type === 'audio_choice') {
+      return {
+        instructionRu: config.instructionRu,
+        audioUrl: config.audioUrl ?? '',
+        options: config.options?.map((o: any, i: number) => ({
+          id: o.id || `opt_${i + 1}`,
+          text: o.text ?? '',
+          isCorrect: o.isCorrect ?? false,
+        })),
+      }
+    }
+    if (type === 'find_letter_in_word') {
+      return {
+        instructionRu: config.instructionRu,
+        word: config.word ?? '',
+        targetLetter: config.targetLetter ?? '',
+      }
+    }
+    if (type === 'listen_and_choose_word') {
+      return {
+        instructionRu: config.instructionRu,
+        audioUrl: config.audioUrl ?? '',
+        options: config.options?.map((o: any, i: number) => ({
+          id: o.id || `opt_${i + 1}`,
+          text: o.text ?? '',
+          isCorrect: o.isCorrect ?? false,
+        })),
       }
     }
     return {}
@@ -1139,10 +1226,28 @@ export default function LessonEditorPage() {
                           mediaFiles={mediaFiles}
                         />
                       )}
-                      {(blockDraft.type === 'audio_multiple_choice' || blockDraft.type === 'listen_repeat' || blockDraft.type === 'image_word_match') && blockDraft.id ? (
+                      {blockDraft.type === 'audio_choice' && (
+                        <AudioChoiceEditor
+                          value={blockDraft.exerciseConfig}
+                          onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
+                        />
+                      )}
+                      {blockDraft.type === 'find_letter_in_word' && (
+                        <FindLetterInWordEditor
+                          value={blockDraft.exerciseConfig}
+                          onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
+                        />
+                      )}
+                      {blockDraft.type === 'listen_and_choose_word' && (
+                        <ListenAndChooseWordEditor
+                          value={blockDraft.exerciseConfig}
+                          onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
+                        />
+                      )}
+                      {(AUDIO_MEDIA_BLOCK_TYPES.includes(blockDraft.type) || blockDraft.type === 'image_word_match') && blockDraft.id ? (
                         <Box sx={{ mt: 2 }}>
                           <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                            {blockDraft.type === 'image_word_match' ? 'Изображения для пар' : 'Аудио'}
+                            {blockDraft.type === 'image_word_match' ? 'Изображения для пар' : 'Аудио файл'}
                           </Typography>
                           <MediaUploader
                             blockId={blockDraft.id}
@@ -1482,6 +1587,11 @@ function TestQuestionCard({
     if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
     if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
     if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
+    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
+    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
+    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
+    if (type === 'find_letter_in_word') return <FindLetterInWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
+    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
     return <MultipleChoiceConfigEditor />
   }
 
@@ -1500,11 +1610,16 @@ function TestQuestionCard({
                   setQ({ ...q, type: newType, config: getConfigTemplate(newType) })
                 }}
               >
-                <MenuItem value="multiple_choice">multiple_choice</MenuItem>
-                <MenuItem value="single_choice">single_choice</MenuItem>
-                <MenuItem value="fill_blank">fill_blank</MenuItem>
-                <MenuItem value="match_pairs">match_pairs</MenuItem>
-                <MenuItem value="manual_input">manual_input</MenuItem>
+                <MenuItem value="multiple_choice">Multiple choice</MenuItem>
+                <MenuItem value="single_choice">Single choice</MenuItem>
+                <MenuItem value="fill_blank">Fill blank</MenuItem>
+                <MenuItem value="match_pairs">Match pairs</MenuItem>
+                <MenuItem value="manual_input">Manual input</MenuItem>
+                <MenuItem value="audio_multiple_choice">Аудио + выбор</MenuItem>
+                <MenuItem value="image_word_match">Картинка ↔ Слово</MenuItem>
+                <MenuItem value="audio_choice">Аудио → Буква (Махрадж)</MenuItem>
+                <MenuItem value="find_letter_in_word">Найди букву в слове</MenuItem>
+                <MenuItem value="listen_and_choose_word">Послушай → Слово</MenuItem>
               </Select>
             </FormControl>
           </Grid>
