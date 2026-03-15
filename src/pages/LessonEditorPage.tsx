@@ -605,7 +605,12 @@ export default function LessonEditorPage() {
       nextActionRu: isLessonComplete ? (block.contentRu?.nextActionRu as string) || '' : undefined,
       nextActionButtonRu: isLessonComplete ? (block.contentRu?.nextActionButtonRu as string) || '' : undefined,
     })
-    if (block.type === 'illustration' || block.type === 'audio_multiple_choice' || block.type === 'listen_repeat') {
+    if (
+      block.type === 'illustration' ||
+      block.type === 'audio_multiple_choice' ||
+      block.type === 'listen_repeat' ||
+      block.type === 'image_word_match'
+    ) {
       void loadBlockMedia(block.id)
     } else {
       setMediaFiles([])
