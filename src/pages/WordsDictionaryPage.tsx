@@ -140,6 +140,20 @@ export default function WordsDictionaryPage() {
       if (!id) {
         await createWordsDictionaryEntry(payload)
       } else {
+        // Auto-save all examples before updating the entry
+        if (editingEntry.examples?.length) {
+          await Promise.all(
+            editingEntry.examples
+              .filter((ex) => ex.id)
+              .map((ex) =>
+                updateWordsDictionaryExample(ex.id, {
+                  arabicSentence: ex.arabicSentence,
+                  translationRu: ex.translationRu,
+                  orderIndex: ex.orderIndex,
+                }),
+              ),
+          )
+        }
         await updateWordsDictionaryEntry(id, payload)
       }
       setEditOpen(false)
