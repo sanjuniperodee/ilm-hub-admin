@@ -23,6 +23,7 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Menu,
 } from '@mui/material'
 import {
   ArrowBack,
@@ -425,6 +426,7 @@ export default function LessonEditorPage() {
   const [lessonTest, setLessonTest] = useState<any | null>(null)
   const [newTestTitle, setNewTestTitle] = useState('')
   const [newTestPassing, setNewTestPassing] = useState(70)
+  const [addQuestionMenuAnchor, setAddQuestionMenuAnchor] = useState<null | HTMLElement>(null)
 
   const [blockDraft, setBlockDraft] = useState<{
     id?: string
@@ -1529,13 +1531,40 @@ export default function LessonEditorPage() {
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                       Вопросы и ответы
                     </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {(['multiple_choice', 'single_choice', 'fill_blank', 'match_pairs', 'manual_input'] as QuestionType[]).map((t) => (
-                        <Button key={t} size="small" variant="outlined" onClick={() => addQuestion(t)}>
-                          + {t}
-                        </Button>
-                      ))}
-                    </Stack>
+                    <>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={(e) => setAddQuestionMenuAnchor(e.currentTarget)}
+                      >
+                        + Добавить вопрос
+                      </Button>
+                      <Menu
+                        anchorEl={addQuestionMenuAnchor}
+                        open={Boolean(addQuestionMenuAnchor)}
+                        onClose={() => setAddQuestionMenuAnchor(null)}
+                      >
+                        {(
+                          [
+                            { type: 'multiple_choice', label: 'Несколько вариантов (multiple choice)' },
+                            { type: 'single_choice', label: 'Один вариант (single choice)' },
+                            { type: 'fill_blank', label: 'Заполни пропуск (fill blank)' },
+                            { type: 'match_pairs', label: 'Сопоставь пары (match pairs)' },
+                            { type: 'manual_input', label: 'Ввод вручную (manual input)' },
+                          ] as { type: QuestionType; label: string }[]
+                        ).map(({ type, label }) => (
+                          <MenuItem
+                            key={type}
+                            onClick={() => {
+                              setAddQuestionMenuAnchor(null)
+                              void addQuestion(type)
+                            }}
+                          >
+                            {label}
+                          </MenuItem>
+                        ))}
+                      </Menu>
+                    </>
                   </Stack>
                   <Stack spacing={2}>
                     {(lessonTest.questions || []).map((q: any) => (
