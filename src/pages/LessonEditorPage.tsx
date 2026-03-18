@@ -1123,28 +1123,28 @@ export default function LessonEditorPage() {
                         borderColor: draggingBlockId === b.id ? 'primary.main' : 'divider',
                       }}
                     >
-                      <CardContent sx={{ py: 1.2 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }} noWrap>
                               #{b.orderIndex} • {b.type}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary" noWrap>
                               {b.type === 'illustration'
                                 ? ((b.contentRu?.arabicWord as string) || (b.contentRu?.translation as string) || 'Без заголовка')
                                 : ((b.contentRu?.title as string) || (b.contentRu?.question as string) || 'Без заголовка')}
                             </Typography>
                           </Box>
-                          <Stack direction="row" spacing={0.5}>
-                            <Button size="small" onClick={() => setPreviewBlock(b)} startIcon={<VisibilityOutlined />}>
-                              Просмотр
-                            </Button>
-                            <Button size="small" onClick={() => editBlock(b)} startIcon={<EditOutlined />}>
-                              Изменить
-                            </Button>
-                            <Button size="small" color="error" onClick={() => removeBlock(b.id)} startIcon={<DeleteOutline />}>
-                              Удалить
-                            </Button>
+                          <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
+                            <IconButton size="small" onClick={() => setPreviewBlock(b)} title="Просмотр">
+                              <VisibilityOutlined fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => editBlock(b)} title="Изменить">
+                              <EditOutlined fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => removeBlock(b.id)} title="Удалить">
+                              <DeleteOutline fontSize="small" />
+                            </IconButton>
                           </Stack>
                         </Stack>
                       </CardContent>
