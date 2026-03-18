@@ -147,7 +147,7 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
             </Box>
 
             {/* Scrollable content */}
-            <Box sx={{ flex: 1, overflow: 'auto', p: `${S.m}px` }}>
+            <Box sx={{ flex: 1, overflow: 'auto', p: `${S.m}px`, minHeight: 0 }}>
               {block.type === 'theory' && <TheoryPreview c={cr} />}
               {block.type === 'illustration' && <IllustrationPreview c={cr} />}
               {block.type === 'audio' && <AudioBlockPreview c={cr} />}
