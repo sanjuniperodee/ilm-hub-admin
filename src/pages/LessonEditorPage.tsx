@@ -31,6 +31,7 @@ import {
   EditOutlined,
   ExpandMore,
   SaveOutlined,
+  VisibilityOutlined,
 } from '@mui/icons-material'
 import {
   createLessonBlock,
@@ -83,6 +84,7 @@ import {
   ImageWordMatchConfigEditor,
   getConfigTemplate,
 } from '../components/QuestionConfigEditors'
+import MobilePreview from '../components/MobilePreview'
 
 type BlockType =
   | 'theory'
@@ -427,6 +429,7 @@ export default function LessonEditorPage() {
   const [newTestTitle, setNewTestTitle] = useState('')
   const [newTestPassing, setNewTestPassing] = useState(70)
   const [addQuestionMenuAnchor, setAddQuestionMenuAnchor] = useState<null | HTMLElement>(null)
+  const [previewBlock, setPreviewBlock] = useState<StudioBlock | null>(null)
 
   const [blockDraft, setBlockDraft] = useState<{
     id?: string
@@ -1133,6 +1136,9 @@ export default function LessonEditorPage() {
                             </Typography>
                           </Box>
                           <Stack direction="row" spacing={0.5}>
+                            <Button size="small" onClick={() => setPreviewBlock(b)} startIcon={<VisibilityOutlined />}>
+                              Просмотр
+                            </Button>
                             <Button size="small" onClick={() => editBlock(b)} startIcon={<EditOutlined />}>
                               Изменить
                             </Button>
@@ -1585,6 +1591,12 @@ export default function LessonEditorPage() {
           )}
         </Box>
       )}
+
+      <MobilePreview
+        open={!!previewBlock}
+        onClose={() => setPreviewBlock(null)}
+        block={previewBlock}
+      />
     </Box>
   )
 }

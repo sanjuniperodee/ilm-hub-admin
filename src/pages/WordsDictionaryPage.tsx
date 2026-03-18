@@ -201,8 +201,8 @@ export default function WordsDictionaryPage() {
     const orderIndex = editingEntry.examples?.length || 0
     try {
       const { data } = await createWordsDictionaryExample(editingEntry.id, {
-        arabicSentence: '',
-        translationRu: '',
+        arabicSentence: 'مثال',
+        translationRu: 'Новый пример',
         orderIndex,
       })
       setEditingEntry((prev) =>
@@ -491,15 +491,6 @@ export default function WordsDictionaryPage() {
                 value={editingEntry.translationRu}
                 onChange={(e) => handleEntryFieldChange('translationRu', e.target.value)}
               />
-              <TextField
-                fullWidth
-                label="Заметка"
-                value={editingEntry.noteRu || ''}
-                onChange={(e) => handleEntryFieldChange('noteRu', e.target.value)}
-                multiline
-                minRows={2}
-              />
-
               {editingEntry.id && (
                 <Button
                   component="label"

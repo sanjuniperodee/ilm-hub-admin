@@ -19,12 +19,13 @@ import {
 import { useEffect, useRef, useState } from 'react'
 
 const FONT_FAMILIES = [
-  { value: '', label: 'Шрифт' },
-  { value: 'NotoSansArabic', label: 'Noto Sans Arabic' },
-  { value: 'Amiri', label: 'Amiri' },
-  { value: 'Scheherazade New', label: 'Scheherazade' },
-  { value: 'Arial', label: 'Arial' },
-  { value: 'Georgia', label: 'Georgia' },
+  { value: '', label: 'Шрифт', family: '', weight: '' },
+  { value: 'inter-400', label: 'Inter Regular', family: 'Inter', weight: '400' },
+  { value: 'inter-500', label: 'Inter Medium', family: 'Inter', weight: '500' },
+  { value: 'inter-600', label: 'Inter Semibold', family: 'Inter', weight: '600' },
+  { value: 'noto-400', label: 'Noto Sans Arabic', family: 'Noto Sans Arabic', weight: '400' },
+  { value: 'noto-500', label: 'Noto Sans Medium', family: 'Noto Sans Arabic', weight: '500' },
+  { value: 'noto-600', label: 'Noto Sans Regular', family: 'Noto Sans Arabic', weight: '600' },
 ]
 
 // execCommand fontSize uses 1–7; we map to human-readable px labels
@@ -365,20 +366,32 @@ export default function RichTextEditor({
           displayEmpty
           onMouseDown={rememberSelection}
           onChange={(e) => {
-            const font = e.target.value as string
-            setCurrentFontFamily(font)
+            const val = e.target.value as string
+            setCurrentFontFamily(val)
             editorRef.current?.focus()
             restoreSelection()
-            if (font) {
+            const entry = FONT_FAMILIES.find((f) => f.value === val)
+            if (entry && entry.family) {
               toolbarAction('styleWithCSS', 'true')
-              toolbarAction('fontName', font)
+              toolbarAction('fontName', entry.family)
+              // Apply font-weight on spans created by fontName command
+              const container = editorRef.current
+              if (container) {
+                const spans = container.querySelectorAll('span[style*="font-family"]')
+                spans.forEach((span: Element) => {
+                  const htmlSpan = span as HTMLElement
+                  if (htmlSpan.style.fontFamily.includes(entry.family)) {
+                    htmlSpan.style.fontWeight = entry.weight
+                  }
+                })
+              }
             }
             if (editorRef.current) onChange(editorRef.current.innerHTML)
           }}
-          sx={{ height: 32, minWidth: 150, fontSize: 13 }}
+          sx={{ height: 32, minWidth: 170, fontSize: 13 }}
         >
           {FONT_FAMILIES.map((f) => (
-            <MenuItem key={f.value} value={f.value} sx={{ fontSize: 13 }}>
+            <MenuItem key={f.value} value={f.value} sx={{ fontSize: 13, fontFamily: f.family || undefined, fontWeight: f.weight ? Number(f.weight) : undefined }}>
               {f.label}
             </MenuItem>
           ))}
