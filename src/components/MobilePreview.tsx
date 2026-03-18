@@ -68,7 +68,7 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
   const model = PHONE_MODELS.find((m) => m.id === modelId) || PHONE_MODELS[1]
 
   // Scale phone to fit dialog (max visible height ~80vh)
-  const maxFrameH = 700
+  const maxFrameH = 600
   const scale = model.h > maxFrameH ? maxFrameH / model.h : 1
   const isTablet = model.w > 500
 
@@ -126,16 +126,22 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
           overflow: 'hidden',
           boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
         }}>
-          {/* Single scaled container — all content inside uses real device pixels */}
+          {/* Wrapper: exact scaled size so transform fits; clips scaled content correctly */}
           <Box sx={{
-            width: model.w,
-            height: model.h,
-            transform: scale < 1 ? `scale(${scale})` : undefined,
-            transformOrigin: 'top left',
-            bgcolor: C.bg,
-            display: 'flex',
-            flexDirection: 'column',
+            width: model.w * scale,
+            height: model.h * scale,
+            overflow: 'hidden',
           }}>
+            {/* Single scaled container — all content inside uses real device pixels */}
+            <Box sx={{
+              width: model.w,
+              height: model.h,
+              transform: scale < 1 ? `scale(${scale})` : undefined,
+              transformOrigin: 'top left',
+              bgcolor: C.bg,
+              display: 'flex',
+              flexDirection: 'column',
+            }}>
             {/* Notch / status bar */}
             <Box sx={{
               height: 44, bgcolor: C.bg,
@@ -168,6 +174,7 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
             {/* Bottom button — inside the same scaled container, always at bottom */}
             <Box sx={{ p: `${S.m}px`, pt: 0, flexShrink: 0 }}>
               <MobileButton label="Продолжить" />
+            </Box>
             </Box>
           </Box>
         </Box>
