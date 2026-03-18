@@ -1,5 +1,18 @@
-import { Box, Dialog, DialogContent, IconButton, Typography } from '@mui/material'
-import { Close, PlayCircleFilled, VolumeUp, MusicOff, MenuBook, Star, TrendingUp } from '@mui/icons-material'
+import { useState } from 'react'
+import { Box, Dialog, DialogContent, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Close, PlayCircleFilled, VolumeUp, MusicOff, MenuBook, Star, TrendingUp, PhoneIphone, TabletMac } from '@mui/icons-material'
+
+/* ─── Phone models ─── */
+const PHONE_MODELS = [
+  { id: 'iphone-se', label: 'iPhone SE', w: 320, h: 568, radius: 30 },
+  { id: 'iphone-14', label: 'iPhone 14', w: 390, h: 844, radius: 44 },
+  { id: 'iphone-15-pro-max', label: 'iPhone 15 Pro Max', w: 430, h: 932, radius: 50 },
+  { id: 'pixel-7', label: 'Pixel 7', w: 412, h: 915, radius: 36 },
+  { id: 'samsung-s24', label: 'Samsung S24', w: 360, h: 780, radius: 34 },
+  { id: 'ipad-mini', label: 'iPad Mini', w: 744, h: 1133, radius: 24 },
+] as const
+
+type PhoneModelId = typeof PHONE_MODELS[number]['id']
 
 /* ─── Design tokens (matching mobile IlmColors / IlmTypography / IlmSpacing) ─── */
 const C = {
@@ -49,14 +62,27 @@ const BLOCK_LABELS: Record<string, string> = {
 
 /* ─── Main Component ─── */
 export default function MobilePreview({ open, onClose, block }: MobilePreviewProps) {
+  const [modelId, setModelId] = useState<PhoneModelId>('iphone-14')
   if (!block) return null
   const cr = block.contentRu || {}
+  const model = PHONE_MODELS.find((m) => m.id === modelId) || PHONE_MODELS[1]
+
+  // Scale phone to fit dialog (max visible height ~80vh)
+  const maxFrameH = 700
+  const scale = model.h > maxFrameH ? maxFrameH / model.h : 1
+  const isTablet = model.w > 500
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { bgcolor: '#f5f5f5', borderRadius: 3 } }}>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3, pt: 2 }}>
-        {/* Header */}
-        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth={isTablet ? 'md' : 'sm'}
+      fullWidth
+      PaperProps={{ sx: { bgcolor: '#f5f5f5', borderRadius: 3, maxHeight: '95vh' } }}
+    >
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3, pt: 2, overflow: 'auto' }}>
+        {/* Header row */}
+        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
           <Typography sx={{ ...font(14, 600), color: C.textSecondary }}>
             {BLOCK_LABELS[block.type] || block.type}
           </Typography>
@@ -65,47 +91,97 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
           </IconButton>
         </Box>
 
+        {/* Phone model selector */}
+        <ToggleButtonGroup
+          value={modelId}
+          exclusive
+          onChange={(_, v) => { if (v) setModelId(v as PhoneModelId) }}
+          size="small"
+          sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'center' }}
+        >
+          {PHONE_MODELS.map((m) => (
+            <ToggleButton
+              key={m.id}
+              value={m.id}
+              sx={{ textTransform: 'none', fontSize: 11, px: 1.5, py: 0.5, gap: 0.5 }}
+            >
+              {m.w > 500 ? <TabletMac sx={{ fontSize: 14 }} /> : <PhoneIphone sx={{ fontSize: 14 }} />}
+              {m.label}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+
+        {/* Device size label */}
+        <Typography sx={{ ...font(11, 400), color: C.textDisabled, mb: 1 }}>
+          {model.w} × {model.h}pt
+          {scale < 1 && ` (масштаб ${Math.round(scale * 100)}%)`}
+        </Typography>
+
         {/* Phone frame */}
         <Box sx={{
-          width: 375, minHeight: 667, maxHeight: 740,
-          border: '10px solid #1a1a1a',
-          borderRadius: '40px',
+          width: model.w * scale,
+          height: model.h * scale,
+          border: `${Math.round(10 * scale)}px solid #1a1a1a`,
+          borderRadius: `${model.radius * scale}px`,
           overflow: 'hidden',
           bgcolor: C.bg,
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          transformOrigin: 'top center',
         }}>
           {/* Notch / status bar */}
           <Box sx={{
-            height: 44, bgcolor: C.bg,
+            height: 44 * scale, bgcolor: C.bg,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             borderBottom: '1px solid rgba(0,0,0,0.04)',
+            flexShrink: 0,
           }}>
-            <Box sx={{ width: 80, height: 24, bgcolor: '#1a1a1a', borderRadius: 12 }} />
+            <Box sx={{ width: 80 * scale, height: 24 * scale, bgcolor: '#1a1a1a', borderRadius: `${12 * scale}px` }} />
           </Box>
 
-          {/* Scrollable content */}
-          <Box sx={{ flex: 1, overflow: 'auto', p: `${S.m}px` }}>
-            {block.type === 'theory' && <TheoryPreview c={cr} />}
-            {block.type === 'illustration' && <IllustrationPreview c={cr} />}
-            {block.type === 'audio' && <AudioBlockPreview c={cr} />}
-            {block.type === 'video' && <VideoBlockPreview c={cr} />}
-            {block.type === 'lesson_complete' && <LessonCompletePreview c={cr} />}
-            {(block.type === 'multiple_choice' || block.type === 'single_choice') && <MultipleChoicePreview c={cr} type={block.type} />}
-            {block.type === 'audio_multiple_choice' && <AudioMultipleChoicePreview c={cr} />}
-            {block.type === 'match_pairs' && <MatchPairsPreview c={cr} />}
-            {block.type === 'fill_blank' && <FillBlankPreview c={cr} />}
-            {block.type === 'manual_input' && <ManualInputPreview c={cr} />}
-            {block.type === 'listen_repeat' && <ListenRepeatPreview c={cr} />}
-            {block.type === 'image_word_match' && <ImageWordMatchPreview c={cr} />}
-            {block.type === 'audio_choice' && <AudioChoicePreview c={cr} />}
-            {block.type === 'find_letter_in_word' && <FindLetterPreview c={cr} />}
-            {block.type === 'listen_and_choose_word' && <ListenAndChooseWordPreview c={cr} />}
+          {/* Scrollable content — inner content uses real device px via transform */}
+          <Box sx={{
+            flex: 1,
+            overflow: 'hidden',
+            position: 'relative',
+          }}>
+            <Box sx={{
+              width: model.w,
+              height: model.h - 44 - 68, // minus statusbar and bottom button area
+              transform: scale < 1 ? `scale(${scale})` : undefined,
+              transformOrigin: 'top left',
+              overflow: 'auto',
+              p: `${S.m}px`,
+            }}>
+              {block.type === 'theory' && <TheoryPreview c={cr} />}
+              {block.type === 'illustration' && <IllustrationPreview c={cr} />}
+              {block.type === 'audio' && <AudioBlockPreview c={cr} />}
+              {block.type === 'video' && <VideoBlockPreview c={cr} />}
+              {block.type === 'lesson_complete' && <LessonCompletePreview c={cr} />}
+              {(block.type === 'multiple_choice' || block.type === 'single_choice') && <MultipleChoicePreview c={cr} type={block.type} />}
+              {block.type === 'audio_multiple_choice' && <AudioMultipleChoicePreview c={cr} />}
+              {block.type === 'match_pairs' && <MatchPairsPreview c={cr} />}
+              {block.type === 'fill_blank' && <FillBlankPreview c={cr} />}
+              {block.type === 'manual_input' && <ManualInputPreview c={cr} />}
+              {block.type === 'listen_repeat' && <ListenRepeatPreview c={cr} />}
+              {block.type === 'image_word_match' && <ImageWordMatchPreview c={cr} />}
+              {block.type === 'audio_choice' && <AudioChoicePreview c={cr} />}
+              {block.type === 'find_letter_in_word' && <FindLetterPreview c={cr} />}
+              {block.type === 'listen_and_choose_word' && <ListenAndChooseWordPreview c={cr} />}
+            </Box>
           </Box>
 
           {/* Bottom button */}
-          <Box sx={{ p: `${S.m}px`, pt: 0 }}>
+          <Box sx={{
+            p: `${S.m * scale}px`,
+            pt: 0,
+            flexShrink: 0,
+            transform: scale < 1 ? `scale(${scale})` : undefined,
+            transformOrigin: 'bottom center',
+            width: scale < 1 ? model.w : undefined,
+            mx: 'auto',
+          }}>
             <MobileButton label="Продолжить" />
           </Box>
         </Box>
