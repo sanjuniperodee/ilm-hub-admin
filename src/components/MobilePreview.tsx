@@ -117,43 +117,37 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
           {scale < 1 && ` (масштаб ${Math.round(scale * 100)}%)`}
         </Typography>
 
-        {/* Phone frame */}
+        {/* Phone frame — outer border at scaled size, inner content at real device px */}
         <Box sx={{
-          width: model.w * scale,
-          height: model.h * scale,
+          width: model.w * scale + Math.round(10 * scale) * 2,
+          height: model.h * scale + Math.round(10 * scale) * 2,
           border: `${Math.round(10 * scale)}px solid #1a1a1a`,
           borderRadius: `${model.radius * scale}px`,
           overflow: 'hidden',
-          bgcolor: C.bg,
-          display: 'flex',
-          flexDirection: 'column',
           boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-          transformOrigin: 'top center',
         }}>
-          {/* Notch / status bar */}
+          {/* Single scaled container — all content inside uses real device pixels */}
           <Box sx={{
-            height: 44 * scale, bgcolor: C.bg,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderBottom: '1px solid rgba(0,0,0,0.04)',
-            flexShrink: 0,
+            width: model.w,
+            height: model.h,
+            transform: scale < 1 ? `scale(${scale})` : undefined,
+            transformOrigin: 'top left',
+            bgcolor: C.bg,
+            display: 'flex',
+            flexDirection: 'column',
           }}>
-            <Box sx={{ width: 80 * scale, height: 24 * scale, bgcolor: '#1a1a1a', borderRadius: `${12 * scale}px` }} />
-          </Box>
-
-          {/* Scrollable content — inner content uses real device px via transform */}
-          <Box sx={{
-            flex: 1,
-            overflow: 'hidden',
-            position: 'relative',
-          }}>
+            {/* Notch / status bar */}
             <Box sx={{
-              width: model.w,
-              height: model.h - 44 - 68, // minus statusbar and bottom button area
-              transform: scale < 1 ? `scale(${scale})` : undefined,
-              transformOrigin: 'top left',
-              overflow: 'auto',
-              p: `${S.m}px`,
+              height: 44, bgcolor: C.bg,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderBottom: '1px solid rgba(0,0,0,0.04)',
+              flexShrink: 0,
             }}>
+              <Box sx={{ width: 80, height: 24, bgcolor: '#1a1a1a', borderRadius: '12px' }} />
+            </Box>
+
+            {/* Scrollable content */}
+            <Box sx={{ flex: 1, overflow: 'auto', p: `${S.m}px` }}>
               {block.type === 'theory' && <TheoryPreview c={cr} />}
               {block.type === 'illustration' && <IllustrationPreview c={cr} />}
               {block.type === 'audio' && <AudioBlockPreview c={cr} />}
@@ -170,19 +164,11 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
               {block.type === 'find_letter_in_word' && <FindLetterPreview c={cr} />}
               {block.type === 'listen_and_choose_word' && <ListenAndChooseWordPreview c={cr} />}
             </Box>
-          </Box>
 
-          {/* Bottom button */}
-          <Box sx={{
-            p: `${S.m * scale}px`,
-            pt: 0,
-            flexShrink: 0,
-            transform: scale < 1 ? `scale(${scale})` : undefined,
-            transformOrigin: 'bottom center',
-            width: scale < 1 ? model.w : undefined,
-            mx: 'auto',
-          }}>
-            <MobileButton label="Продолжить" />
+            {/* Bottom button — inside the same scaled container, always at bottom */}
+            <Box sx={{ p: `${S.m}px`, pt: 0, flexShrink: 0 }}>
+              <MobileButton label="Продолжить" />
+            </Box>
           </Box>
         </Box>
       </DialogContent>
