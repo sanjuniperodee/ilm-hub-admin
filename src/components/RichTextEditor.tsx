@@ -15,11 +15,17 @@ import {
   DeleteOutline,
   ZoomOutMap,
   ZoomInMap,
+  TableChart,
+  LooksOne,
 } from '@mui/icons-material'
 import { useEffect, useRef, useState } from 'react'
 
 const FONT_FAMILIES = [
   { value: '', label: 'Шрифт', family: '', weight: '' },
+  { value: 'montserrat-400', label: 'Montserrat Regular (400)', family: 'Montserrat', weight: '400' },
+  { value: 'montserrat-500', label: 'Montserrat Medium (500)', family: 'Montserrat', weight: '500' },
+  { value: 'gilroy-300', label: 'Gilroy Light', family: 'Gilroy', weight: '300' },
+  { value: 'gilroy-400', label: 'Gilroy Regular', family: 'Gilroy', weight: '400' },
   { value: 'inter-400', label: 'Inter Regular', family: 'Inter', weight: '400' },
   { value: 'inter-500', label: 'Inter Medium', family: 'Inter', weight: '500' },
   { value: 'inter-600', label: 'Inter Semibold', family: 'Inter', weight: '600' },
@@ -99,6 +105,48 @@ export default function RichTextEditor({
     const url = window.prompt(title)
     if (!url || !url.trim()) return null
     return url.trim()
+  }
+
+  const insertTable = () => {
+    const rowsInput = window.prompt('Количество строк', '3')
+    const colsInput = window.prompt('Количество столбцов', '3')
+    const rows = Math.max(1, Math.min(20, Number(rowsInput || 0)))
+    const cols = Math.max(1, Math.min(10, Number(colsInput || 0)))
+    if (!rows || !cols) return
+
+    const header = Array.from({ length: cols })
+      .map((_, idx) => `<th style="border:1px solid #d8d8d8;padding:8px;text-align:left;">Колонка ${idx + 1}</th>`)
+      .join('')
+
+    const body = Array.from({ length: rows })
+      .map(
+        () =>
+          `<tr>${Array.from({ length: cols })
+            .map(() => '<td style="border:1px solid #d8d8d8;padding:8px;">&nbsp;</td>')
+            .join('')}</tr>`,
+      )
+      .join('')
+
+    insertHtmlAtCursor(
+      `<table style="width:100%;border-collapse:collapse;margin:8px 0;"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table><p></p>`,
+    )
+  }
+
+  const insertNumberedTable = () => {
+    const rowsInput = window.prompt('Количество нумерованных строк', '4')
+    const rows = Math.max(1, Math.min(30, Number(rowsInput || 0)))
+    if (!rows) return
+
+    const body = Array.from({ length: rows })
+      .map(
+        (_, idx) =>
+          `<tr><td style="width:56px;border:1px solid #d8d8d8;padding:8px;text-align:center;">${idx + 1}.</td><td style="border:1px solid #d8d8d8;padding:8px;">&nbsp;</td></tr>`,
+      )
+      .join('')
+
+    insertHtmlAtCursor(
+      `<table style="width:100%;border-collapse:collapse;margin:8px 0;"><thead><tr><th style="width:56px;border:1px solid #d8d8d8;padding:8px;text-align:center;">№</th><th style="border:1px solid #d8d8d8;padding:8px;text-align:left;">Текст</th></tr></thead><tbody>${body}</tbody></table><p></p>`,
+    )
   }
 
   const pickAndUpload = (accept: string) => {
@@ -290,7 +338,7 @@ export default function RichTextEditor({
               if (onUploadFile) {
                 pickAndUpload('audio/*')
               } else {
-                const url = askForUrl('Вставьте URL аудио (mp3/ogg и т.д.)')
+                const url = askForUrl('Вставьте URL аудио (mp3/ogg/m4a и т.д.)')
                 if (!url) return
                 insertHtmlAtCursor(
                   `<audio controls preload="metadata" style="width:100%;vertical-align:middle;"><source src="${url}" /></audio>`,
@@ -318,6 +366,24 @@ export default function RichTextEditor({
             }}
           >
             <VideoLibrary fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Вставить таблицу">
+          <IconButton
+            size="small"
+            onMouseDown={rememberSelection}
+            onClick={insertTable}
+          >
+            <TableChart fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Вставить нумерованную таблицу">
+          <IconButton
+            size="small"
+            onMouseDown={rememberSelection}
+            onClick={insertNumberedTable}
+          >
+            <LooksOne fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Уменьшить выбранное медиа">
