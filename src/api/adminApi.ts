@@ -363,8 +363,22 @@ export const importIslamEveryAyah = (data: {
   concurrency?: number
 }) => apiClient.post('/admin/islam/quran/import-everyayah', data)
 
+export const syncQuranAudioAll = (data?: {
+  overwrite?: boolean
+  fromSurah?: number
+  toSurah?: number
+  concurrency?: number
+}) => apiClient.post('/admin/islam/quran/sync-audio-all', data || {})
+
 export const getIslamEveryAyahImportStatus = (jobId: string) =>
   apiClient.get(`/admin/islam/quran/import-status/${jobId}`)
+
+export const syncQuranText = (data?: {
+  overwrite?: boolean
+}) => apiClient.post('/admin/islam/quran/sync-text', data || {})
+
+export const getQuranSyncStatus = (jobId: string) =>
+  apiClient.get(`/admin/islam/quran/sync-status/${jobId}`)
 
 export const getIslamQuranCoverage = (reciter?: string) =>
   apiClient.get('/admin/islam/quran/coverage', { params: reciter ? { reciter } : undefined })

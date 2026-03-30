@@ -1,13 +1,16 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
   Card,
   Checkbox,
   Chip,
-  Collapse,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,8 +24,6 @@ import {
   Select,
   Stack,
   Switch,
-  Tab,
-  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -34,23 +35,23 @@ import {
 } from '@mui/material'
 import { Add, Delete, Edit, ExpandLess, ExpandMore, Refresh, Search } from '@mui/icons-material'
 import {
-  getIslamSurahs,
-  createIslamSurah,
-  updateIslamSurah,
-  deleteIslamSurah,
-  getIslamSurahAyahs,
   createIslamAyah,
-  updateIslamAyah,
-  deleteIslamAyah,
-  getIslamQuranReciters,
   createIslamQuranReciter,
-  updateIslamQuranReciter,
+  createIslamSurah,
+  deleteIslamAyah,
+  deleteIslamSurah,
   getIslamEveryAyahReciters,
-  importIslamRecitersFromEveryAyah,
-  importIslamEveryAyah,
-  importIslamTanzilText,
-  getIslamEveryAyahImportStatus,
   getIslamQuranCoverage,
+  getIslamQuranReciters,
+  getIslamSurahAyahs,
+  getIslamSurahs,
+  getQuranSyncStatus,
+  importIslamRecitersFromEveryAyah,
+  syncQuranAudioAll,
+  syncQuranText,
+  updateIslamAyah,
+  updateIslamQuranReciter,
+  updateIslamSurah,
 } from '../api/adminApi'
 
 interface SurahItem {
@@ -108,24 +109,20 @@ export default function IslamQuranPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
   const [surahs, setSurahs] = useState<SurahItem[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [ayahsMap, setAyahsMap] = useState<Record<string, AyahItem[]>>({})
 
-  const [surahDialogOpen, setSurahDialogOpen] = useState(false)
-  const [editingSurah, setEditingSurah] = useState<SurahItem | null>(null)
-  const [surahForm, setSurahForm] = useState({
-    number: 0, nameAr: '', nameRu: '', nameKz: '', transliteration: '',
-    revelationType: 'meccan' as 'meccan' | 'medinan', ayahCount: 0, juzNumber: 1, pageNumber: 0,
-  })
-
-  const [ayahDialogOpen, setAyahDialogOpen] = useState(false)
-  const [editingAyah, setEditingAyah] = useState<AyahItem | null>(null)
-  const [ayahForm, setAyahForm] = useState({ number: 0, textAr: '', translationRu: '', translationKz: '' })
-  const [currentSurahId, setCurrentSurahId] = useState('')
   const [reciters, setReciters] = useState<ReciterItem[]>([])
   const [everyAyahReciters, setEveryAyahReciters] = useState<EveryAyahReciterItem[]>([])
   const [selectedEveryAyahSlugs, setSelectedEveryAyahSlugs] = useState<string[]>([])
+  const [everyAyahSearch, setEveryAyahSearch] = useState('')
+  const [showOnlyNotAdded, setShowOnlyNotAdded] = useState(true)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+
+  const [coverage, setCoverage] = useState<CoverageItem[]>([])
+
   const [reciterForm, setReciterForm] = useState({
     slug: '',
     displayName: '',
@@ -133,48 +130,65 @@ export default function IslamQuranPage() {
     bitrate: '64kbps',
     sortOrder: 0,
   })
-  const [importForm, setImportForm] = useState({
-    reciterSlug: '',
-    fromSurah: 1,
-    toSurah: 114,
-    overwrite: false,
-    concurrency: 4,
-  })
-  const [importJobId, setImportJobId] = useState('')
-  const [importStatus, setImportStatus] = useState<any | null>(null)
-  const [coverage, setCoverage] = useState<CoverageItem[]>([])
-  const [tanzilUrl, setTanzilUrl] = useState('')
-  const [tanzilOverwrite, setTanzilOverwrite] = useState(false)
-  const [everyAyahSearch, setEveryAyahSearch] = useState('')
-  const [showOnlyNotAdded, setShowOnlyNotAdded] = useState(true)
-  const [activeTab, setActiveTab] = useState(0)
 
-  const filteredEveryAyahReciters = everyAyahReciters.filter((item) => {
-    if (showOnlyNotAdded && item.exists) return false
-    if (!everyAyahSearch.trim()) return true
-    const q = everyAyahSearch.trim().toLowerCase()
-    return item.slug.toLowerCase().includes(q) || item.displayName.toLowerCase().includes(q)
+  const [surahDialogOpen, setSurahDialogOpen] = useState(false)
+  const [editingSurah, setEditingSurah] = useState<SurahItem | null>(null)
+  const [surahForm, setSurahForm] = useState({
+    number: 0,
+    nameAr: '',
+    nameRu: '',
+    nameKz: '',
+    transliteration: '',
+    revelationType: 'meccan' as 'meccan' | 'medinan',
+    ayahCount: 0,
+    juzNumber: 1,
+    pageNumber: 0,
   })
-  const coverageReadyCount = coverage.filter((item) => item.percent >= 100).length
+
+  const [ayahDialogOpen, setAyahDialogOpen] = useState(false)
+  const [editingAyah, setEditingAyah] = useState<AyahItem | null>(null)
+  const [ayahForm, setAyahForm] = useState({
+    number: 0,
+    textAr: '',
+    translationRu: '',
+    translationKz: '',
+  })
+  const [currentSurahId, setCurrentSurahId] = useState('')
+
+  const [monitorOpen, setMonitorOpen] = useState(false)
+  const [syncJobId, setSyncJobId] = useState('')
+  const [syncStatus, setSyncStatus] = useState<any | null>(null)
+
+  const filteredEveryAyahReciters = useMemo(() => {
+    return everyAyahReciters.filter((item) => {
+      if (showOnlyNotAdded && item.exists) return false
+      if (!everyAyahSearch.trim()) return true
+      const q = everyAyahSearch.trim().toLowerCase()
+      return item.slug.toLowerCase().includes(q) || item.displayName.toLowerCase().includes(q)
+    })
+  }, [everyAyahReciters, showOnlyNotAdded, everyAyahSearch])
+
+  const coverageReadyCount = useMemo(
+    () => coverage.filter((item) => item.percent >= 100).length,
+    [coverage],
+  )
 
   const load = async () => {
     setLoading(true)
     setError('')
     try {
-      const { data } = await getIslamSurahs()
-      setSurahs(data.surahs || [])
-      const reciterRes = await getIslamQuranReciters()
-      const recitersData = reciterRes.data.reciters || []
-      setReciters(recitersData)
-      const everyAyahRes = await getIslamEveryAyahReciters()
+      const [surahsRes, recitersRes, everyAyahRes, coverageRes] = await Promise.all([
+        getIslamSurahs(),
+        getIslamQuranReciters(),
+        getIslamEveryAyahReciters(),
+        getIslamQuranCoverage(),
+      ])
+      setSurahs(surahsRes.data.surahs || [])
+      setReciters(recitersRes.data.reciters || [])
       setEveryAyahReciters(everyAyahRes.data.reciters || [])
-      if (!importForm.reciterSlug && recitersData.length > 0) {
-        setImportForm((prev) => ({ ...prev, reciterSlug: recitersData[0].slug }))
-      }
-      const coverageRes = await getIslamQuranCoverage(importForm.reciterSlug || undefined)
       setCoverage(coverageRes.data.coverage || [])
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to load surahs')
+      setError(e?.response?.data?.message || 'Failed to load Quran data')
     } finally {
       setLoading(false)
     }
@@ -183,28 +197,21 @@ export default function IslamQuranPage() {
   useEffect(() => { load() }, [])
 
   useEffect(() => {
-    if (!importJobId) return
+    if (!syncJobId) return
     const timer = setInterval(async () => {
       try {
-        const { data } = await getIslamEveryAyahImportStatus(importJobId)
-        setImportStatus(data)
+        const { data } = await getQuranSyncStatus(syncJobId)
+        setSyncStatus(data)
         if (data.status === 'completed' || data.status === 'failed') {
           clearInterval(timer)
           load()
         }
-      } catch (e) {
+      } catch {
         clearInterval(timer)
       }
-    }, 3000)
+    }, 2500)
     return () => clearInterval(timer)
-  }, [importJobId])
-
-  useEffect(() => {
-    if (!importForm.reciterSlug) return
-    getIslamQuranCoverage(importForm.reciterSlug)
-      .then(({ data }) => setCoverage(data.coverage || []))
-      .catch(() => {})
-  }, [importForm.reciterSlug])
+  }, [syncJobId])
 
   const toggleExpand = async (id: string) => {
     if (expandedId === id) {
@@ -224,13 +231,33 @@ export default function IslamQuranPage() {
 
   const openCreateSurah = () => {
     setEditingSurah(null)
-    setSurahForm({ number: surahs.length + 1, nameAr: '', nameRu: '', nameKz: '', transliteration: '', revelationType: 'meccan', ayahCount: 0, juzNumber: 1, pageNumber: 0 })
+    setSurahForm({
+      number: surahs.length + 1,
+      nameAr: '',
+      nameRu: '',
+      nameKz: '',
+      transliteration: '',
+      revelationType: 'meccan',
+      ayahCount: 0,
+      juzNumber: 1,
+      pageNumber: 0,
+    })
     setSurahDialogOpen(true)
   }
 
   const openEditSurah = (s: SurahItem) => {
     setEditingSurah(s)
-    setSurahForm({ number: s.number, nameAr: s.nameAr, nameRu: s.nameRu, nameKz: s.nameKz || '', transliteration: s.transliteration, revelationType: s.revelationType, ayahCount: s.ayahCount, juzNumber: s.juzNumber, pageNumber: s.pageNumber || 0 })
+    setSurahForm({
+      number: s.number,
+      nameAr: s.nameAr,
+      nameRu: s.nameRu,
+      nameKz: s.nameKz || '',
+      transliteration: s.transliteration,
+      revelationType: s.revelationType,
+      ayahCount: s.ayahCount,
+      juzNumber: s.juzNumber,
+      pageNumber: s.pageNumber || 0,
+    })
     setSurahDialogOpen(true)
   }
 
@@ -245,7 +272,7 @@ export default function IslamQuranPage() {
         setSuccess('Сура создана')
       }
       setSurahDialogOpen(false)
-      load()
+      await load()
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Save failed')
     }
@@ -256,7 +283,7 @@ export default function IslamQuranPage() {
     try {
       await deleteIslamSurah(id)
       setSuccess('Сура деактивирована')
-      load()
+      await load()
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Delete failed')
     }
@@ -318,6 +345,58 @@ export default function IslamQuranPage() {
     }
   }
 
+  const handleSyncAudioAll = async () => {
+    try {
+      const { data } = await syncQuranAudioAll({ overwrite: false, concurrency: 4, fromSurah: 1, toSurah: 114 })
+      setSyncJobId(data.jobId)
+      setSyncStatus(data)
+      setMonitorOpen(true)
+      setSuccess(`Синхронизация аудио запущена: ${data.jobId}`)
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Не удалось запустить синхронизацию аудио')
+    }
+  }
+
+  const handleSyncText = async () => {
+    try {
+      const { data } = await syncQuranText({ overwrite: false })
+      setSyncJobId(data.jobId)
+      setSyncStatus(data)
+      setMonitorOpen(true)
+      setSuccess(`Синхронизация текста запущена: ${data.jobId}`)
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Не удалось запустить синхронизацию текста')
+    }
+  }
+
+  const handleImportSelectedEveryAyahReciters = async () => {
+    if (selectedEveryAyahSlugs.length === 0) return
+    try {
+      const { data } = await importIslamRecitersFromEveryAyah({
+        slugs: selectedEveryAyahSlugs,
+        activate: true,
+        overwriteMetadata: true,
+      })
+      setSuccess(`Импорт рецитаторов: created ${data.created}, updated ${data.updated}`)
+      setSelectedEveryAyahSlugs([])
+      await load()
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Не удалось импортировать рецитаторов')
+    }
+  }
+
+  const handleToggleReciterActive = async (reciter: ReciterItem) => {
+    try {
+      await updateIslamQuranReciter(reciter.id, { isActive: !reciter.isActive })
+      setReciters((prev) =>
+        prev.map((r) => (r.id === reciter.id ? { ...r, isActive: !r.isActive } : r)),
+      )
+      setSuccess('Статус рецитатора обновлён')
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Ошибка обновления рецитатора')
+    }
+  }
+
   const handleCreateReciter = async () => {
     try {
       await createIslamQuranReciter({
@@ -336,96 +415,20 @@ export default function IslamQuranPage() {
     }
   }
 
-  const handleImportSelectedEveryAyahReciters = async () => {
-    if (selectedEveryAyahSlugs.length === 0) return
-    try {
-      const { data } = await importIslamRecitersFromEveryAyah({
-        slugs: selectedEveryAyahSlugs,
-        activate: true,
-        overwriteMetadata: true,
-      })
-      setSuccess(
-        `Импортировано из EveryAyah: created ${data.created}, updated ${data.updated}, skipped ${data.skipped}, notFound ${data.notFound}`,
-      )
-      setSelectedEveryAyahSlugs([])
-      await load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Не удалось импортировать рецитаторов из EveryAyah')
-    }
-  }
-
-  const handleSelectAllFilteredReciters = () => {
-    setSelectedEveryAyahSlugs(filteredEveryAyahReciters.map((r) => r.slug))
-  }
-
-  const handleToggleReciterActive = async (reciter: ReciterItem) => {
-    try {
-      await updateIslamQuranReciter(reciter.id, { isActive: !reciter.isActive })
-      setReciters((prev) =>
-        prev.map((r) => (r.id === reciter.id ? { ...r, isActive: !r.isActive } : r)),
-      )
-      setSuccess('Статус рецитатора обновлён')
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Ошибка обновления рецитатора')
-    }
-  }
-
-  const handleRunImport = async () => {
-    try {
-      const { data } = await importIslamEveryAyah({
-        reciterSlug: importForm.reciterSlug,
-        fromSurah: importForm.fromSurah,
-        toSurah: importForm.toSurah,
-        overwrite: importForm.overwrite,
-        concurrency: importForm.concurrency,
-      })
-      setImportJobId(data.jobId)
-      setImportStatus({
-        id: data.jobId,
-        status: data.status,
-        processed: 0,
-        success: 0,
-        skipped: 0,
-        failed: 0,
-        errors: [],
-      })
-      setSuccess(`Импорт запущен (jobId: ${data.jobId})`)
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Не удалось запустить импорт')
-    }
-  }
-
-  const handleImportTanzilText = async () => {
-    try {
-      const { data } = await importIslamTanzilText({
-        downloadUrl: tanzilUrl.trim(),
-        overwrite: tanzilOverwrite,
-      })
-      setSuccess(
-        `Tanzil import: processed ${data.processed}, updated ${data.updated}, created ${data.created}, skipped ${data.skipped}, failed ${data.failed}`,
-      )
-      await load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Ошибка импорта текста Tanzil')
-    }
-  }
-
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
           <Typography variant="h4">Коран</Typography>
-          <Typography variant="subtitle1">
-            Операционные инструменты импорта и управления контентом Корана
-          </Typography>
+          <Typography variant="subtitle1">Суры и one-click синхронизация контента</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button startIcon={<Refresh />} onClick={load} disabled={loading}>Обновить</Button>
-          {activeTab === 3 && (
-            <Button variant="contained" startIcon={<Add />} onClick={openCreateSurah}>
-              Добавить суру
-            </Button>
-          )}
+          <Button startIcon={<Refresh />} onClick={load} disabled={loading}>
+            Обновить
+          </Button>
+          <Button variant="contained" startIcon={<Add />} onClick={openCreateSurah}>
+            Добавить суру
+          </Button>
         </Stack>
       </Stack>
 
@@ -439,52 +442,49 @@ export default function IslamQuranPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      <Card sx={{ mb: 2 }}>
-        <Tabs
-          value={activeTab}
-          onChange={(_, value) => setActiveTab(value)}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab label={`Рецитаторы (${reciters.length})`} />
-          <Tab label="Импорт аудио" />
-          <Tab label="Импорт текста" />
-          <Tab label={`Суры (${surahs.length})`} />
-        </Tabs>
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'stretch', md: 'center' }}>
+          <Button variant="contained" onClick={handleSyncAudioAll}>
+            Синхронизировать аяты (аудио)
+          </Button>
+          <Button variant="contained" color="secondary" onClick={handleSyncText}>
+            Синхронизировать текст
+          </Button>
+          <Button variant="outlined" onClick={() => setMonitorOpen(true)}>
+            Мониторинг статуса
+          </Button>
+          <Box sx={{ flex: 1 }} />
+          <Chip label={`Сур: ${surahs.length}`} />
+          <Chip label={`Рецитаторов: ${reciters.length}`} />
+          <Chip label={`Покрытие 100%: ${coverageReadyCount}/${coverage.length}`} color="success" variant="outlined" />
+        </Stack>
       </Card>
 
-      {activeTab === 0 && (
-        <Card sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" mb={1}>Рецитаторы</Typography>
+      <Accordion expanded={advancedOpen} onChange={(_, expanded) => setAdvancedOpen(expanded)} sx={{ mb: 2 }}>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography fontWeight={600}>Расширенные настройки (опционально)</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
           <Typography variant="body2" color="text.secondary" mb={1.5}>
-            Импортируйте рецитаторов из live-каталога EveryAyah или добавьте вручную.
+            Для ручного контроля рецитаторов. Основной флоу работает без этого.
           </Typography>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={1}>
             <OutlinedInput
               size="small"
               value={everyAyahSearch}
               onChange={(e) => setEveryAyahSearch(e.target.value)}
-              placeholder="Поиск по имени или slug"
-              startAdornment={
-                <InputAdornment position="start">
-                  <Search fontSize="small" />
-                </InputAdornment>
-              }
-              sx={{ minWidth: 280 }}
+              placeholder="Поиск в каталоге EveryAyah"
+              startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
+              sx={{ minWidth: 260 }}
             />
             <FormControlLabel
-              control={
-                <Switch
-                  checked={showOnlyNotAdded}
-                  onChange={(e) => setShowOnlyNotAdded(e.target.checked)}
-                />
-              }
+              control={<Switch checked={showOnlyNotAdded} onChange={(e) => setShowOnlyNotAdded(e.target.checked)} />}
               label="Только не добавленные"
             />
-            <Button variant="text" onClick={handleSelectAllFilteredReciters} disabled={filteredEveryAyahReciters.length === 0}>
+            <Button variant="text" onClick={() => setSelectedEveryAyahSlugs(filteredEveryAyahReciters.map((r) => r.slug))}>
               Выбрать все
             </Button>
-            <Button variant="text" onClick={() => setSelectedEveryAyahSlugs([])} disabled={selectedEveryAyahSlugs.length === 0}>
+            <Button variant="text" onClick={() => setSelectedEveryAyahSlugs([])}>
               Очистить
             </Button>
           </Stack>
@@ -493,218 +493,43 @@ export default function IslamQuranPage() {
               multiple
               size="small"
               value={selectedEveryAyahSlugs}
-              onChange={(e) =>
-                setSelectedEveryAyahSlugs(
-                  typeof e.target.value === 'string'
-                    ? e.target.value.split(',')
-                    : (e.target.value as string[]),
-                )
-              }
-              sx={{ minWidth: 280 }}
+              onChange={(e) => setSelectedEveryAyahSlugs(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
+              sx={{ minWidth: 260 }}
               displayEmpty
-              renderValue={(selected) =>
-                Array.isArray(selected) && selected.length > 0
-                  ? `Выбрано: ${selected.length} из ${filteredEveryAyahReciters.length}`
-                  : 'Выберите рецитаторов из EveryAyah'
-              }
+              renderValue={(selected) => (Array.isArray(selected) && selected.length > 0 ? `Выбрано: ${selected.length}` : 'Выберите рецитаторов')}
             >
               {filteredEveryAyahReciters.map((item) => (
                 <MenuItem key={item.slug} value={item.slug}>
                   <Checkbox checked={selectedEveryAyahSlugs.includes(item.slug)} size="small" />
-                  <ListItemText
-                    primary={`${item.displayName} (${item.slug})`}
-                    secondary={item.exists ? 'Уже добавлен' : item.bitrate || undefined}
-                  />
+                  <ListItemText primary={`${item.displayName} (${item.slug})`} secondary={item.exists ? 'Уже добавлен' : item.bitrate || undefined} />
                 </MenuItem>
               ))}
             </Select>
-            <Button
-              variant="outlined"
-              onClick={handleImportSelectedEveryAyahReciters}
-              disabled={selectedEveryAyahSlugs.length === 0}
-            >
+            <Button variant="outlined" onClick={handleImportSelectedEveryAyahReciters} disabled={selectedEveryAyahSlugs.length === 0}>
               Импортировать выбранные
             </Button>
-            <Button
-              variant="contained"
-              onClick={load}
-            >
-              Обновить каталог EveryAyah
-            </Button>
           </Stack>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={2}>
-            <TextField
-              label="Slug"
-              size="small"
-              value={reciterForm.slug}
-              onChange={(e) => setReciterForm({ ...reciterForm, slug: e.target.value })}
-            />
-            <TextField
-              label="Название"
-              size="small"
-              value={reciterForm.displayName}
-              onChange={(e) => setReciterForm({ ...reciterForm, displayName: e.target.value })}
-            />
-            <TextField
-              label="Источник"
-              size="small"
-              value={reciterForm.source}
-              onChange={(e) => setReciterForm({ ...reciterForm, source: e.target.value })}
-            />
-            <TextField
-              label="Bitrate"
-              size="small"
-              value={reciterForm.bitrate}
-              onChange={(e) => setReciterForm({ ...reciterForm, bitrate: e.target.value })}
-            />
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
+            <TextField size="small" label="Slug" value={reciterForm.slug} onChange={(e) => setReciterForm({ ...reciterForm, slug: e.target.value })} />
+            <TextField size="small" label="Название" value={reciterForm.displayName} onChange={(e) => setReciterForm({ ...reciterForm, displayName: e.target.value })} />
+            <TextField size="small" label="Источник" value={reciterForm.source} onChange={(e) => setReciterForm({ ...reciterForm, source: e.target.value })} />
+            <TextField size="small" label="Bitrate" value={reciterForm.bitrate} onChange={(e) => setReciterForm({ ...reciterForm, bitrate: e.target.value })} />
             <Button variant="contained" onClick={handleCreateReciter}>Добавить</Button>
           </Stack>
-          <Stack spacing={1}>
+          <Stack spacing={1} mt={2}>
             {reciters.map((reciter) => (
-              <Stack
-                key={reciter.id}
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                justifyContent="space-between"
-                sx={{ border: '1px solid #eee', borderRadius: 1, px: 1.5, py: 1 }}
-              >
+              <Stack key={reciter.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ border: '1px solid #eee', borderRadius: 1, px: 1.5, py: 1 }}>
                 <Typography>{reciter.displayName} ({reciter.slug})</Typography>
                 <FormControlLabel
-                  control={
-                    <Switch
-                      checked={reciter.isActive}
-                      onChange={() => handleToggleReciterActive(reciter)}
-                    />
-                  }
+                  control={<Switch checked={reciter.isActive} onChange={() => handleToggleReciterActive(reciter)} />}
                   label={reciter.isActive ? 'Активен' : 'Отключен'}
                 />
               </Stack>
             ))}
-            {reciters.length === 0 && (
-              <Typography color="text.secondary">Рецитаторы ещё не добавлены</Typography>
-            )}
           </Stack>
-        </Card>
-      )}
+        </AccordionDetails>
+      </Accordion>
 
-      {activeTab === 1 && (
-        <Card sx={{ p: 2 }}>
-          <Typography variant="h6" mb={1}>Bulk import EveryAyah</Typography>
-          <Typography variant="body2" color="text.secondary" mb={1.5}>
-            Запускайте импорт аудио аятов по выбранному рецитатору и диапазону сур.
-          </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center" mb={1}>
-            <Select
-              size="small"
-              value={importForm.reciterSlug}
-              onChange={(e) => setImportForm({ ...importForm, reciterSlug: String(e.target.value) })}
-              sx={{ minWidth: 220 }}
-            >
-              {reciters.map((r) => (
-                <MenuItem key={r.id} value={r.slug}>{r.displayName} ({r.slug})</MenuItem>
-              ))}
-            </Select>
-            <TextField
-              label="Сура от"
-              size="small"
-              type="number"
-              value={importForm.fromSurah}
-              onChange={(e) => setImportForm({ ...importForm, fromSurah: Number(e.target.value) })}
-            />
-            <TextField
-              label="Сура до"
-              size="small"
-              type="number"
-              value={importForm.toSurah}
-              onChange={(e) => setImportForm({ ...importForm, toSurah: Number(e.target.value) })}
-            />
-            <TextField
-              label="Concurrency"
-              size="small"
-              type="number"
-              value={importForm.concurrency}
-              onChange={(e) => setImportForm({ ...importForm, concurrency: Number(e.target.value) })}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={importForm.overwrite}
-                  onChange={(e) => setImportForm({ ...importForm, overwrite: e.target.checked })}
-                />
-              }
-              label="Overwrite"
-            />
-            <Button
-              variant="contained"
-              onClick={handleRunImport}
-              disabled={!importForm.reciterSlug}
-            >
-              Запустить импорт
-            </Button>
-          </Stack>
-
-          {importStatus && (
-            <Alert severity={importStatus.status === 'failed' ? 'error' : 'info'} sx={{ mb: 1 }}>
-              status: {importStatus.status}, processed: {importStatus.processed}, success: {importStatus.success},
-              skipped: {importStatus.skipped}, failed: {importStatus.failed}
-            </Alert>
-          )}
-
-          <Typography variant="subtitle2" mb={0.5}>
-            Покрытие по сурам (текущий рецитатор)
-          </Typography>
-          <Typography variant="caption" color="text.secondary" display="block" mb={1}>
-            Полностью покрыто: {coverageReadyCount} из {coverage.length} сур
-          </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {coverage.slice(0, 30).map((item) => (
-              <Chip
-                key={item.surahId}
-                label={`${item.surahNumber}. ${item.surahNameRu}: ${item.percent}%`}
-                color={item.percent >= 100 ? 'success' : item.percent > 0 ? 'warning' : 'default'}
-                variant={item.percent >= 100 ? 'filled' : 'outlined'}
-              />
-            ))}
-          </Stack>
-        </Card>
-      )}
-
-      {activeTab === 2 && (
-        <Card sx={{ p: 2 }}>
-          <Typography variant="h6" mb={1}>Импорт текста из Tanzil</Typography>
-          <Typography variant="body2" color="text.secondary" mb={1.5}>
-            Загрузите текст аятов по прямой ссылке на формат "Text (with aya numbers)".
-          </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">
-            <TextField
-              fullWidth
-              size="small"
-              label="Direct download URL (Text with aya numbers)"
-              value={tanzilUrl}
-              onChange={(e) => setTanzilUrl(e.target.value)}
-              placeholder="https://..."
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={tanzilOverwrite}
-                  onChange={(e) => setTanzilOverwrite(e.target.checked)}
-                />
-              }
-              label="Overwrite textAr"
-            />
-            <Button variant="contained" onClick={handleImportTanzilText} disabled={!tanzilUrl.trim()}>
-              Импортировать текст
-            </Button>
-          </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-            Используйте прямую ссылку на формат Tanzil "Text (with aya numbers)".
-          </Typography>
-        </Card>
-      )}
-
-      {activeTab === 3 && (
       <Card>
         <TableContainer>
           <Table>
@@ -807,9 +632,58 @@ export default function IslamQuranPage() {
           </Table>
         </TableContainer>
       </Card>
-      )}
 
-      {/* Surah Dialog */}
+      <Dialog open={monitorOpen} onClose={() => setMonitorOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Мониторинг синхронизации</DialogTitle>
+        <DialogContent>
+          {!syncStatus && (
+            <Typography color="text.secondary">Пока нет активной синхронизации.</Typography>
+          )}
+          {syncStatus && (
+            <Stack spacing={1.5}>
+              <Typography><strong>Job ID:</strong> {syncStatus.id || syncJobId}</Typography>
+              <Typography><strong>Тип:</strong> {syncStatus.type || syncStatus.mode || '-'}</Typography>
+              <Typography><strong>Статус:</strong> {syncStatus.status}</Typography>
+              {typeof syncStatus.processed === 'number' && (
+                <Typography>
+                  <strong>Прогресс:</strong> processed {syncStatus.processed}, success {syncStatus.success}, skipped {syncStatus.skipped}, failed {syncStatus.failed}
+                </Typography>
+              )}
+              {Array.isArray(syncStatus.reciters) && (
+                <Box>
+                  <Typography fontWeight={600} mb={1}>Прогресс по рецитаторам</Typography>
+                  <Stack spacing={1}>
+                    {syncStatus.reciters.slice(0, 20).map((r: any) => (
+                      <Stack key={r.reciterId || r.reciterSlug} direction="row" justifyContent="space-between">
+                        <Typography>{r.reciterDisplayName || r.reciterSlug}</Typography>
+                        <Typography color="text.secondary">
+                          {r.status}: {r.success}/{r.processed} (fail {r.failed})
+                        </Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+              {Array.isArray(syncStatus.errors) && syncStatus.errors.length > 0 && (
+                <Box>
+                  <Typography fontWeight={600} mb={1}>Последние ошибки</Typography>
+                  <Stack spacing={0.5}>
+                    {syncStatus.errors.slice(0, 20).map((e: any, idx: number) => (
+                      <Typography key={idx} variant="body2" color="error">
+                        {e.surahNumber ? `${e.surahNumber}:${e.ayahNumber} ` : ''}{e.message || e.reason}
+                      </Typography>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMonitorOpen(false)}>Закрыть</Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={surahDialogOpen} onClose={() => setSurahDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingSurah ? 'Редактировать суру' : 'Новая сура'}</DialogTitle>
         <DialogContent>
@@ -834,7 +708,6 @@ export default function IslamQuranPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Ayah Dialog */}
       <Dialog open={ayahDialogOpen} onClose={() => setAyahDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingAyah ? 'Редактировать аят' : 'Новый аят'}</DialogTitle>
         <DialogContent>
