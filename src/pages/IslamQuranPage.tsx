@@ -21,6 +21,8 @@ import {
   Select,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -145,6 +147,7 @@ export default function IslamQuranPage() {
   const [tanzilOverwrite, setTanzilOverwrite] = useState(false)
   const [everyAyahSearch, setEveryAyahSearch] = useState('')
   const [showOnlyNotAdded, setShowOnlyNotAdded] = useState(true)
+  const [activeTab, setActiveTab] = useState(0)
 
   const filteredEveryAyahReciters = everyAyahReciters.filter((item) => {
     if (showOnlyNotAdded && item.exists) return false
@@ -152,6 +155,7 @@ export default function IslamQuranPage() {
     const q = everyAyahSearch.trim().toLowerCase()
     return item.slug.toLowerCase().includes(q) || item.displayName.toLowerCase().includes(q)
   })
+  const coverageReadyCount = coverage.filter((item) => item.percent >= 100).length
 
   const load = async () => {
     setLoading(true)
@@ -411,11 +415,17 @@ export default function IslamQuranPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
           <Typography variant="h4">Коран</Typography>
-          <Typography variant="subtitle1">Управление сурами и аятами</Typography>
+          <Typography variant="subtitle1">
+            Операционные инструменты импорта и управления контентом Корана
+          </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Button startIcon={<Refresh />} onClick={load} disabled={loading}>Обновить</Button>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreateSurah}>Добавить суру</Button>
+          {activeTab === 3 && (
+            <Button variant="contained" startIcon={<Add />} onClick={openCreateSurah}>
+              Добавить суру
+            </Button>
+          )}
         </Stack>
       </Stack>
 
@@ -429,8 +439,22 @@ export default function IslamQuranPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      <Stack spacing={2} mb={2}>
-        <Card sx={{ p: 2 }}>
+      <Card sx={{ mb: 2 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, value) => setActiveTab(value)}
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab label={`Рецитаторы (${reciters.length})`} />
+          <Tab label="Импорт аудио" />
+          <Tab label="Импорт текста" />
+          <Tab label={`Суры (${surahs.length})`} />
+        </Tabs>
+      </Card>
+
+      {activeTab === 0 && (
+        <Card sx={{ p: 2, mb: 2 }}>
           <Typography variant="h6" mb={1}>Рецитаторы</Typography>
           <Typography variant="body2" color="text.secondary" mb={1.5}>
             Импортируйте рецитаторов из live-каталога EveryAyah или добавьте вручную.
@@ -562,9 +586,14 @@ export default function IslamQuranPage() {
             )}
           </Stack>
         </Card>
+      )}
 
+      {activeTab === 1 && (
         <Card sx={{ p: 2 }}>
           <Typography variant="h6" mb={1}>Bulk import EveryAyah</Typography>
+          <Typography variant="body2" color="text.secondary" mb={1.5}>
+            Запускайте импорт аудио аятов по выбранному рецитатору и диапазону сур.
+          </Typography>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center" mb={1}>
             <Select
               size="small"
@@ -622,7 +651,12 @@ export default function IslamQuranPage() {
             </Alert>
           )}
 
-          <Typography variant="subtitle2" mb={1}>Покрытие по сурам (текущий рецитатор)</Typography>
+          <Typography variant="subtitle2" mb={0.5}>
+            Покрытие по сурам (текущий рецитатор)
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+            Полностью покрыто: {coverageReadyCount} из {coverage.length} сур
+          </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {coverage.slice(0, 30).map((item) => (
               <Chip
@@ -634,9 +668,14 @@ export default function IslamQuranPage() {
             ))}
           </Stack>
         </Card>
+      )}
 
+      {activeTab === 2 && (
         <Card sx={{ p: 2 }}>
           <Typography variant="h6" mb={1}>Импорт текста из Tanzil</Typography>
+          <Typography variant="body2" color="text.secondary" mb={1.5}>
+            Загрузите текст аятов по прямой ссылке на формат "Text (with aya numbers)".
+          </Typography>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">
             <TextField
               fullWidth
@@ -663,8 +702,9 @@ export default function IslamQuranPage() {
             Используйте прямую ссылку на формат Tanzil "Text (with aya numbers)".
           </Typography>
         </Card>
-      </Stack>
+      )}
 
+      {activeTab === 3 && (
       <Card>
         <TableContainer>
           <Table>
@@ -767,6 +807,7 @@ export default function IslamQuranPage() {
           </Table>
         </TableContainer>
       </Card>
+      )}
 
       {/* Surah Dialog */}
       <Dialog open={surahDialogOpen} onClose={() => setSurahDialogOpen(false)} maxWidth="sm" fullWidth>
