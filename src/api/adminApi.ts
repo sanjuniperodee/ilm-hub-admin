@@ -326,6 +326,9 @@ export const deleteIslamAyah = (id: string) =>
 export const getIslamQuranReciters = () =>
   apiClient.get('/admin/islam/quran/reciters')
 
+export const getIslamEveryAyahReciters = () =>
+  apiClient.get('/admin/islam/quran/everyayah-reciters')
+
 export const createIslamQuranReciter = (data: {
   slug: string
   displayName: string
@@ -343,6 +346,12 @@ export const updateIslamQuranReciter = (id: string, data: {
   isActive?: boolean
   sortOrder?: number
 }) => apiClient.patch(`/admin/islam/quran/reciters/${id}`, data)
+
+export const importIslamRecitersFromEveryAyah = (data: {
+  slugs: string[]
+  activate?: boolean
+  overwriteMetadata?: boolean
+}) => apiClient.post('/admin/islam/quran/reciters/import-from-everyayah', data)
 
 export const importIslamEveryAyah = (data: {
   reciterSlug: string

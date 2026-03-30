@@ -38,6 +38,8 @@ import {
   getIslamQuranReciters,
   createIslamQuranReciter,
   updateIslamQuranReciter,
+  getIslamEveryAyahReciters,
+  importIslamRecitersFromEveryAyah,
   importIslamEveryAyah,
   importIslamTanzilText,
   getIslamEveryAyahImportStatus,
@@ -77,6 +79,15 @@ interface ReciterItem {
   sortOrder: number
 }
 
+interface EveryAyahReciterItem {
+  slug: string
+  displayName: string
+  source?: string | null
+  bitrate?: string | null
+  exists: boolean
+  reciterId: string | null
+}
+
 interface CoverageItem {
   surahId: string
   surahNumber: number
@@ -106,6 +117,8 @@ export default function IslamQuranPage() {
   const [ayahForm, setAyahForm] = useState({ number: 0, textAr: '', translationRu: '', translationKz: '' })
   const [currentSurahId, setCurrentSurahId] = useState('')
   const [reciters, setReciters] = useState<ReciterItem[]>([])
+  const [everyAyahReciters, setEveryAyahReciters] = useState<EveryAyahReciterItem[]>([])
+  const [selectedEveryAyahSlugs, setSelectedEveryAyahSlugs] = useState<string[]>([])
   const [reciterForm, setReciterForm] = useState({
     slug: '',
     displayName: '',
@@ -135,6 +148,8 @@ export default function IslamQuranPage() {
       const reciterRes = await getIslamQuranReciters()
       const recitersData = reciterRes.data.reciters || []
       setReciters(recitersData)
+      const everyAyahRes = await getIslamEveryAyahReciters()
+      setEveryAyahReciters(everyAyahRes.data.reciters || [])
       if (!importForm.reciterSlug && recitersData.length > 0) {
         setImportForm((prev) => ({ ...prev, reciterSlug: recitersData[0].slug }))
       }
@@ -303,6 +318,24 @@ export default function IslamQuranPage() {
     }
   }
 
+  const handleImportSelectedEveryAyahReciters = async () => {
+    if (selectedEveryAyahSlugs.length === 0) return
+    try {
+      const { data } = await importIslamRecitersFromEveryAyah({
+        slugs: selectedEveryAyahSlugs,
+        activate: true,
+        overwriteMetadata: true,
+      })
+      setSuccess(
+        `Импортировано из EveryAyah: created ${data.created}, updated ${data.updated}, skipped ${data.skipped}, notFound ${data.notFound}`,
+      )
+      setSelectedEveryAyahSlugs([])
+      await load()
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Не удалось импортировать рецитаторов из EveryAyah')
+    }
+  }
+
   const handleToggleReciterActive = async (reciter: ReciterItem) => {
     try {
       await updateIslamQuranReciter(reciter.id, { isActive: !reciter.isActive })
@@ -374,6 +407,46 @@ export default function IslamQuranPage() {
       <Stack spacing={2} mb={2}>
         <Card sx={{ p: 2 }}>
           <Typography variant="h6" mb={1}>Рецитаторы</Typography>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={2}>
+            <Select
+              multiple
+              size="small"
+              value={selectedEveryAyahSlugs}
+              onChange={(e) =>
+                setSelectedEveryAyahSlugs(
+                  typeof e.target.value === 'string'
+                    ? e.target.value.split(',')
+                    : (e.target.value as string[]),
+                )
+              }
+              sx={{ minWidth: 280 }}
+              displayEmpty
+              renderValue={(selected) =>
+                Array.isArray(selected) && selected.length > 0
+                  ? `Выбрано: ${selected.length}`
+                  : 'Выберите рецитаторов из EveryAyah'
+              }
+            >
+              {everyAyahReciters.map((item) => (
+                <MenuItem key={item.slug} value={item.slug}>
+                  {item.displayName} ({item.slug}) {item.exists ? ' - уже добавлен' : ''}
+                </MenuItem>
+              ))}
+            </Select>
+            <Button
+              variant="outlined"
+              onClick={handleImportSelectedEveryAyahReciters}
+              disabled={selectedEveryAyahSlugs.length === 0}
+            >
+              Импортировать выбранные
+            </Button>
+            <Button
+              variant="contained"
+              onClick={load}
+            >
+              Обновить каталог EveryAyah
+            </Button>
+          </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={2}>
             <TextField
               label="Slug"
