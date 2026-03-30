@@ -10,10 +10,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -34,6 +36,12 @@ import {
   updateIslamAyah,
   deleteIslamAyah,
   uploadIslamSurahAudio,
+  getIslamQuranReciters,
+  createIslamQuranReciter,
+  updateIslamQuranReciter,
+  importIslamEveryAyah,
+  getIslamEveryAyahImportStatus,
+  getIslamQuranCoverage,
 } from '../api/adminApi'
 
 interface SurahItem {
@@ -61,6 +69,25 @@ interface AyahItem {
   startTime?: number | null
 }
 
+interface ReciterItem {
+  id: string
+  slug: string
+  displayName: string
+  source?: string | null
+  bitrate?: string | null
+  isActive: boolean
+  sortOrder: number
+}
+
+interface CoverageItem {
+  surahId: string
+  surahNumber: number
+  surahNameRu: string
+  ayahCount: number
+  audioCount: number
+  percent: number
+}
+
 export default function IslamQuranPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -81,6 +108,24 @@ export default function IslamQuranPage() {
   const [ayahForm, setAyahForm] = useState({ number: 0, textAr: '', translationRu: '', translationKz: '', startTime: '' })
   const [currentSurahId, setCurrentSurahId] = useState('')
   const [startTimeEdits, setStartTimeEdits] = useState<Record<string, string>>({})
+  const [reciters, setReciters] = useState<ReciterItem[]>([])
+  const [reciterForm, setReciterForm] = useState({
+    slug: '',
+    displayName: '',
+    source: 'EveryAyah',
+    bitrate: '64kbps',
+    sortOrder: 0,
+  })
+  const [importForm, setImportForm] = useState({
+    reciterSlug: '',
+    fromSurah: 1,
+    toSurah: 114,
+    overwrite: false,
+    concurrency: 4,
+  })
+  const [importJobId, setImportJobId] = useState('')
+  const [importStatus, setImportStatus] = useState<any | null>(null)
+  const [coverage, setCoverage] = useState<CoverageItem[]>([])
 
   const load = async () => {
     setLoading(true)
@@ -88,6 +133,14 @@ export default function IslamQuranPage() {
     try {
       const { data } = await getIslamSurahs()
       setSurahs(data.surahs || [])
+      const reciterRes = await getIslamQuranReciters()
+      const recitersData = reciterRes.data.reciters || []
+      setReciters(recitersData)
+      if (!importForm.reciterSlug && recitersData.length > 0) {
+        setImportForm((prev) => ({ ...prev, reciterSlug: recitersData[0].slug }))
+      }
+      const coverageRes = await getIslamQuranCoverage(importForm.reciterSlug || undefined)
+      setCoverage(coverageRes.data.coverage || [])
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to load surahs')
     } finally {
@@ -96,6 +149,30 @@ export default function IslamQuranPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    if (!importJobId) return
+    const timer = setInterval(async () => {
+      try {
+        const { data } = await getIslamEveryAyahImportStatus(importJobId)
+        setImportStatus(data)
+        if (data.status === 'completed' || data.status === 'failed') {
+          clearInterval(timer)
+          load()
+        }
+      } catch (e) {
+        clearInterval(timer)
+      }
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [importJobId])
+
+  useEffect(() => {
+    if (!importForm.reciterSlug) return
+    getIslamQuranCoverage(importForm.reciterSlug)
+      .then(({ data }) => setCoverage(data.coverage || []))
+      .catch(() => {})
+  }, [importForm.reciterSlug])
 
   const toggleExpand = async (id: string) => {
     if (expandedId === id) {
@@ -239,6 +316,61 @@ export default function IslamQuranPage() {
     }
   }
 
+  const handleCreateReciter = async () => {
+    try {
+      await createIslamQuranReciter({
+        slug: reciterForm.slug.trim(),
+        displayName: reciterForm.displayName.trim(),
+        source: reciterForm.source.trim() || undefined,
+        bitrate: reciterForm.bitrate.trim() || undefined,
+        sortOrder: reciterForm.sortOrder,
+        isActive: true,
+      })
+      setSuccess('Рецитатор создан')
+      setReciterForm({ slug: '', displayName: '', source: 'EveryAyah', bitrate: '64kbps', sortOrder: 0 })
+      await load()
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Ошибка создания рецитатора')
+    }
+  }
+
+  const handleToggleReciterActive = async (reciter: ReciterItem) => {
+    try {
+      await updateIslamQuranReciter(reciter.id, { isActive: !reciter.isActive })
+      setReciters((prev) =>
+        prev.map((r) => (r.id === reciter.id ? { ...r, isActive: !r.isActive } : r)),
+      )
+      setSuccess('Статус рецитатора обновлён')
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Ошибка обновления рецитатора')
+    }
+  }
+
+  const handleRunImport = async () => {
+    try {
+      const { data } = await importIslamEveryAyah({
+        reciterSlug: importForm.reciterSlug,
+        fromSurah: importForm.fromSurah,
+        toSurah: importForm.toSurah,
+        overwrite: importForm.overwrite,
+        concurrency: importForm.concurrency,
+      })
+      setImportJobId(data.jobId)
+      setImportStatus({
+        id: data.jobId,
+        status: data.status,
+        processed: 0,
+        success: 0,
+        skipped: 0,
+        failed: 0,
+        errors: [],
+      })
+      setSuccess(`Импорт запущен (jobId: ${data.jobId})`)
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Не удалось запустить импорт')
+    }
+  }
+
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
@@ -254,6 +386,137 @@ export default function IslamQuranPage() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
+
+      <Stack spacing={2} mb={2}>
+        <Card sx={{ p: 2 }}>
+          <Typography variant="h6" mb={1}>Рецитаторы</Typography>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={2}>
+            <TextField
+              label="Slug"
+              size="small"
+              value={reciterForm.slug}
+              onChange={(e) => setReciterForm({ ...reciterForm, slug: e.target.value })}
+            />
+            <TextField
+              label="Название"
+              size="small"
+              value={reciterForm.displayName}
+              onChange={(e) => setReciterForm({ ...reciterForm, displayName: e.target.value })}
+            />
+            <TextField
+              label="Источник"
+              size="small"
+              value={reciterForm.source}
+              onChange={(e) => setReciterForm({ ...reciterForm, source: e.target.value })}
+            />
+            <TextField
+              label="Bitrate"
+              size="small"
+              value={reciterForm.bitrate}
+              onChange={(e) => setReciterForm({ ...reciterForm, bitrate: e.target.value })}
+            />
+            <Button variant="contained" onClick={handleCreateReciter}>Добавить</Button>
+          </Stack>
+          <Stack spacing={1}>
+            {reciters.map((reciter) => (
+              <Stack
+                key={reciter.id}
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ border: '1px solid #eee', borderRadius: 1, px: 1.5, py: 1 }}
+              >
+                <Typography>{reciter.displayName} ({reciter.slug})</Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={reciter.isActive}
+                      onChange={() => handleToggleReciterActive(reciter)}
+                    />
+                  }
+                  label={reciter.isActive ? 'Активен' : 'Отключен'}
+                />
+              </Stack>
+            ))}
+            {reciters.length === 0 && (
+              <Typography color="text.secondary">Рецитаторы ещё не добавлены</Typography>
+            )}
+          </Stack>
+        </Card>
+
+        <Card sx={{ p: 2 }}>
+          <Typography variant="h6" mb={1}>Bulk import EveryAyah</Typography>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center" mb={1}>
+            <Select
+              size="small"
+              value={importForm.reciterSlug}
+              onChange={(e) => setImportForm({ ...importForm, reciterSlug: String(e.target.value) })}
+              sx={{ minWidth: 220 }}
+            >
+              {reciters.map((r) => (
+                <MenuItem key={r.id} value={r.slug}>{r.displayName} ({r.slug})</MenuItem>
+              ))}
+            </Select>
+            <TextField
+              label="Сура от"
+              size="small"
+              type="number"
+              value={importForm.fromSurah}
+              onChange={(e) => setImportForm({ ...importForm, fromSurah: Number(e.target.value) })}
+            />
+            <TextField
+              label="Сура до"
+              size="small"
+              type="number"
+              value={importForm.toSurah}
+              onChange={(e) => setImportForm({ ...importForm, toSurah: Number(e.target.value) })}
+            />
+            <TextField
+              label="Concurrency"
+              size="small"
+              type="number"
+              value={importForm.concurrency}
+              onChange={(e) => setImportForm({ ...importForm, concurrency: Number(e.target.value) })}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={importForm.overwrite}
+                  onChange={(e) => setImportForm({ ...importForm, overwrite: e.target.checked })}
+                />
+              }
+              label="Overwrite"
+            />
+            <Button
+              variant="contained"
+              onClick={handleRunImport}
+              disabled={!importForm.reciterSlug}
+            >
+              Запустить импорт
+            </Button>
+          </Stack>
+
+          {importStatus && (
+            <Alert severity={importStatus.status === 'failed' ? 'error' : 'info'} sx={{ mb: 1 }}>
+              status: {importStatus.status}, processed: {importStatus.processed}, success: {importStatus.success},
+              skipped: {importStatus.skipped}, failed: {importStatus.failed}
+            </Alert>
+          )}
+
+          <Typography variant="subtitle2" mb={1}>Покрытие по сурам (текущий рецитатор)</Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {coverage.slice(0, 30).map((item) => (
+              <Chip
+                key={item.surahId}
+                label={`${item.surahNumber}. ${item.surahNameRu}: ${item.percent}%`}
+                color={item.percent >= 100 ? 'success' : item.percent > 0 ? 'warning' : 'default'}
+                variant={item.percent >= 100 ? 'filled' : 'outlined'}
+              />
+            ))}
+          </Stack>
+        </Card>
+      </Stack>
 
       <Card>
         <TableContainer>

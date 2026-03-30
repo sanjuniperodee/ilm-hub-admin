@@ -331,6 +331,43 @@ export const uploadIslamSurahAudio = (surahId: string, file: File) => {
   })
 }
 
+export const getIslamQuranReciters = () =>
+  apiClient.get('/admin/islam/quran/reciters')
+
+export const createIslamQuranReciter = (data: {
+  slug: string
+  displayName: string
+  source?: string
+  bitrate?: string
+  isActive?: boolean
+  sortOrder?: number
+}) => apiClient.post('/admin/islam/quran/reciters', data)
+
+export const updateIslamQuranReciter = (id: string, data: {
+  slug?: string
+  displayName?: string
+  source?: string
+  bitrate?: string
+  isActive?: boolean
+  sortOrder?: number
+}) => apiClient.patch(`/admin/islam/quran/reciters/${id}`, data)
+
+export const importIslamEveryAyah = (data: {
+  reciterSlug: string
+  fromSurah?: number
+  toSurah?: number
+  fromAyah?: number
+  toAyah?: number
+  overwrite?: boolean
+  concurrency?: number
+}) => apiClient.post('/admin/islam/quran/import-everyayah', data)
+
+export const getIslamEveryAyahImportStatus = (jobId: string) =>
+  apiClient.get(`/admin/islam/quran/import-status/${jobId}`)
+
+export const getIslamQuranCoverage = (reciter?: string) =>
+  apiClient.get('/admin/islam/quran/coverage', { params: reciter ? { reciter } : undefined })
+
 // ==================== Islam / Hajj Guide ====================
 
 export const getIslamHajjSections = () =>
