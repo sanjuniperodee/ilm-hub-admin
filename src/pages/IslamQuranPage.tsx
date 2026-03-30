@@ -1,18 +1,23 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   Alert,
   Box,
   Button,
   Card,
+  Checkbox,
   Chip,
   Collapse,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
   IconButton,
+  InputAdornment,
+  ListItemText,
   MenuItem,
+  OutlinedInput,
   Select,
   Stack,
   Switch,
@@ -25,7 +30,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Add, Delete, Edit, ExpandLess, ExpandMore, Refresh } from '@mui/icons-material'
+import { Add, Delete, Edit, ExpandLess, ExpandMore, Refresh, Search } from '@mui/icons-material'
 import {
   getIslamSurahs,
   createIslamSurah,
@@ -138,6 +143,15 @@ export default function IslamQuranPage() {
   const [coverage, setCoverage] = useState<CoverageItem[]>([])
   const [tanzilUrl, setTanzilUrl] = useState('')
   const [tanzilOverwrite, setTanzilOverwrite] = useState(false)
+  const [everyAyahSearch, setEveryAyahSearch] = useState('')
+  const [showOnlyNotAdded, setShowOnlyNotAdded] = useState(true)
+
+  const filteredEveryAyahReciters = everyAyahReciters.filter((item) => {
+    if (showOnlyNotAdded && item.exists) return false
+    if (!everyAyahSearch.trim()) return true
+    const q = everyAyahSearch.trim().toLowerCase()
+    return item.slug.toLowerCase().includes(q) || item.displayName.toLowerCase().includes(q)
+  })
 
   const load = async () => {
     setLoading(true)
@@ -336,6 +350,10 @@ export default function IslamQuranPage() {
     }
   }
 
+  const handleSelectAllFilteredReciters = () => {
+    setSelectedEveryAyahSlugs(filteredEveryAyahReciters.map((r) => r.slug))
+  }
+
   const handleToggleReciterActive = async (reciter: ReciterItem) => {
     try {
       await updateIslamQuranReciter(reciter.id, { isActive: !reciter.isActive })
@@ -401,12 +419,51 @@ export default function IslamQuranPage() {
         </Stack>
       </Stack>
 
+      {loading && (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <CircularProgress size={18} />
+          <Typography variant="body2" color="text.secondary">Обновление данных...</Typography>
+        </Stack>
+      )}
+
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
       <Stack spacing={2} mb={2}>
         <Card sx={{ p: 2 }}>
           <Typography variant="h6" mb={1}>Рецитаторы</Typography>
+          <Typography variant="body2" color="text.secondary" mb={1.5}>
+            Импортируйте рецитаторов из live-каталога EveryAyah или добавьте вручную.
+          </Typography>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={1}>
+            <OutlinedInput
+              size="small"
+              value={everyAyahSearch}
+              onChange={(e) => setEveryAyahSearch(e.target.value)}
+              placeholder="Поиск по имени или slug"
+              startAdornment={
+                <InputAdornment position="start">
+                  <Search fontSize="small" />
+                </InputAdornment>
+              }
+              sx={{ minWidth: 280 }}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showOnlyNotAdded}
+                  onChange={(e) => setShowOnlyNotAdded(e.target.checked)}
+                />
+              }
+              label="Только не добавленные"
+            />
+            <Button variant="text" onClick={handleSelectAllFilteredReciters} disabled={filteredEveryAyahReciters.length === 0}>
+              Выбрать все
+            </Button>
+            <Button variant="text" onClick={() => setSelectedEveryAyahSlugs([])} disabled={selectedEveryAyahSlugs.length === 0}>
+              Очистить
+            </Button>
+          </Stack>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={2}>
             <Select
               multiple
@@ -423,13 +480,17 @@ export default function IslamQuranPage() {
               displayEmpty
               renderValue={(selected) =>
                 Array.isArray(selected) && selected.length > 0
-                  ? `Выбрано: ${selected.length}`
+                  ? `Выбрано: ${selected.length} из ${filteredEveryAyahReciters.length}`
                   : 'Выберите рецитаторов из EveryAyah'
               }
             >
-              {everyAyahReciters.map((item) => (
+              {filteredEveryAyahReciters.map((item) => (
                 <MenuItem key={item.slug} value={item.slug}>
-                  {item.displayName} ({item.slug}) {item.exists ? ' - уже добавлен' : ''}
+                  <Checkbox checked={selectedEveryAyahSlugs.includes(item.slug)} size="small" />
+                  <ListItemText
+                    primary={`${item.displayName} (${item.slug})`}
+                    secondary={item.exists ? 'Уже добавлен' : item.bitrate || undefined}
+                  />
                 </MenuItem>
               ))}
             </Select>
@@ -623,8 +684,8 @@ export default function IslamQuranPage() {
             </TableHead>
             <TableBody>
               {surahs.map((s) => (
-                <>
-                  <TableRow key={s.id} hover>
+                <Fragment key={s.id}>
+                  <TableRow hover>
                     <TableCell>
                       <IconButton size="small" onClick={() => toggleExpand(s.id)}>
                         {expandedId === s.id ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
@@ -647,7 +708,7 @@ export default function IslamQuranPage() {
                       <IconButton size="small" color="error" onClick={() => handleDeleteSurah(s.id)}><Delete fontSize="small" /></IconButton>
                     </TableCell>
                   </TableRow>
-                  <TableRow key={s.id + '-expand'}>
+                  <TableRow>
                     <TableCell colSpan={10} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
                       <Collapse in={expandedId === s.id} unmountOnExit>
                         <Box sx={{ py: 2, pl: 4 }}>
@@ -693,7 +754,7 @@ export default function IslamQuranPage() {
                       </Collapse>
                     </TableCell>
                   </TableRow>
-                </>
+                </Fragment>
               ))}
               {surahs.length === 0 && !loading && (
                 <TableRow>
