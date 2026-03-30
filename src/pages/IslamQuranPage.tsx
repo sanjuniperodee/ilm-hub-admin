@@ -25,7 +25,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Add, Audiotrack, Delete, Edit, ExpandLess, ExpandMore, Refresh } from '@mui/icons-material'
+import { Add, Delete, Edit, ExpandLess, ExpandMore, Refresh } from '@mui/icons-material'
 import {
   getIslamSurahs,
   createIslamSurah,
@@ -35,11 +35,11 @@ import {
   createIslamAyah,
   updateIslamAyah,
   deleteIslamAyah,
-  uploadIslamSurahAudio,
   getIslamQuranReciters,
   createIslamQuranReciter,
   updateIslamQuranReciter,
   importIslamEveryAyah,
+  importIslamTanzilText,
   getIslamEveryAyahImportStatus,
   getIslamQuranCoverage,
 } from '../api/adminApi'
@@ -55,7 +55,6 @@ interface SurahItem {
   ayahCount: number
   juzNumber: number
   pageNumber?: number | null
-  audioUrl?: string | null
   isActive: boolean
 }
 
@@ -66,7 +65,6 @@ interface AyahItem {
   textAr: string
   translationRu?: string | null
   translationKz?: string | null
-  startTime?: number | null
 }
 
 interface ReciterItem {
@@ -105,9 +103,8 @@ export default function IslamQuranPage() {
 
   const [ayahDialogOpen, setAyahDialogOpen] = useState(false)
   const [editingAyah, setEditingAyah] = useState<AyahItem | null>(null)
-  const [ayahForm, setAyahForm] = useState({ number: 0, textAr: '', translationRu: '', translationKz: '', startTime: '' })
+  const [ayahForm, setAyahForm] = useState({ number: 0, textAr: '', translationRu: '', translationKz: '' })
   const [currentSurahId, setCurrentSurahId] = useState('')
-  const [startTimeEdits, setStartTimeEdits] = useState<Record<string, string>>({})
   const [reciters, setReciters] = useState<ReciterItem[]>([])
   const [reciterForm, setReciterForm] = useState({
     slug: '',
@@ -126,6 +123,8 @@ export default function IslamQuranPage() {
   const [importJobId, setImportJobId] = useState('')
   const [importStatus, setImportStatus] = useState<any | null>(null)
   const [coverage, setCoverage] = useState<CoverageItem[]>([])
+  const [tanzilUrl, setTanzilUrl] = useState('')
+  const [tanzilOverwrite, setTanzilOverwrite] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -234,7 +233,7 @@ export default function IslamQuranPage() {
     setCurrentSurahId(surahId)
     setEditingAyah(null)
     const existing = ayahsMap[surahId] || []
-    setAyahForm({ number: existing.length + 1, textAr: '', translationRu: '', translationKz: '', startTime: '' })
+    setAyahForm({ number: existing.length + 1, textAr: '', translationRu: '', translationKz: '' })
     setAyahDialogOpen(true)
   }
 
@@ -246,7 +245,6 @@ export default function IslamQuranPage() {
       textAr: a.textAr,
       translationRu: a.translationRu || '',
       translationKz: a.translationKz || '',
-      startTime: a.startTime != null ? String(a.startTime) : '',
     })
     setAyahDialogOpen(true)
   }
@@ -258,7 +256,6 @@ export default function IslamQuranPage() {
       textAr: ayahForm.textAr,
       translationRu: ayahForm.translationRu || undefined,
       translationKz: ayahForm.translationKz || undefined,
-      startTime: ayahForm.startTime ? parseFloat(ayahForm.startTime) : undefined,
     }
     try {
       if (editingAyah) {
@@ -285,34 +282,6 @@ export default function IslamQuranPage() {
       setAyahsMap((prev) => ({ ...prev, [a.surahId]: data.ayahs || [] }))
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Delete failed')
-    }
-  }
-
-  const handleUploadSurahAudio = async (surahId: string, file: File) => {
-    try {
-      await uploadIslamSurahAudio(surahId, file)
-      setSuccess('Аудио суры загружено (до 200 MB)')
-      load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Ошибка загрузки аудио')
-    }
-  }
-
-  const handleAyahStartTimeBlur = async (ayah: AyahItem, value: string) => {
-    setStartTimeEdits((prev) => {
-      const next = { ...prev }
-      delete next[ayah.id]
-      return next
-    })
-    const num = value === '' ? undefined : parseFloat(value)
-    if (value !== '' && (num === undefined || isNaN(num))) return
-    try {
-      await updateIslamAyah(ayah.id, { startTime: num })
-      setSuccess('Тайминг обновлён')
-      const { data } = await getIslamSurahAyahs(ayah.surahId)
-      setAyahsMap((prev) => ({ ...prev, [ayah.surahId]: data.ayahs || [] }))
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Ошибка сохранения')
     }
   }
 
@@ -368,6 +337,21 @@ export default function IslamQuranPage() {
       setSuccess(`Импорт запущен (jobId: ${data.jobId})`)
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Не удалось запустить импорт')
+    }
+  }
+
+  const handleImportTanzilText = async () => {
+    try {
+      const { data } = await importIslamTanzilText({
+        downloadUrl: tanzilUrl.trim(),
+        overwrite: tanzilOverwrite,
+      })
+      setSuccess(
+        `Tanzil import: processed ${data.processed}, updated ${data.updated}, created ${data.created}, skipped ${data.skipped}, failed ${data.failed}`,
+      )
+      await load()
+    } catch (e: any) {
+      setError(e?.response?.data?.message || 'Ошибка импорта текста Tanzil')
     }
   }
 
@@ -516,6 +500,35 @@ export default function IslamQuranPage() {
             ))}
           </Stack>
         </Card>
+
+        <Card sx={{ p: 2 }}>
+          <Typography variant="h6" mb={1}>Импорт текста из Tanzil</Typography>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">
+            <TextField
+              fullWidth
+              size="small"
+              label="Direct download URL (Text with aya numbers)"
+              value={tanzilUrl}
+              onChange={(e) => setTanzilUrl(e.target.value)}
+              placeholder="https://..."
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={tanzilOverwrite}
+                  onChange={(e) => setTanzilOverwrite(e.target.checked)}
+                />
+              }
+              label="Overwrite textAr"
+            />
+            <Button variant="contained" onClick={handleImportTanzilText} disabled={!tanzilUrl.trim()}>
+              Импортировать текст
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Используйте прямую ссылку на формат Tanzil "Text (with aya numbers)".
+          </Typography>
+        </Card>
       </Stack>
 
       <Card>
@@ -531,7 +544,6 @@ export default function IslamQuranPage() {
                 <TableCell>Джуз</TableCell>
                 <TableCell>Аяты</TableCell>
                 <TableCell>Тип</TableCell>
-                <TableCell>Аудио</TableCell>
                 <TableCell>Статус</TableCell>
                 <TableCell align="right">Действия</TableCell>
               </TableRow>
@@ -555,29 +567,6 @@ export default function IslamQuranPage() {
                       <Chip label={s.revelationType === 'meccan' ? 'Мекк.' : 'Медин.'} size="small" color={s.revelationType === 'meccan' ? 'primary' : 'warning'} />
                     </TableCell>
                     <TableCell>
-                      <label>
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          hidden
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) handleUploadSurahAudio(s.id, file)
-                            e.target.value = ''
-                          }}
-                        />
-                        <Chip
-                          label={s.audioUrl ? 'Заменить' : 'Загрузить'}
-                          color={s.audioUrl ? 'success' : 'default'}
-                          size="small"
-                          clickable
-                          variant={s.audioUrl ? 'filled' : 'outlined'}
-                          icon={<Audiotrack />}
-                          component="span"
-                        />
-                      </label>
-                    </TableCell>
-                    <TableCell>
                       <Chip label={s.isActive ? 'Акт.' : 'Скр.'} size="small" color={s.isActive ? 'success' : 'default'} />
                     </TableCell>
                     <TableCell align="right">
@@ -586,7 +575,7 @@ export default function IslamQuranPage() {
                     </TableCell>
                   </TableRow>
                   <TableRow key={s.id + '-expand'}>
-                    <TableCell colSpan={11} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
+                    <TableCell colSpan={10} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
                       <Collapse in={expandedId === s.id} unmountOnExit>
                         <Box sx={{ py: 2, pl: 4 }}>
                           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
@@ -599,7 +588,6 @@ export default function IslamQuranPage() {
                                 <TableCell>#</TableCell>
                                 <TableCell>Арабский текст</TableCell>
                                 <TableCell>Перевод (рус)</TableCell>
-                                <TableCell>Начало (сек)</TableCell>
                                 <TableCell align="right">Действия</TableCell>
                               </TableRow>
                             </TableHead>
@@ -613,18 +601,6 @@ export default function IslamQuranPage() {
                                   <TableCell sx={{ maxWidth: 300 }}>
                                     <Typography variant="body2" noWrap>{a.translationRu}</Typography>
                                   </TableCell>
-                                  <TableCell>
-                                    <TextField
-                                      size="small"
-                                      type="number"
-                                      inputProps={{ step: 0.1, min: 0 }}
-                                      value={startTimeEdits[a.id] ?? (a.startTime != null ? String(a.startTime) : '')}
-                                      onChange={(e) => setStartTimeEdits((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                                      onBlur={(e) => handleAyahStartTimeBlur(a, e.target.value)}
-                                      sx={{ width: 80 }}
-                                      placeholder="0"
-                                    />
-                                  </TableCell>
                                   <TableCell align="right">
                                     <IconButton size="small" onClick={() => openEditAyah(a)}><Edit fontSize="small" /></IconButton>
                                     <IconButton size="small" color="error" onClick={() => handleDeleteAyah(a)}><Delete fontSize="small" /></IconButton>
@@ -633,7 +609,7 @@ export default function IslamQuranPage() {
                               ))}
                               {(ayahsMap[s.id] || []).length === 0 && (
                                 <TableRow>
-                                  <TableCell colSpan={5} align="center">
+                                  <TableCell colSpan={4} align="center">
                                     <Typography color="text.secondary" py={2}>Нет аятов</Typography>
                                   </TableCell>
                                 </TableRow>
@@ -648,7 +624,7 @@ export default function IslamQuranPage() {
               ))}
               {surahs.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={11} align="center">
+                  <TableCell colSpan={10} align="center">
                     <Typography color="text.secondary" py={4}>Нет сур</Typography>
                   </TableCell>
                 </TableRow>
@@ -692,7 +668,6 @@ export default function IslamQuranPage() {
             <TextField label="Арабский текст" multiline rows={3} value={ayahForm.textAr} onChange={(e) => setAyahForm({ ...ayahForm, textAr: e.target.value })} inputProps={{ dir: 'rtl' }} />
             <TextField label="Перевод (рус)" multiline rows={2} value={ayahForm.translationRu} onChange={(e) => setAyahForm({ ...ayahForm, translationRu: e.target.value })} />
             <TextField label="Перевод (каз)" multiline rows={2} value={ayahForm.translationKz} onChange={(e) => setAyahForm({ ...ayahForm, translationKz: e.target.value })} />
-            <TextField label="Начало (сек)" type="number" inputProps={{ step: 0.1, min: 0 }} value={ayahForm.startTime} onChange={(e) => setAyahForm({ ...ayahForm, startTime: e.target.value })} placeholder="Время начала аята в аудио" />
           </Stack>
         </DialogContent>
         <DialogActions>

@@ -323,14 +323,6 @@ export const updateIslamAyah = (id: string, data: any) =>
 export const deleteIslamAyah = (id: string) =>
   apiClient.delete(`/admin/islam/ayahs/${id}`)
 
-export const uploadIslamSurahAudio = (surahId: string, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return apiClient.post(`/admin/islam/surahs/${surahId}/upload-audio`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
-
 export const getIslamQuranReciters = () =>
   apiClient.get('/admin/islam/quran/reciters')
 
@@ -367,6 +359,11 @@ export const getIslamEveryAyahImportStatus = (jobId: string) =>
 
 export const getIslamQuranCoverage = (reciter?: string) =>
   apiClient.get('/admin/islam/quran/coverage', { params: reciter ? { reciter } : undefined })
+
+export const importIslamTanzilText = (data: {
+  downloadUrl: string
+  overwrite?: boolean
+}) => apiClient.post('/admin/islam/quran/import-tanzil-text', data)
 
 // ==================== Islam / Hajj Guide ====================
 
