@@ -373,20 +373,11 @@ export const syncQuranAudioAll = (data?: {
 export const getIslamEveryAyahImportStatus = (jobId: string) =>
   apiClient.get(`/admin/islam/quran/import-status/${jobId}`)
 
-export const syncQuranText = (data?: {
-  overwrite?: boolean
-}) => apiClient.post('/admin/islam/quran/sync-text', data || {})
-
 export const getQuranSyncStatus = (jobId: string) =>
   apiClient.get(`/admin/islam/quran/sync-status/${jobId}`)
 
 export const getIslamQuranCoverage = (reciter?: string) =>
   apiClient.get('/admin/islam/quran/coverage', { params: reciter ? { reciter } : undefined })
-
-export const importIslamTanzilText = (data: {
-  downloadUrl: string
-  overwrite?: boolean
-}) => apiClient.post('/admin/islam/quran/import-tanzil-text', data)
 
 // ==================== Islam / Hajj Guide ====================
 

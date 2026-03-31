@@ -48,7 +48,6 @@ import {
   getQuranSyncStatus,
   importIslamRecitersFromEveryAyah,
   syncQuranAudioAll,
-  syncQuranText,
   updateIslamAyah,
   updateIslamQuranReciter,
   updateIslamSurah,
@@ -357,18 +356,6 @@ export default function IslamQuranPage() {
     }
   }
 
-  const handleSyncText = async () => {
-    try {
-      const { data } = await syncQuranText({ overwrite: false })
-      setSyncJobId(data.jobId)
-      setSyncStatus(data)
-      setMonitorOpen(true)
-      setSuccess(`Синхронизация текста запущена: ${data.jobId}`)
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Не удалось запустить синхронизацию текста')
-    }
-  }
-
   const handleImportSelectedEveryAyahReciters = async () => {
     if (selectedEveryAyahSlugs.length === 0) return
     try {
@@ -420,7 +407,7 @@ export default function IslamQuranPage() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
         <Box>
           <Typography variant="h4">Коран</Typography>
-          <Typography variant="subtitle1">Суры и one-click синхронизация контента</Typography>
+          <Typography variant="subtitle1">Суры и one-click синхронизация аудио</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Button startIcon={<Refresh />} onClick={load} disabled={loading}>
@@ -446,9 +433,6 @@ export default function IslamQuranPage() {
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'stretch', md: 'center' }}>
           <Button variant="contained" onClick={handleSyncAudioAll}>
             Синхронизировать аяты (аудио)
-          </Button>
-          <Button variant="contained" color="secondary" onClick={handleSyncText}>
-            Синхронизировать текст
           </Button>
           <Button variant="outlined" onClick={() => setMonitorOpen(true)}>
             Мониторинг статуса
