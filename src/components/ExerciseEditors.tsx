@@ -524,11 +524,12 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                             <Select
                                 size="small"
                                 value={item.itemType ?? 'text'}
-                                onChange={(e) => updateRightItemType(item.id, e.target.value as 'text' | 'audio')}
-                                sx={{ minWidth: 90 }}
+                                onChange={(e) => updateRightItemType(item.id, e.target.value as MatchItemType)}
+                                sx={{ minWidth: 110 }}
                             >
                                 <MenuItem value="text">Текст</MenuItem>
                                 <MenuItem value="audio">Аудио</MenuItem>
+                                <MenuItem value="image">Картинка</MenuItem>
                             </Select>
                             {(item.itemType ?? 'text') === 'text' ? (
                                 <TextField
@@ -539,9 +540,13 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                                     placeholder="Текст правой части"
                                     inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
                                 />
-                            ) : (
+                            ) : (item.itemType ?? 'text') === 'audio' ? (
                                 <Box sx={{ flex: 1 }}>
                                     {renderMediaPicker(audios, item.audioMediaId, (mediaId) => assignRightAudio(item.id, mediaId), 'audio')}
+                                </Box>
+                            ) : (
+                                <Box sx={{ flex: 1 }}>
+                                    {renderMediaPicker(images, item.imageMediaId, (mediaId) => assignRightImage(item.id, mediaId), 'image')}
                                 </Box>
                             )}
                             <IconButton size="small" color="error" onClick={() => removeRight(item.id)} disabled={rightItems.length <= 1}>

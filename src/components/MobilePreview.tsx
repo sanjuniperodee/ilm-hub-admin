@@ -266,6 +266,9 @@ function TheoryPreview({ c }: { c: Record<string, any> }) {
             '& img': { maxWidth: '100%', height: 'auto', borderRadius: '8px', my: 1 },
             '& audio': { width: '100%', my: 1 },
             '& video': { maxWidth: '100%', borderRadius: '8px', my: 1 },
+            '& table': { width: '100%', borderCollapse: 'collapse', borderRadius: '12px', overflow: 'hidden', my: 1 },
+            '& th, & td': { border: '1px solid #d8d8d8', p: 1 },
+            '& th': { bgcolor: '#F5F0EB', fontWeight: 600 },
             '& ul, & ol': { pl: 2.5, my: 1 },
             '& a': { color: C.primary },
           }}

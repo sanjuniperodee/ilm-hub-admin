@@ -114,10 +114,6 @@ export default function RichTextEditor({
     const cols = Math.max(1, Math.min(10, Number(colsInput || 0)))
     if (!rows || !cols) return
 
-    const header = Array.from({ length: cols })
-      .map((_, idx) => `<th style="border:1px solid #d8d8d8;padding:8px;text-align:left;">Колонка ${idx + 1}</th>`)
-      .join('')
-
     const body = Array.from({ length: rows })
       .map(
         () =>
@@ -128,7 +124,7 @@ export default function RichTextEditor({
       .join('')
 
     insertHtmlAtCursor(
-      `<table style="width:100%;border-collapse:collapse;margin:8px 0;"><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table><p></p>`,
+      `<table style="width:100%;border-collapse:collapse;margin:8px 0;border-radius:12px;overflow:hidden;"><tbody>${body}</tbody></table><p></p>`,
     )
   }
 
@@ -145,7 +141,7 @@ export default function RichTextEditor({
       .join('')
 
     insertHtmlAtCursor(
-      `<table style="width:100%;border-collapse:collapse;margin:8px 0;"><thead><tr><th style="width:56px;border:1px solid #d8d8d8;padding:8px;text-align:center;">№</th><th style="border:1px solid #d8d8d8;padding:8px;text-align:left;">Текст</th></tr></thead><tbody>${body}</tbody></table><p></p>`,
+      `<table style="width:100%;border-collapse:collapse;margin:8px 0;border-radius:12px;overflow:hidden;"><tbody>${body}</tbody></table><p></p>`,
     )
   }
 

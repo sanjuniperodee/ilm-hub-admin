@@ -139,7 +139,8 @@ export function FillBlankConfigEditor({ value, onChange }: EditorProps) {
 // MatchPairsConfigEditor (supports distractors: more right items than left)
 // ----------------------------------------------------------------------
 
-type MatchItem = { id: string; text: string; imageUrl?: string; itemType?: 'text' | 'audio'; audioUrl?: string }
+type MatchItemType = 'text' | 'audio' | 'image'
+type MatchItem = { id: string; text: string; imageUrl?: string; itemType?: MatchItemType; audioUrl?: string }
 
 function normalizeMatchPairs(value: Record<string, any>): {
   leftItems: MatchItem[]
