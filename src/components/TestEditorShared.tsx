@@ -51,7 +51,7 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
   { value: 'multiple_choice', label: 'Multiple choice' },
   { value: 'single_choice', label: 'Single choice' },
   { value: 'fill_blank', label: 'Fill blank' },
-  { value: 'match_pairs', label: 'Match pairs' },
+  { value: 'match_pairs', label: 'Match pairs (текст / аудио)' },
   { value: 'manual_input', label: 'Manual input' },
   { value: 'audio_multiple_choice', label: 'Аудио + выбор' },
   { value: 'image_word_match', label: 'Картинка ↔ Слово' },

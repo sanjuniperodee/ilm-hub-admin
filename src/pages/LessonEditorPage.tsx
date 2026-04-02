@@ -116,7 +116,7 @@ const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'multiple_choice', label: 'Multiple Choice' },
   { value: 'audio_multiple_choice', label: 'Audio Multiple Choice' },
   { value: 'single_choice', label: 'Single Choice' },
-  { value: 'match_pairs', label: 'Match Pairs' },
+  { value: 'match_pairs', label: 'Match Pairs (текст / аудио / картинка)' },
   { value: 'fill_blank', label: 'Fill Blank' },
   { value: 'manual_input', label: 'Manual Input' },
   { value: 'listen_repeat', label: 'Послушай и повтори' },
@@ -1556,7 +1556,7 @@ export default function LessonEditorPage() {
                             { type: 'multiple_choice', label: 'Несколько вариантов (multiple choice)' },
                             { type: 'single_choice', label: 'Один вариант (single choice)' },
                             { type: 'fill_blank', label: 'Заполни пропуск (fill blank)' },
-                            { type: 'match_pairs', label: 'Сопоставь пары (match pairs)' },
+                            { type: 'match_pairs', label: 'Сопоставь пары (в т.ч. аудио ↔ текст)' },
                             { type: 'manual_input', label: 'Ввод вручную (manual input)' },
                           ] as { type: QuestionType; label: string }[]
                         ).map(({ type, label }) => (
