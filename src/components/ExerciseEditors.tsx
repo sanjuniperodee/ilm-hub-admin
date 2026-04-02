@@ -196,8 +196,17 @@ export const ListenRepeatEditor = ({ value, onChange }: EditorProps) => {
 // MatchPairsEditor supports distractors (more right items than left)
 // Data shape: { leftItems, rightItems, correctPairs, instructionRu }
 // Compatible with leftColumn/rightColumn on mobile
+// Media references use imageMediaId / audioMediaId (picked from uploaded media)
 
-type MatchItem = { id: string; text: { ru: string; kz: string; ar: string }; imageUrl: string; itemType?: 'text' | 'audio'; audioUrl?: string }
+type MatchItem = {
+    id: string
+    text: { ru: string; kz: string; ar: string }
+    imageUrl: string
+    imageMediaId?: string
+    itemType?: 'text' | 'audio'
+    audioUrl?: string
+    audioMediaId?: string
+}
 type CorrectPair = { leftId: string; rightId: string }
 
 function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItems: MatchItem[]; correctPairs: CorrectPair[]; instructionRu: string } {
@@ -219,8 +228,8 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
     // New format: { leftItems, rightItems, correctPairs }
     if (Array.isArray(value?.leftItems)) {
         return {
-            leftItems: value.leftItems.map((item: any) => ({ id: item.id, text: item.text ?? { ru: '', kz: '', ar: '' }, imageUrl: item.imageUrl ?? '', itemType: item.itemType ?? 'text', audioUrl: item.audioUrl ?? '' })),
-            rightItems: (value.rightItems ?? []).map((item: any) => ({ id: item.id, text: item.text ?? { ru: '', kz: '', ar: '' }, imageUrl: item.imageUrl ?? '', itemType: item.itemType ?? 'text', audioUrl: item.audioUrl ?? '' })),
+            leftItems: value.leftItems.map((item: any) => ({ id: item.id, text: item.text ?? { ru: '', kz: '', ar: '' }, imageUrl: item.imageUrl ?? '', imageMediaId: item.imageMediaId ?? '', itemType: item.itemType ?? 'text', audioUrl: item.audioUrl ?? '', audioMediaId: item.audioMediaId ?? '' })),
+            rightItems: (value.rightItems ?? []).map((item: any) => ({ id: item.id, text: item.text ?? { ru: '', kz: '', ar: '' }, imageUrl: item.imageUrl ?? '', imageMediaId: item.imageMediaId ?? '', itemType: item.itemType ?? 'text', audioUrl: item.audioUrl ?? '', audioMediaId: item.audioMediaId ?? '' })),
             correctPairs: value.correctPairs ?? [],
             instructionRu: value.instructionRu ?? '',
         }
@@ -228,12 +237,19 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
     return { leftItems: [], rightItems: [], correctPairs: [], instructionRu: '' }
 }
 
-export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
+interface MatchPairsEditorProps extends EditorProps {
+    mediaFiles?: MediaFileItem[]
+}
+
+export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPairsEditorProps) => {
     const [activeTab, setActiveTab] = useState(0)
     const langMap = ['ru', 'kz', 'ar'] as const
     const currentLang = langMap[activeTab]
 
     const { leftItems, rightItems, correctPairs, instructionRu } = migrateMatchPairsValue(value)
+
+    const images = mediaFiles.filter((f) => f.type === 'image')
+    const audios = mediaFiles.filter((f) => f.type === 'audio')
 
     const emit = (li: MatchItem[], ri: MatchItem[], cp: CorrectPair[], instr?: string) => {
         onChange({ leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr ?? instructionRu })
@@ -252,8 +268,8 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
         const lId = `l${n}`
         const rId = `r${n}`
         emit(
-            [...leftItems, { id: lId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text' as const, audioUrl: '' }],
-            [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text' as const, audioUrl: '' }],
+            [...leftItems, { id: lId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '' }],
+            [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '' }],
             [...correctPairs, { leftId: lId, rightId: rId }],
         )
     }
@@ -261,7 +277,7 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
     const addDistractor = () => {
         const n = rightItems.length + 1
         const rId = `d${n}`
-        emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text' as const, audioUrl: '' }], correctPairs)
+        emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '' }], correctPairs)
     }
 
     const updateLeftItemType = (id: string, itemType: 'text' | 'audio') => {
@@ -272,12 +288,24 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
         emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, itemType } : i), correctPairs)
     }
 
-    const updateLeftAudioUrl = (id: string, audioUrl: string) => {
-        emit(leftItems.map((i) => i.id === id ? { ...i, audioUrl } : i), rightItems, correctPairs)
+    const assignLeftAudio = (id: string, mediaId: string) => {
+        const media = audios.find((a) => a.id === mediaId)
+        emit(leftItems.map((i) => i.id === id ? { ...i, audioMediaId: i.audioMediaId === mediaId ? '' : mediaId, audioUrl: i.audioMediaId === mediaId ? '' : (media?.url ?? '') } : i), rightItems, correctPairs)
     }
 
-    const updateRightAudioUrl = (id: string, audioUrl: string) => {
-        emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, audioUrl } : i), correctPairs)
+    const assignRightAudio = (id: string, mediaId: string) => {
+        const media = audios.find((a) => a.id === mediaId)
+        emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, audioMediaId: i.audioMediaId === mediaId ? '' : mediaId, audioUrl: i.audioMediaId === mediaId ? '' : (media?.url ?? '') } : i), correctPairs)
+    }
+
+    const assignLeftImage = (id: string, mediaId: string) => {
+        const media = images.find((img) => img.id === mediaId)
+        emit(leftItems.map((i) => i.id === id ? { ...i, imageMediaId: i.imageMediaId === mediaId ? '' : mediaId, imageUrl: i.imageMediaId === mediaId ? '' : (media?.url ?? '') } : i), rightItems, correctPairs)
+    }
+
+    const assignRightImage = (id: string, mediaId: string) => {
+        const media = images.find((img) => img.id === mediaId)
+        emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, imageMediaId: i.imageMediaId === mediaId ? '' : mediaId, imageUrl: i.imageMediaId === mediaId ? '' : (media?.url ?? '') } : i), correctPairs)
     }
 
     const removeLeft = (id: string) => {
@@ -311,14 +339,6 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
         )
     }
 
-    const updateLeftImageUrl = (id: string, url: string) => {
-        emit(leftItems.map((i) => i.id === id ? { ...i, imageUrl: url } : i), rightItems, correctPairs)
-    }
-
-    const updateRightImageUrl = (id: string, url: string) => {
-        emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, imageUrl: url } : i), correctPairs)
-    }
-
     const setPairRight = (leftId: string, rightId: string) => {
         const next = correctPairs.filter((p) => p.leftId !== leftId)
         if (rightId) next.push({ leftId, rightId })
@@ -327,6 +347,71 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
 
     const getPairedRight = (leftId: string) => correctPairs.find((p) => p.leftId === leftId)?.rightId ?? ''
     const usedRightIds = new Set(correctPairs.map((p) => p.rightId))
+
+    /** Reusable media thumbnail grid picker */
+    const renderMediaPicker = (
+        files: MediaFileItem[],
+        selectedId: string | undefined,
+        onSelect: (mediaId: string) => void,
+        kind: 'image' | 'audio',
+    ) => {
+        if (files.length === 0) {
+            return (
+                <Typography variant="caption" color="text.disabled">
+                    {kind === 'image'
+                        ? '— загрузите изображения через раздел «Медиа файлы» ниже —'
+                        : '— загрузите аудио через раздел «Медиа файлы» ниже —'}
+                </Typography>
+            )
+        }
+        const selectedFile = files.find((f) => f.id === selectedId)
+        return (
+            <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                    {kind === 'image' ? 'Выберите картинку:' : 'Выберите аудио:'}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {files.map((file) => {
+                        const isSelected = selectedId === file.id
+                        return kind === 'image' ? (
+                            <Box
+                                key={file.id}
+                                onClick={() => onSelect(file.id)}
+                                sx={{
+                                    width: 72, height: 72, borderRadius: 2, overflow: 'hidden', cursor: 'pointer',
+                                    border: isSelected ? '3px solid #2e7d32' : '2px solid transparent',
+                                    outline: isSelected ? '2px solid #81c784' : '2px solid #e0e0e0',
+                                    position: 'relative', transition: 'all .15s',
+                                    '&:hover': { outline: '2px solid #66bb6a' },
+                                }}
+                            >
+                                <img src={file.url} alt={file.filename ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                {isSelected && (
+                                    <Box sx={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: '#2e7d32', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Typography sx={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>&#10003;</Typography>
+                                    </Box>
+                                )}
+                            </Box>
+                        ) : (
+                            <Chip
+                                key={file.id}
+                                label={file.filename ?? file.id.slice(0, 8)}
+                                onClick={() => onSelect(file.id)}
+                                color={isSelected ? 'success' : 'default'}
+                                variant={isSelected ? 'filled' : 'outlined'}
+                                sx={{ cursor: 'pointer' }}
+                            />
+                        )
+                    })}
+                </Box>
+                {selectedFile && (
+                    <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block' }}>
+                        Выбрано: {selectedFile.filename ?? selectedFile.id}
+                    </Typography>
+                )}
+            </Box>
+        )
+    }
 
     return (
         <Box>
@@ -344,6 +429,12 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
                 onChange={(e) => emit(leftItems, rightItems, correctPairs, e.target.value)}
                 sx={{ mb: 2 }}
             />
+
+            {images.length === 0 && audios.length === 0 && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                    Сначала сохраните блок, затем загрузите медиа файлы (изображения / аудио) через раздел <strong>Медиа файлы</strong> ниже — и они появятся здесь для выбора.
+                </Alert>
+            )}
 
             {/* Left items */}
             <Typography variant="subtitle2" sx={{ mb: 1 }}>Левые элементы (вопросы)</Typography>
@@ -369,14 +460,9 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
                                 inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
                             />
                         ) : (
-                            <TextField
-                                fullWidth
-                                size="small"
-                                label="URL аудио"
-                                value={item.audioUrl || ''}
-                                onChange={(e) => updateLeftAudioUrl(item.id, e.target.value)}
-                                placeholder="https://..."
-                            />
+                            <Box sx={{ flex: 1 }}>
+                                {renderMediaPicker(audios, item.audioMediaId, (mediaId) => assignLeftAudio(item.id, mediaId), 'audio')}
+                            </Box>
                         )}
                         <IconButton size="small" color="error" onClick={() => removeLeft(item.id)} disabled={leftItems.length <= 1}>
                             <Delete />
@@ -384,14 +470,9 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                         {(item.itemType ?? 'text') === 'text' && (
-                        <TextField
-                            size="small"
-                            label="URL изображения (левая)"
-                            value={item.imageUrl || ''}
-                            onChange={(e) => updateLeftImageUrl(item.id, e.target.value)}
-                            placeholder="https://..."
-                            sx={{ flex: 1 }}
-                        />
+                            <Box sx={{ flex: 1 }}>
+                                {renderMediaPicker(images, item.imageMediaId, (mediaId) => assignLeftImage(item.id, mediaId), 'image')}
+                            </Box>
                         )}
                         <Box sx={{ flex: 1 }}>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
@@ -432,7 +513,7 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
                 return (
                     <Box key={item.id} sx={{ mb: 1.5, p: 1.5, border: '1px solid', borderColor: isPaired ? 'success.light' : 'warning.light', borderRadius: 1, bgcolor: isPaired ? 'rgba(76,175,80,0.04)' : 'rgba(255,152,0,0.04)' }}>
                         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                            <Chip size="small" label={isPaired ? '✓ правильный' : '✗ дистрактор'} color={isPaired ? 'success' : 'warning'} variant="outlined" sx={{ flexShrink: 0 }} />
+                            <Chip size="small" label={isPaired ? '&#10003; правильный' : '&#10007; дистрактор'} color={isPaired ? 'success' : 'warning'} variant="outlined" sx={{ flexShrink: 0 }} />
                             <Select
                                 size="small"
                                 value={item.itemType ?? 'text'}
@@ -452,28 +533,18 @@ export const MatchPairsEditor = ({ value, onChange }: EditorProps) => {
                                     inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
                                 />
                             ) : (
-                                <TextField
-                                    fullWidth
-                                    size="small"
-                                    label="URL аудио"
-                                    value={item.audioUrl || ''}
-                                    onChange={(e) => updateRightAudioUrl(item.id, e.target.value)}
-                                    placeholder="https://..."
-                                />
+                                <Box sx={{ flex: 1 }}>
+                                    {renderMediaPicker(audios, item.audioMediaId, (mediaId) => assignRightAudio(item.id, mediaId), 'audio')}
+                                </Box>
                             )}
                             <IconButton size="small" color="error" onClick={() => removeRight(item.id)} disabled={rightItems.length <= 1}>
                                 <Delete />
                             </IconButton>
                         </Box>
                         {(item.itemType ?? 'text') === 'text' && (
-                        <TextField
-                            size="small"
-                            fullWidth
-                            label="URL изображения (правая)"
-                            value={item.imageUrl || ''}
-                            onChange={(e) => updateRightImageUrl(item.id, e.target.value)}
-                            placeholder="https://..."
-                        />
+                            <Box>
+                                {renderMediaPicker(images, item.imageMediaId, (mediaId) => assignRightImage(item.id, mediaId), 'image')}
+                            </Box>
                         )}
                     </Box>
                 )

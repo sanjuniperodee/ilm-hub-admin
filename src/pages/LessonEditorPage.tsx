@@ -615,7 +615,8 @@ export default function LessonEditorPage() {
       block.type === 'illustration' ||
       block.type === 'audio_multiple_choice' ||
       block.type === 'listen_repeat' ||
-      block.type === 'image_word_match'
+      block.type === 'image_word_match' ||
+      block.type === 'match_pairs'
     ) {
       void loadBlockMedia(block.id)
     } else {
@@ -1213,6 +1214,7 @@ export default function LessonEditorPage() {
                         <MatchPairsEditor
                           value={blockDraft.exerciseConfig}
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
+                          mediaFiles={mediaFiles}
                         />
                       )}
                       {blockDraft.type === 'fill_blank' && (
@@ -1258,10 +1260,10 @@ export default function LessonEditorPage() {
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
                         />
                       )}
-                      {(AUDIO_MEDIA_BLOCK_TYPES.includes(blockDraft.type) || blockDraft.type === 'image_word_match') && blockDraft.id ? (
+                      {(AUDIO_MEDIA_BLOCK_TYPES.includes(blockDraft.type) || blockDraft.type === 'image_word_match' || blockDraft.type === 'match_pairs') && blockDraft.id ? (
                         <Box sx={{ mt: 2 }}>
                           <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                            {blockDraft.type === 'image_word_match' ? 'Изображения для пар' : 'Аудио файл'}
+                            {(blockDraft.type === 'image_word_match' || blockDraft.type === 'match_pairs') ? 'Медиа файлы для пар' : 'Аудио файл'}
                           </Typography>
                           <MediaUploader
                             blockId={blockDraft.id}
