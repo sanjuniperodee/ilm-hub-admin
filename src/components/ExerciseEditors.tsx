@@ -198,12 +198,14 @@ export const ListenRepeatEditor = ({ value, onChange }: EditorProps) => {
 // Compatible with leftColumn/rightColumn on mobile
 // Media references use imageMediaId / audioMediaId (picked from uploaded media)
 
+type MatchItemType = 'text' | 'audio' | 'image'
+
 type MatchItem = {
     id: string
     text: { ru: string; kz: string; ar: string }
     imageUrl: string
     imageMediaId?: string
-    itemType?: 'text' | 'audio'
+    itemType?: MatchItemType
     audioUrl?: string
     audioMediaId?: string
 }
@@ -280,11 +282,11 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
         emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '' }], correctPairs)
     }
 
-    const updateLeftItemType = (id: string, itemType: 'text' | 'audio') => {
+    const updateLeftItemType = (id: string, itemType: MatchItemType) => {
         emit(leftItems.map((i) => i.id === id ? { ...i, itemType } : i), rightItems, correctPairs)
     }
 
-    const updateRightItemType = (id: string, itemType: 'text' | 'audio') => {
+    const updateRightItemType = (id: string, itemType: MatchItemType) => {
         emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, itemType } : i), correctPairs)
     }
 
@@ -444,11 +446,12 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                         <Select
                             size="small"
                             value={item.itemType ?? 'text'}
-                            onChange={(e) => updateLeftItemType(item.id, e.target.value as 'text' | 'audio')}
-                            sx={{ minWidth: 90 }}
+                            onChange={(e) => updateLeftItemType(item.id, e.target.value as MatchItemType)}
+                            sx={{ minWidth: 110 }}
                         >
                             <MenuItem value="text">Текст</MenuItem>
                             <MenuItem value="audio">Аудио</MenuItem>
+                            <MenuItem value="image">Картинка</MenuItem>
                         </Select>
                         {(item.itemType ?? 'text') === 'text' ? (
                             <TextField
@@ -459,9 +462,13 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                                 onChange={(e) => updateLeftText(item.id, e.target.value, currentLang)}
                                 inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
                             />
-                        ) : (
+                        ) : (item.itemType ?? 'text') === 'audio' ? (
                             <Box sx={{ flex: 1 }}>
                                 {renderMediaPicker(audios, item.audioMediaId, (mediaId) => assignLeftAudio(item.id, mediaId), 'audio')}
+                            </Box>
+                        ) : (
+                            <Box sx={{ flex: 1 }}>
+                                {renderMediaPicker(images, item.imageMediaId, (mediaId) => assignLeftImage(item.id, mediaId), 'image')}
                             </Box>
                         )}
                         <IconButton size="small" color="error" onClick={() => removeLeft(item.id)} disabled={leftItems.length <= 1}>
@@ -489,7 +496,7 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                                 {rightItems.map((r) => (
                                     <MenuItem key={r.id} value={r.id}
                                         disabled={usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id}>
-                                        {r.text[currentLang] || `[${r.id}]`}
+                                        {r.itemType === 'audio' ? `🔊 [аудио]` : r.itemType === 'image' ? `🖼 [картинка]` : (r.text[currentLang] || `[${r.id}]`)}
                                         {usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id ? ' (занято)' : ''}
                                     </MenuItem>
                                 ))}
