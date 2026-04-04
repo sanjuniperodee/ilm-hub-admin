@@ -20,6 +20,7 @@ import {
   Add,
   Audiotrack,
   Delete,
+  DeleteOutline,
   DragIndicator,
   Edit as EditIcon,
   Refresh,
@@ -30,6 +31,7 @@ import {
   createWordLetter,
   updateWordLetter,
   uploadWordLetterAudio,
+  deleteWordLetterAudio,
   deleteWordLetter,
 } from '../api/adminApi'
 
@@ -144,6 +146,26 @@ export default function WordsAlphabetPage() {
     } catch (e: any) {
       const msg =
         e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка загрузки аудио'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteAudio = async (code: string) => {
+    try {
+      setLoading(true)
+      setError('')
+      setSuccess('')
+      await deleteWordLetterAudio(code)
+      setSuccess(`Аудио для ${code} удалено`)
+      await load()
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message?.[0] ||
+        e?.response?.data?.message ||
+        e?.message ||
+        'Ошибка удаления аудио'
       setError(msg)
     } finally {
       setLoading(false)
@@ -369,6 +391,18 @@ export default function WordsAlphabetPage() {
                             />
                           </Button>
                         </Tooltip>
+                        {letter.audioUrl ? (
+                          <Tooltip title="Удалить аудио">
+                            <IconButton
+                              size="small"
+                              color="warning"
+                              onClick={() => handleDeleteAudio(letter.code)}
+                              disabled={loading}
+                            >
+                              <DeleteOutline fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        ) : null}
                         <Tooltip title="Редактировать">
                           <IconButton
                             size="small"
