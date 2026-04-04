@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
     Box,
     TextField,
@@ -211,6 +211,23 @@ type MatchItem = {
 }
 type CorrectPair = { leftId: string; rightId: string }
 
+/** Compare stored URLs to block media list (query tokens / signing may differ). */
+function urlsProbablyMatch(a: string | undefined, b: string | undefined): boolean {
+    if (!a || !b) return false
+    if (a === b) return true
+    const strip = (u: string) => u.split('?')[0].replace(/\/$/, '')
+    return strip(a) === strip(b) || a.includes(strip(b)) || b.includes(strip(a))
+}
+
+function inferMatchItemType(item: MatchItem): MatchItemType {
+    if (item.itemType === 'audio' || item.itemType === 'image' || item.itemType === 'text') {
+        return item.itemType
+    }
+    if (item.audioUrl || item.audioMediaId) return 'audio'
+    if (item.imageUrl || item.imageMediaId) return 'image'
+    return 'text'
+}
+
 function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItems: MatchItem[]; correctPairs: CorrectPair[]; instructionRu: string } {
     // Old format: { pairs: [{left:{ru,kz,ar}, right:{ru,kz,ar}, leftImageUrl, rightImageUrl}] }
     if (Array.isArray(value?.pairs) && value.pairs.length > 0 && value.pairs[0]?.left) {
@@ -229,9 +246,27 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
     }
     // New format: { leftItems, rightItems, correctPairs }
     if (Array.isArray(value?.leftItems)) {
+        const mapRow = (item: any): MatchItem => {
+            const rawText = item.text
+            const text =
+                typeof rawText === 'string'
+                    ? { ru: rawText, kz: '', ar: '' }
+                    : { ru: rawText?.ru ?? '', kz: rawText?.kz ?? '', ar: rawText?.ar ?? '' }
+            const base: MatchItem = {
+                id: item.id,
+                text,
+                imageUrl: item.imageUrl ?? '',
+                imageMediaId: item.imageMediaId ?? '',
+                itemType: item.itemType,
+                audioUrl: item.audioUrl ?? '',
+                audioMediaId: item.audioMediaId ?? '',
+            }
+            base.itemType = inferMatchItemType(base)
+            return base
+        }
         return {
-            leftItems: value.leftItems.map((item: any) => ({ id: item.id, text: item.text ?? { ru: '', kz: '', ar: '' }, imageUrl: item.imageUrl ?? '', imageMediaId: item.imageMediaId ?? '', itemType: item.itemType ?? 'text', audioUrl: item.audioUrl ?? '', audioMediaId: item.audioMediaId ?? '' })),
-            rightItems: (value.rightItems ?? []).map((item: any) => ({ id: item.id, text: item.text ?? { ru: '', kz: '', ar: '' }, imageUrl: item.imageUrl ?? '', imageMediaId: item.imageMediaId ?? '', itemType: item.itemType ?? 'text', audioUrl: item.audioUrl ?? '', audioMediaId: item.audioMediaId ?? '' })),
+            leftItems: value.leftItems.map(mapRow),
+            rightItems: (value.rightItems ?? []).map(mapRow),
             correctPairs: value.correctPairs ?? [],
             instructionRu: value.instructionRu ?? '',
         }
@@ -247,6 +282,8 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
     const [activeTab, setActiveTab] = useState(0)
     const langMap = ['ru', 'kz', 'ar'] as const
     const currentLang = langMap[activeTab]
+    const valueRef = useRef(value)
+    valueRef.current = value
 
     const { leftItems, rightItems, correctPairs, instructionRu } = migrateMatchPairsValue(value)
 
@@ -257,12 +294,58 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
         onChange({ leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr ?? instructionRu })
     }
 
+    const resolveAudioMediaId = (item: MatchItem): string | undefined => {
+        if (item.audioMediaId) return item.audioMediaId
+        if (!item.audioUrl) return undefined
+        return audios.find((a) => urlsProbablyMatch(a.url, item.audioUrl))?.id
+    }
+
+    const resolveImageMediaId = (item: MatchItem): string | undefined => {
+        if (item.imageMediaId) return item.imageMediaId
+        if (!item.imageUrl) return undefined
+        return images.find((img) => urlsProbablyMatch(img.url, item.imageUrl))?.id
+    }
+
+    /** After block media loads, attach media ids by URL so chips show selected without re-upload. */
     useEffect(() => {
-        if (leftItems.length === 0) {
-            const li: MatchItem[] = [{ id: 'l1', text: { ru: '', kz: '', ar: '' }, imageUrl: '' }]
-            const ri: MatchItem[] = [{ id: 'r1', text: { ru: '', kz: '', ar: '' }, imageUrl: '' }]
-            emit(li, ri, [{ leftId: 'l1', rightId: 'r1' }])
+        if (!mediaFiles.length) return
+        const auds = mediaFiles.filter((f) => f.type === 'audio')
+        const imgs = mediaFiles.filter((f) => f.type === 'image')
+        const { leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr } = migrateMatchPairsValue(valueRef.current)
+        let changed = false
+        const patch = (it: MatchItem): MatchItem => {
+            const n = { ...it }
+            if (n.audioUrl && !n.audioMediaId) {
+                const m = auds.find((a) => urlsProbablyMatch(a.url, n.audioUrl))
+                if (m) {
+                    n.audioMediaId = m.id
+                    changed = true
+                }
+            }
+            if (n.imageUrl && !n.imageMediaId) {
+                const m = imgs.find((img) => urlsProbablyMatch(img.url, n.imageUrl))
+                if (m) {
+                    n.imageMediaId = m.id
+                    changed = true
+                }
+            }
+            return n
         }
+        const nli = li.map(patch)
+        const nri = ri.map(patch)
+        if (changed) emit(nli, nri, cp, instr)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- run when block media list loads; emit would change every render
+    }, [mediaFiles])
+
+    useEffect(() => {
+        const { leftItems: li } = migrateMatchPairsValue(value)
+        const legacyPairs = Array.isArray(value?.pairs) ? value.pairs : []
+        if (li.length === 0 && legacyPairs.length === 0) {
+            const newLi: MatchItem[] = [{ id: 'l1', text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '' }]
+            const newRi: MatchItem[] = [{ id: 'r1', text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '' }]
+            emit(newLi, newRi, [{ leftId: 'l1', rightId: 'r1' }])
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const addPair = () => {
@@ -292,22 +375,58 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
 
     const assignLeftAudio = (id: string, mediaId: string) => {
         const media = audios.find((a) => a.id === mediaId)
-        emit(leftItems.map((i) => i.id === id ? { ...i, audioMediaId: i.audioMediaId === mediaId ? '' : mediaId, audioUrl: i.audioMediaId === mediaId ? '' : (media?.url ?? '') } : i), rightItems, correctPairs)
+        emit(
+            leftItems.map((i) => {
+                if (i.id !== id) return i
+                const selected = resolveAudioMediaId(i)
+                if (selected === mediaId) return { ...i, audioMediaId: '', audioUrl: '' }
+                return { ...i, audioMediaId: mediaId, audioUrl: media?.url ?? '' }
+            }),
+            rightItems,
+            correctPairs,
+        )
     }
 
     const assignRightAudio = (id: string, mediaId: string) => {
         const media = audios.find((a) => a.id === mediaId)
-        emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, audioMediaId: i.audioMediaId === mediaId ? '' : mediaId, audioUrl: i.audioMediaId === mediaId ? '' : (media?.url ?? '') } : i), correctPairs)
+        emit(
+            leftItems,
+            rightItems.map((i) => {
+                if (i.id !== id) return i
+                const selected = resolveAudioMediaId(i)
+                if (selected === mediaId) return { ...i, audioMediaId: '', audioUrl: '' }
+                return { ...i, audioMediaId: mediaId, audioUrl: media?.url ?? '' }
+            }),
+            correctPairs,
+        )
     }
 
     const assignLeftImage = (id: string, mediaId: string) => {
         const media = images.find((img) => img.id === mediaId)
-        emit(leftItems.map((i) => i.id === id ? { ...i, imageMediaId: i.imageMediaId === mediaId ? '' : mediaId, imageUrl: i.imageMediaId === mediaId ? '' : (media?.url ?? '') } : i), rightItems, correctPairs)
+        emit(
+            leftItems.map((i) => {
+                if (i.id !== id) return i
+                const selected = resolveImageMediaId(i)
+                if (selected === mediaId) return { ...i, imageMediaId: '', imageUrl: '' }
+                return { ...i, imageMediaId: mediaId, imageUrl: media?.url ?? '' }
+            }),
+            rightItems,
+            correctPairs,
+        )
     }
 
     const assignRightImage = (id: string, mediaId: string) => {
         const media = images.find((img) => img.id === mediaId)
-        emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, imageMediaId: i.imageMediaId === mediaId ? '' : mediaId, imageUrl: i.imageMediaId === mediaId ? '' : (media?.url ?? '') } : i), correctPairs)
+        emit(
+            leftItems,
+            rightItems.map((i) => {
+                if (i.id !== id) return i
+                const selected = resolveImageMediaId(i)
+                if (selected === mediaId) return { ...i, imageMediaId: '', imageUrl: '' }
+                return { ...i, imageMediaId: mediaId, imageUrl: media?.url ?? '' }
+            }),
+            correctPairs,
+        )
     }
 
     const removeLeft = (id: string) => {
@@ -464,11 +583,11 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                             />
                         ) : (item.itemType ?? 'text') === 'audio' ? (
                             <Box sx={{ flex: 1 }}>
-                                {renderMediaPicker(audios, item.audioMediaId, (mediaId) => assignLeftAudio(item.id, mediaId), 'audio')}
+                                {renderMediaPicker(audios, resolveAudioMediaId(item), (mediaId) => assignLeftAudio(item.id, mediaId), 'audio')}
                             </Box>
                         ) : (
                             <Box sx={{ flex: 1 }}>
-                                {renderMediaPicker(images, item.imageMediaId, (mediaId) => assignLeftImage(item.id, mediaId), 'image')}
+                                {renderMediaPicker(images, resolveImageMediaId(item), (mediaId) => assignLeftImage(item.id, mediaId), 'image')}
                             </Box>
                         )}
                         <IconButton size="small" color="error" onClick={() => removeLeft(item.id)} disabled={leftItems.length <= 1}>
@@ -478,7 +597,7 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                         {(item.itemType ?? 'text') === 'text' && (
                             <Box sx={{ flex: 1 }}>
-                                {renderMediaPicker(images, item.imageMediaId, (mediaId) => assignLeftImage(item.id, mediaId), 'image')}
+                                {renderMediaPicker(images, resolveImageMediaId(item), (mediaId) => assignLeftImage(item.id, mediaId), 'image')}
                             </Box>
                         )}
                         <Box sx={{ flex: 1 }}>
@@ -542,11 +661,11 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                                 />
                             ) : (item.itemType ?? 'text') === 'audio' ? (
                                 <Box sx={{ flex: 1 }}>
-                                    {renderMediaPicker(audios, item.audioMediaId, (mediaId) => assignRightAudio(item.id, mediaId), 'audio')}
+                                    {renderMediaPicker(audios, resolveAudioMediaId(item), (mediaId) => assignRightAudio(item.id, mediaId), 'audio')}
                                 </Box>
                             ) : (
                                 <Box sx={{ flex: 1 }}>
-                                    {renderMediaPicker(images, item.imageMediaId, (mediaId) => assignRightImage(item.id, mediaId), 'image')}
+                                    {renderMediaPicker(images, resolveImageMediaId(item), (mediaId) => assignRightImage(item.id, mediaId), 'image')}
                                 </Box>
                             )}
                             <IconButton size="small" color="error" onClick={() => removeRight(item.id)} disabled={rightItems.length <= 1}>
@@ -555,7 +674,7 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                         </Box>
                         {(item.itemType ?? 'text') === 'text' && (
                             <Box>
-                                {renderMediaPicker(images, item.imageMediaId, (mediaId) => assignRightImage(item.id, mediaId), 'image')}
+                                {renderMediaPicker(images, resolveImageMediaId(item), (mediaId) => assignRightImage(item.id, mediaId), 'image')}
                             </Box>
                         )}
                     </Box>

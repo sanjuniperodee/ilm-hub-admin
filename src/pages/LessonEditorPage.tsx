@@ -204,20 +204,38 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
     }
   }
   if (type === 'match_pairs') {
+    const inferItemType = (item: any): 'text' | 'audio' | 'image' => {
+      if (item.itemType === 'audio' || item.itemType === 'image' || item.itemType === 'text') {
+        return item.itemType
+      }
+      if (item.audioUrl || item.audioMediaId) return 'audio'
+      if (item.imageUrl || item.imageMediaId) return 'image'
+      return 'text'
+    }
+    const mapMatchItem = (item: any, i: number, side: 'left' | 'right') => {
+      const kzArr = side === 'left' ? kz.leftItems : kz.rightItems
+      const arArr = side === 'left' ? ar.leftItems : ar.rightItems
+      const textRu = item.text
+      const text =
+        typeof textRu === 'string'
+          ? { ru: textRu, kz: kzArr?.[i]?.text ?? '', ar: arArr?.[i]?.text ?? '' }
+          : { ru: textRu?.ru ?? '', kz: textRu?.kz ?? kzArr?.[i]?.text ?? '', ar: textRu?.ar ?? arArr?.[i]?.text ?? '' }
+      return {
+        id: item.id,
+        text,
+        imageUrl: item.imageUrl ?? '',
+        imageMediaId: item.imageMediaId ?? '',
+        itemType: inferItemType(item),
+        audioUrl: item.audioUrl ?? '',
+        audioMediaId: item.audioMediaId ?? '',
+      }
+    }
     // New format: leftItems/rightItems/correctPairs (supports distractors)
     if (Array.isArray(ru.leftItems)) {
       return {
         instructionRu: ru.instructionRu ?? '',
-        leftItems: ru.leftItems.map((item: any, i: number) => ({
-          id: item.id,
-          text: { ru: item.text, kz: kz.leftItems?.[i]?.text ?? '', ar: ar.leftItems?.[i]?.text ?? '' },
-          imageUrl: item.imageUrl ?? '',
-        })),
-        rightItems: (ru.rightItems ?? []).map((item: any, i: number) => ({
-          id: item.id,
-          text: { ru: item.text, kz: kz.rightItems?.[i]?.text ?? '', ar: ar.rightItems?.[i]?.text ?? '' },
-          imageUrl: item.imageUrl ?? '',
-        })),
+        leftItems: ru.leftItems.map((item: any, i: number) => mapMatchItem(item, i, 'left')),
+        rightItems: (ru.rightItems ?? []).map((item: any, i: number) => mapMatchItem(item, i, 'right')),
         correctPairs: ru.correctPairs ?? [],
       }
     }
@@ -313,7 +331,7 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
       }
     }
     if (type === 'match_pairs') {
-      // New format with distractors
+      // New format with distractors (media ids stored on each locale for parity; editor uses RU as source)
       if (Array.isArray(config.leftItems)) {
         return {
           instructionRu: config.instructionRu ?? '',
@@ -321,15 +339,19 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
             id: item.id,
             text: item.text?.[lang] ?? '',
             imageUrl: item.imageUrl ?? '',
+            imageMediaId: item.imageMediaId ?? '',
             itemType: item.itemType ?? 'text',
             audioUrl: item.audioUrl ?? '',
+            audioMediaId: item.audioMediaId ?? '',
           })),
           rightItems: (config.rightItems ?? []).map((item: any) => ({
             id: item.id,
             text: item.text?.[lang] ?? '',
             imageUrl: item.imageUrl ?? '',
+            imageMediaId: item.imageMediaId ?? '',
             itemType: item.itemType ?? 'text',
             audioUrl: item.audioUrl ?? '',
+            audioMediaId: item.audioMediaId ?? '',
           })),
           correctPairs: config.correctPairs ?? [],
         }
@@ -1212,6 +1234,7 @@ export default function LessonEditorPage() {
                       )}
                       {blockDraft.type === 'match_pairs' && (
                         <MatchPairsEditor
+                          key={blockDraft.id ?? `match-pairs-new-${blockDraft.orderIndex}`}
                           value={blockDraft.exerciseConfig}
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
                           mediaFiles={mediaFiles}
