@@ -15,6 +15,7 @@ import {
     Tab,
     Alert,
     Paper,
+    Tooltip,
 } from '@mui/material'
 import { Add, Delete, LinkOff } from '@mui/icons-material'
 
@@ -193,6 +194,22 @@ export const ListenRepeatEditor = ({ value, onChange }: EditorProps) => {
 // Match Pairs Editor
 // ----------------------------------------------------------------------
 
+interface MatchPairsMediaFileItem {
+    id: string
+    url: string
+    type: string
+    filename?: string
+    description?: string
+}
+
+function blockMediaDisplayName(f: MatchPairsMediaFileItem): string {
+    const d = f.description?.trim()
+    if (d) return d
+    const n = f.filename?.trim()
+    if (n) return n
+    return f.id.slice(0, 8)
+}
+
 // MatchPairsEditor supports distractors (more right items than left)
 // Data shape: { leftItems, rightItems, correctPairs, instructionRu }
 // Compatible with leftColumn/rightColumn on mobile
@@ -208,6 +225,8 @@ type MatchItem = {
     itemType?: MatchItemType
     audioUrl?: string
     audioMediaId?: string
+    /** Admin-only label in the audio picker (not used by the mobile app). */
+    audioLabel?: string
 }
 type CorrectPair = { leftId: string; rightId: string }
 
@@ -216,7 +235,7 @@ function urlsProbablyMatch(a: string | undefined, b: string | undefined): boolea
     if (!a || !b) return false
     if (a === b) return true
     const strip = (u: string) => u.split('?')[0].replace(/\/$/, '')
-    return strip(a) === strip(b) || a.includes(strip(b)) || b.includes(strip(a))
+    return strip(a) === strip(b)
 }
 
 function inferMatchItemType(item: MatchItem): MatchItemType {
@@ -260,6 +279,7 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
                 itemType: item.itemType,
                 audioUrl: item.audioUrl ?? '',
                 audioMediaId: item.audioMediaId ?? '',
+                audioLabel: item.audioLabel ?? '',
             }
             base.itemType = inferMatchItemType(base)
             return base
@@ -275,10 +295,12 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
 }
 
 interface MatchPairsEditorProps extends EditorProps {
-    mediaFiles?: MediaFileItem[]
+    mediaFiles?: MatchPairsMediaFileItem[]
+    /** When set, URL→mediaId patch runs only for this block (avoids stale list from another block). */
+    blockId?: string
 }
 
-export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPairsEditorProps) => {
+export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: MatchPairsEditorProps) => {
     const [activeTab, setActiveTab] = useState(0)
     const langMap = ['ru', 'kz', 'ar'] as const
     const currentLang = langMap[activeTab]
@@ -308,7 +330,7 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
 
     /** After block media loads, attach media ids by URL so chips show selected without re-upload. */
     useEffect(() => {
-        if (!mediaFiles.length) return
+        if (!blockId || !mediaFiles.length) return
         const auds = mediaFiles.filter((f) => f.type === 'audio')
         const imgs = mediaFiles.filter((f) => f.type === 'image')
         const { leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr } = migrateMatchPairsValue(valueRef.current)
@@ -335,14 +357,14 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
         const nri = ri.map(patch)
         if (changed) emit(nli, nri, cp, instr)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- run when block media list loads; emit would change every render
-    }, [mediaFiles])
+    }, [mediaFiles, blockId])
 
     useEffect(() => {
         const { leftItems: li } = migrateMatchPairsValue(value)
         const legacyPairs = Array.isArray(value?.pairs) ? value.pairs : []
         if (li.length === 0 && legacyPairs.length === 0) {
-            const newLi: MatchItem[] = [{ id: 'l1', text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '' }]
-            const newRi: MatchItem[] = [{ id: 'r1', text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '' }]
+            const newLi: MatchItem[] = [{ id: 'l1', text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '', audioLabel: '' }]
+            const newRi: MatchItem[] = [{ id: 'r1', text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '', audioLabel: '' }]
             emit(newLi, newRi, [{ leftId: 'l1', rightId: 'r1' }])
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -353,8 +375,8 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
         const lId = `l${n}`
         const rId = `r${n}`
         emit(
-            [...leftItems, { id: lId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '' }],
-            [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '' }],
+            [...leftItems, { id: lId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }],
+            [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }],
             [...correctPairs, { leftId: lId, rightId: rId }],
         )
     }
@@ -362,7 +384,7 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
     const addDistractor = () => {
         const n = rightItems.length + 1
         const rId = `d${n}`
-        emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '' }], correctPairs)
+        emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }], correctPairs)
     }
 
     const updateLeftItemType = (id: string, itemType: MatchItemType) => {
@@ -469,9 +491,25 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
     const getPairedRight = (leftId: string) => correctPairs.find((p) => p.leftId === leftId)?.rightId ?? ''
     const usedRightIds = new Set(correctPairs.map((p) => p.rightId))
 
+    const updateLeftAudioLabel = (id: string, audioLabel: string) => {
+        emit(
+            leftItems.map((i) => (i.id === id ? { ...i, audioLabel } : i)),
+            rightItems,
+            correctPairs,
+        )
+    }
+
+    const updateRightAudioLabel = (id: string, audioLabel: string) => {
+        emit(
+            leftItems,
+            rightItems.map((i) => (i.id === id ? { ...i, audioLabel } : i)),
+            correctPairs,
+        )
+    }
+
     /** Reusable media thumbnail grid picker */
     const renderMediaPicker = (
-        files: MediaFileItem[],
+        files: MatchPairsMediaFileItem[],
         selectedId: string | undefined,
         onSelect: (mediaId: string) => void,
         kind: 'image' | 'audio',
@@ -514,20 +552,38 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                                 )}
                             </Box>
                         ) : (
-                            <Chip
-                                key={file.id}
-                                label={file.filename ?? file.id.slice(0, 8)}
-                                onClick={() => onSelect(file.id)}
-                                color={isSelected ? 'success' : 'default'}
-                                variant={isSelected ? 'filled' : 'outlined'}
-                                sx={{ cursor: 'pointer' }}
-                            />
+                            (() => {
+                                const audioTitle = blockMediaDisplayName(file)
+                                const audioChipLabel =
+                                    audioTitle.length > 36 ? `${audioTitle.slice(0, 33)}…` : audioTitle
+                                return (
+                                    <Tooltip key={file.id} title={audioTitle} placement="top" enterDelay={400}>
+                                        <Chip
+                                            label={audioChipLabel}
+                                            onClick={() => onSelect(file.id)}
+                                            color={isSelected ? 'success' : 'default'}
+                                            variant={isSelected ? 'filled' : 'outlined'}
+                                            sx={{
+                                                cursor: 'pointer',
+                                                maxWidth: 220,
+                                                height: 'auto',
+                                                '& .MuiChip-label': {
+                                                    whiteSpace: 'normal',
+                                                    lineHeight: 1.2,
+                                                    py: 0.5,
+                                                },
+                                            }}
+                                        />
+                                    </Tooltip>
+                                )
+                            })()
                         )
                     })}
                 </Box>
                 {selectedFile && (
                     <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block' }}>
-                        Выбрано: {selectedFile.filename ?? selectedFile.id}
+                        Выбрано:{' '}
+                        {kind === 'audio' ? blockMediaDisplayName(selectedFile) : (selectedFile.filename ?? selectedFile.id)}
                     </Typography>
                 )}
             </Box>
@@ -584,6 +640,16 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                         ) : (item.itemType ?? 'text') === 'audio' ? (
                             <Box sx={{ flex: 1 }}>
                                 {renderMediaPicker(audios, resolveAudioMediaId(item), (mediaId) => assignLeftAudio(item.id, mediaId), 'audio')}
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Своя подпись к этой ячейке"
+                                    placeholder="Например: буква ба"
+                                    value={item.audioLabel ?? ''}
+                                    onChange={(e) => updateLeftAudioLabel(item.id, e.target.value)}
+                                    sx={{ mt: 1 }}
+                                    helperText="Только в админке; в приложении не показывается"
+                                />
                             </Box>
                         ) : (
                             <Box sx={{ flex: 1 }}>
@@ -615,7 +681,11 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                                 {rightItems.map((r) => (
                                     <MenuItem key={r.id} value={r.id}
                                         disabled={usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id}>
-                                        {r.itemType === 'audio' ? `🔊 [аудио]` : r.itemType === 'image' ? `🖼 [картинка]` : (r.text[currentLang] || `[${r.id}]`)}
+                                        {r.itemType === 'audio'
+                                            ? `🔊 ${(r.audioLabel?.trim() || '[аудио]')}`
+                                            : r.itemType === 'image'
+                                              ? `🖼 [картинка]`
+                                              : (r.text[currentLang] || `[${r.id}]`)}
                                         {usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id ? ' (занято)' : ''}
                                     </MenuItem>
                                 ))}
@@ -662,6 +732,16 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [] }: MatchPair
                             ) : (item.itemType ?? 'text') === 'audio' ? (
                                 <Box sx={{ flex: 1 }}>
                                     {renderMediaPicker(audios, resolveAudioMediaId(item), (mediaId) => assignRightAudio(item.id, mediaId), 'audio')}
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        label="Своя подпись к этой ячейке"
+                                        placeholder="Например: звук «ба»"
+                                        value={item.audioLabel ?? ''}
+                                        onChange={(e) => updateRightAudioLabel(item.id, e.target.value)}
+                                        sx={{ mt: 1 }}
+                                        helperText="Только в админке; в приложении не показывается"
+                                    />
                                 </Box>
                             ) : (
                                 <Box sx={{ flex: 1 }}>
@@ -752,6 +832,7 @@ interface MediaFileItem {
     url: string
     type: string
     filename?: string
+    description?: string
 }
 
 interface ImageWordMatchEditorProps extends EditorProps {

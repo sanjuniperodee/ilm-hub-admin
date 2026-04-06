@@ -143,6 +143,7 @@ interface MediaFile {
   filename: string
   mimeType: string
   size: number
+  /** Shown in Match Pairs audio chips when set (stored on media_files). */
   description?: string
 }
 
@@ -228,6 +229,7 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
         itemType: inferItemType(item),
         audioUrl: item.audioUrl ?? '',
         audioMediaId: item.audioMediaId ?? '',
+        audioLabel: item.audioLabel ?? '',
       }
     }
     // New format: leftItems/rightItems/correctPairs (supports distractors)
@@ -343,6 +345,7 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
             itemType: item.itemType ?? 'text',
             audioUrl: item.audioUrl ?? '',
             audioMediaId: item.audioMediaId ?? '',
+            audioLabel: item.audioLabel ?? '',
           })),
           rightItems: (config.rightItems ?? []).map((item: any) => ({
             id: item.id,
@@ -352,6 +355,7 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
             itemType: item.itemType ?? 'text',
             audioUrl: item.audioUrl ?? '',
             audioMediaId: item.audioMediaId ?? '',
+            audioLabel: item.audioLabel ?? '',
           })),
           correctPairs: config.correctPairs ?? [],
         }
@@ -640,6 +644,7 @@ export default function LessonEditorPage() {
       block.type === 'image_word_match' ||
       block.type === 'match_pairs'
     ) {
+      setMediaFiles([])
       void loadBlockMedia(block.id)
     } else {
       setMediaFiles([])
@@ -784,9 +789,9 @@ export default function LessonEditorPage() {
     }
   }
 
-  const handleMediaUpload = async (file: File, type: 'image' | 'audio' | 'video') => {
+  const handleMediaUpload = async (file: File, type: 'image' | 'audio' | 'video', description?: string) => {
     const blockId = await ensureBlockIdForMedia()
-    await uploadBlockMedia(blockId, file, type)
+    await uploadBlockMedia(blockId, file, type, description)
     await loadBlockMedia(blockId)
   }
 
@@ -1235,6 +1240,7 @@ export default function LessonEditorPage() {
                       {blockDraft.type === 'match_pairs' && (
                         <MatchPairsEditor
                           key={blockDraft.id ?? `match-pairs-new-${blockDraft.orderIndex}`}
+                          blockId={blockDraft.id}
                           value={blockDraft.exerciseConfig}
                           onChange={(v) => setBlockDraft((p) => ({ ...p, exerciseConfig: v }))}
                           mediaFiles={mediaFiles}

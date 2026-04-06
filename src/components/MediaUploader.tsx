@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, type ChangeEvent } from 'react'
 import {
     Box,
     Typography,
@@ -12,6 +12,7 @@ import {
     Alert,
     Paper,
     Slider,
+    TextField,
 } from '@mui/material'
 import {
     CloudUpload,
@@ -31,13 +32,14 @@ interface MediaFile {
     filename: string
     mimeType: string
     size: number
+    /** Preferred display label in lists (e.g. Match Pairs picker). */
     description?: string
 }
 
 interface MediaUploaderProps {
     blockId?: string
     mediaFiles: MediaFile[]
-    onUpload: (file: File, type: 'image' | 'audio' | 'video') => Promise<void>
+    onUpload: (file: File, type: 'image' | 'audio' | 'video', description?: string) => Promise<void>
     onDelete: (mediaFileId: string) => Promise<void>
     onRefresh: () => void
     disabled?: boolean
@@ -198,6 +200,8 @@ export default function MediaUploader({
     const [uploading, setUploading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [dragOver, setDragOver] = useState(false)
+    /** Applied to each file in the next upload batch (stored as media description). */
+    const [uploadDescription, setUploadDescription] = useState('')
 
     const handleFileSelect = useCallback(async (files: FileList | null) => {
         if (!files || files.length === 0 || disabled) return
@@ -205,10 +209,11 @@ export default function MediaUploader({
         setUploading(true)
         setError(null)
 
+        const desc = uploadDescription.trim() || undefined
         for (const file of Array.from(files)) {
             try {
                 const type = getMediaType(file.type)
-                await onUpload(file, type)
+                await onUpload(file, type, desc)
             } catch (err: any) {
                 setError(err.response?.data?.message || `Failed to upload ${file.name}`)
             }
@@ -216,7 +221,7 @@ export default function MediaUploader({
 
         setUploading(false)
         onRefresh()
-    }, [onUpload, onRefresh, disabled])
+    }, [onUpload, onRefresh, disabled, uploadDescription])
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault()
@@ -250,6 +255,17 @@ export default function MediaUploader({
                     {error}
                 </Alert>
             )}
+
+            <TextField
+                fullWidth
+                size="small"
+                label="Подпись для загружаемых файлов (необязательно)"
+                placeholder="Будет сохранена в описании файла и показана в списке аудио"
+                value={uploadDescription}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setUploadDescription(e.target.value)}
+                disabled={disabled}
+                sx={{ mb: 2 }}
+            />
 
             {/* Drop zone */}
             <Paper
@@ -301,8 +317,8 @@ export default function MediaUploader({
                                 {getMediaIcon(media.type)}
                             </ListItemIcon>
                             <ListItemText
-                                primary={media.filename}
-                                secondary={`${media.type} • ${formatFileSize(media.size)}`}
+                                primary={media.description?.trim() || media.filename}
+                                secondary={`${media.type} • ${formatFileSize(media.size)}${media.description?.trim() ? ` • ${media.filename}` : ''}`}
                             />
                             {media.type === 'image' && (
                                 <Box sx={{ mr: 2 }}>
