@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -56,12 +56,60 @@ interface WordLetter {
   forms?: LetterForms | null
 }
 
+/** Ответ API может отдавать KK-поля в snake_case — без этого в state не попадает importantKk. */
+function normalizeWordLetter(raw: Record<string, unknown>): WordLetter {
+  const r = raw as Record<string, unknown>
+  const str = (v: unknown) => (typeof v === 'string' ? v : v == null ? null : String(v))
+  const num = (v: unknown, fallback: number) =>
+    typeof v === 'number' && !Number.isNaN(v) ? v : Number(v) || fallback
+  return {
+    id: str(r.id) ?? '',
+    code: str(r.code) ?? '',
+    orderIndex: num(r.orderIndex ?? r.order_index, 0),
+    arabic: str(r.arabic) ?? '',
+    nameRu: str(r.nameRu ?? r.name_ru) ?? '',
+    nameKk: str(r.nameKk ?? r.name_kk),
+    translit: str(r.translit),
+    important: str(r.important),
+    importantKk: str(r.importantKk ?? r.important_kk),
+    audioUrl: str(r.audioUrl ?? r.audio_url),
+    forms: (r.forms as LetterForms) || null,
+  }
+}
+
 const defaultForms = (arabic: string): LetterForms => ({
   isolated: arabic,
   initial: arabic,
   middle: arabic,
   final: arabic,
 })
+
+/** Пустая строка → null; всегда передаём KK-поля в PATCH (не undefined), иначе JSON их выбросит. */
+function trimOrNull(v: string | null | undefined): string | null {
+  if (v == null) return null
+  const t = String(v).trim()
+  return t.length > 0 ? t : null
+}
+
+function buildWordLetterPatchBody(letter: WordLetter) {
+  const forms = letter.forms
+    ? {
+        isolated: letter.forms.isolated || letter.arabic,
+        initial: letter.forms.initial || letter.arabic,
+        middle: letter.forms.middle || letter.arabic,
+        final: letter.forms.final || letter.arabic,
+      }
+    : undefined
+  return {
+    nameRu: letter.nameRu,
+    nameKk: trimOrNull(letter.nameKk),
+    translit: trimOrNull(letter.translit),
+    important: trimOrNull(letter.important),
+    importantKk: trimOrNull(letter.importantKk),
+    orderIndex: letter.orderIndex,
+    ...(forms ? { forms } : {}),
+  }
+}
 
 export default function WordsAlphabetPage() {
   const [loading, setLoading] = useState(false)
@@ -72,6 +120,8 @@ export default function WordsAlphabetPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editLetter, setEditLetter] = useState<WordLetter | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<WordLetter | null>(null)
+  const editNameKkInputRef = useRef<HTMLInputElement | null>(null)
+  const editImportantKkInputRef = useRef<HTMLInputElement | null>(null)
   const [newLetter, setNewLetter] = useState({
     code: '',
     orderIndex: 0,
@@ -89,9 +139,9 @@ export default function WordsAlphabetPage() {
     setError('')
     try {
       const { data } = await getWordsAlphabet()
-      const list: WordLetter[] = (data.letters || []).sort(
-        (a: WordLetter, b: WordLetter) => a.orderIndex - b.orderIndex,
-      )
+      const list: WordLetter[] = (data.letters || [])
+        .map((row: Record<string, unknown>) => normalizeWordLetter(row))
+        .sort((a: WordLetter, b: WordLetter) => a.orderIndex - b.orderIndex)
       setLetters(list)
     } catch (e: any) {
       const msg =
@@ -106,28 +156,18 @@ export default function WordsAlphabetPage() {
     load()
   }, [])
 
+  const flushEditKkFieldsFromDom = (base: WordLetter): WordLetter => ({
+    ...base,
+    nameKk: editNameKkInputRef.current?.value ?? base.nameKk ?? '',
+    importantKk: editImportantKkInputRef.current?.value ?? base.importantKk ?? '',
+  })
+
   const handleSaveLetter = async (letter: WordLetter) => {
     try {
       setLoading(true)
       setError('')
       setSuccess('')
-      const forms = letter.forms
-        ? {
-            isolated: letter.forms.isolated || letter.arabic,
-            initial: letter.forms.initial || letter.arabic,
-            middle: letter.forms.middle || letter.arabic,
-            final: letter.forms.final || letter.arabic,
-          }
-        : undefined
-      await updateWordLetter(letter.code, {
-        nameRu: letter.nameRu,
-        nameKk: letter.nameKk?.trim() ? letter.nameKk.trim() : null,
-        translit: letter.translit || null,
-        important: letter.important || null,
-        importantKk: letter.importantKk?.trim() ? letter.importantKk.trim() : null,
-        orderIndex: letter.orderIndex,
-        forms,
-      })
+      await updateWordLetter(letter.code, buildWordLetterPatchBody(letter))
       setSuccess(`Буква ${letter.code} обновлена`)
       setEditLetter(null)
       await load()
@@ -188,10 +228,10 @@ export default function WordsAlphabetPage() {
         orderIndex: Number(newLetter.orderIndex) || 0,
         arabic: newLetter.arabic.trim(),
         nameRu: newLetter.nameRu.trim(),
-        nameKk: newLetter.nameKk.trim() || null,
-        translit: newLetter.translit || null,
-        important: newLetter.important || null,
-        importantKk: newLetter.importantKk.trim() || null,
+        nameKk: trimOrNull(newLetter.nameKk),
+        translit: trimOrNull(newLetter.translit),
+        important: trimOrNull(newLetter.important),
+        importantKk: trimOrNull(newLetter.importantKk),
         forms: {
           isolated: newLetter.forms.isolated.trim() || newLetter.arabic.trim(),
           initial: newLetter.forms.initial.trim() || newLetter.arabic.trim(),
@@ -381,6 +421,25 @@ export default function WordsAlphabetPage() {
                             </Typography>
                           )}
                         </Stack>
+                        {letter.importantKk ? (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{
+                              mt: 0.5,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                            title={letter.importantKk}
+                          >
+                            <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              Интересно (KK):{' '}
+                            </Box>
+                            {letter.importantKk}
+                          </Typography>
+                        ) : null}
                       </Stack>
                       <Stack direction="row" alignItems="center" spacing={0.5}>
                         <Tooltip title={letter.audioUrl ? 'Заменить аудио' : 'Загрузить аудио'}>
@@ -620,10 +679,15 @@ export default function WordsAlphabetPage() {
               />
               <TextField
                 label="Название (KK)"
+                inputRef={editNameKkInputRef}
                 value={editLetter.nameKk || ''}
                 onChange={(e) =>
                   setEditLetter((prev) => (prev ? { ...prev, nameKk: e.target.value } : null))
                 }
+                onCompositionEnd={(e) => {
+                  const v = (e.target as HTMLInputElement).value
+                  setEditLetter((prev) => (prev ? { ...prev, nameKk: v } : null))
+                }}
                 fullWidth
               />
               <TextField
@@ -646,10 +710,15 @@ export default function WordsAlphabetPage() {
               />
               <TextField
                 label="Интересно знать (KK)"
+                inputRef={editImportantKkInputRef}
                 value={editLetter.importantKk || ''}
                 onChange={(e) =>
                   setEditLetter((prev) => (prev ? { ...prev, importantKk: e.target.value } : null))
                 }
+                onCompositionEnd={(e) => {
+                  const v = (e.target as HTMLInputElement).value
+                  setEditLetter((prev) => (prev ? { ...prev, importantKk: v } : null))
+                }}
                 fullWidth
                 multiline
                 minRows={3}
@@ -743,7 +812,7 @@ export default function WordsAlphabetPage() {
           <Button
             variant="contained"
             startIcon={<Save />}
-            onClick={() => editLetter && handleSaveLetter(editLetter)}
+            onClick={() => editLetter && handleSaveLetter(flushEditKkFieldsFromDom(editLetter))}
             disabled={loading}
           >
             Сохранить
