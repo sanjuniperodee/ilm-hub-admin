@@ -531,6 +531,7 @@ function App() {
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
+
   )
 }
 
