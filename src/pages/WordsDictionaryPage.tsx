@@ -44,6 +44,7 @@ interface DictionaryExample {
   id: string
   arabicSentence: string
   translationRu: string
+  translationKz?: string | null
   orderIndex: number
   audioUrl?: string | null
 }
@@ -53,6 +54,7 @@ interface DictionaryEntry {
   arabic: string
   translit?: string | null
   translationRu: string
+  translationKz?: string | null
   noteRu?: string | null
   isActive: boolean
   audioUrl?: string | null
@@ -102,6 +104,7 @@ export default function WordsDictionaryPage() {
       arabic: '',
       translit: '',
       translationRu: '',
+      translationKz: '',
       noteRu: '',
       isActive: true,
       audioUrl: null,
@@ -132,13 +135,21 @@ export default function WordsDictionaryPage() {
 
   const handleSaveEntry = async () => {
     if (!editingEntry) return
-    const { id, ...payload } = editingEntry
+    const { id } = editingEntry
+    const entryPayload = {
+      arabic: editingEntry.arabic,
+      translit: editingEntry.translit ?? null,
+      translationRu: editingEntry.translationRu,
+      translationKz: editingEntry.translationKz?.trim() ? editingEntry.translationKz : null,
+      noteRu: editingEntry.noteRu ?? null,
+      isActive: editingEntry.isActive,
+    }
     try {
       setLoading(true)
       setError('')
       setSuccess('')
       if (!id) {
-        await createWordsDictionaryEntry(payload)
+        await createWordsDictionaryEntry(entryPayload)
       } else {
         // Auto-save all examples before updating the entry
         if (editingEntry.examples?.length) {
@@ -149,12 +160,13 @@ export default function WordsDictionaryPage() {
                 updateWordsDictionaryExample(ex.id, {
                   arabicSentence: ex.arabicSentence,
                   translationRu: ex.translationRu,
+                  translationKz: ex.translationKz ?? null,
                   orderIndex: ex.orderIndex,
                 }),
               ),
           )
         }
-        await updateWordsDictionaryEntry(id, payload)
+        await updateWordsDictionaryEntry(id, entryPayload)
       }
       setEditOpen(false)
       await load()
@@ -217,6 +229,7 @@ export default function WordsDictionaryPage() {
       const { data } = await createWordsDictionaryExample(editingEntry.id, {
         arabicSentence: 'مثال',
         translationRu: 'Новый пример',
+        translationKz: null,
         orderIndex,
       })
       setEditingEntry((prev) =>
@@ -250,6 +263,7 @@ export default function WordsDictionaryPage() {
       await updateWordsDictionaryExample(example.id, {
         arabicSentence: example.arabicSentence,
         translationRu: example.translationRu,
+        translationKz: example.translationKz ?? null,
         orderIndex: example.orderIndex,
       })
       setSuccess('Пример сохранён')
@@ -425,6 +439,11 @@ export default function WordsDictionaryPage() {
                         <Typography variant="body1" sx={{ fontWeight: 600 }}>
                           {entry.translationRu}
                         </Typography>
+                        {entry.translationKz?.trim() ? (
+                          <Typography variant="body2" color="text.secondary">
+                            {entry.translationKz}
+                          </Typography>
+                        ) : null}
                         <Stack direction="row" spacing={1} alignItems="center">
                           {entry.translit && (
                             <Typography variant="body2" color="text.secondary">
@@ -505,6 +524,12 @@ export default function WordsDictionaryPage() {
                 value={editingEntry.translationRu}
                 onChange={(e) => handleEntryFieldChange('translationRu', e.target.value)}
               />
+              <TextField
+                fullWidth
+                label="Перевод (каз)"
+                value={editingEntry.translationKz || ''}
+                onChange={(e) => handleEntryFieldChange('translationKz', e.target.value)}
+              />
               {editingEntry.id && (
                 <Button
                   component="label"
@@ -580,6 +605,15 @@ export default function WordsDictionaryPage() {
                                 value={ex.translationRu}
                                 onChange={(e) =>
                                   handleExampleFieldChange(ex.id, 'translationRu', e.target.value)
+                                }
+                              />
+                              <TextField
+                                fullWidth
+                                size="small"
+                                label="Перевод (каз)"
+                                value={ex.translationKz || ''}
+                                onChange={(e) =>
+                                  handleExampleFieldChange(ex.id, 'translationKz', e.target.value)
                                 }
                               />
                             </Stack>

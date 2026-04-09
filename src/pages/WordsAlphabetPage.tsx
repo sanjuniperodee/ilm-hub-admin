@@ -48,8 +48,10 @@ interface WordLetter {
   orderIndex: number
   arabic: string
   nameRu: string
+  nameKk?: string | null
   translit?: string | null
   important?: string | null
+  importantKk?: string | null
   audioUrl?: string | null
   forms?: LetterForms | null
 }
@@ -75,8 +77,10 @@ export default function WordsAlphabetPage() {
     orderIndex: 0,
     arabic: '',
     nameRu: '',
+    nameKk: '',
     translit: '',
     important: '',
+    importantKk: '',
     forms: { isolated: '', initial: '', middle: '', final: '' } as LetterForms,
   })
 
@@ -117,8 +121,10 @@ export default function WordsAlphabetPage() {
         : undefined
       await updateWordLetter(letter.code, {
         nameRu: letter.nameRu,
+        nameKk: letter.nameKk?.trim() ? letter.nameKk.trim() : null,
         translit: letter.translit || null,
         important: letter.important || null,
+        importantKk: letter.importantKk?.trim() ? letter.importantKk.trim() : null,
         orderIndex: letter.orderIndex,
         forms,
       })
@@ -182,8 +188,10 @@ export default function WordsAlphabetPage() {
         orderIndex: Number(newLetter.orderIndex) || 0,
         arabic: newLetter.arabic.trim(),
         nameRu: newLetter.nameRu.trim(),
+        nameKk: newLetter.nameKk.trim() || null,
         translit: newLetter.translit || null,
         important: newLetter.important || null,
+        importantKk: newLetter.importantKk.trim() || null,
         forms: {
           isolated: newLetter.forms.isolated.trim() || newLetter.arabic.trim(),
           initial: newLetter.forms.initial.trim() || newLetter.arabic.trim(),
@@ -197,8 +205,10 @@ export default function WordsAlphabetPage() {
         orderIndex: 0,
         arabic: '',
         nameRu: '',
+        nameKk: '',
         translit: '',
         important: '',
+        importantKk: '',
         forms: { isolated: '', initial: '', middle: '', final: '' },
       })
       await load()
@@ -355,6 +365,11 @@ export default function WordsAlphabetPage() {
                       <Stack sx={{ flex: 1, minWidth: 0 }} spacing={0.25}>
                         <Typography variant="body1" sx={{ fontWeight: 600 }}>
                           {letter.nameRu}
+                          {letter.nameKk ? (
+                            <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                              ({letter.nameKk})
+                            </Typography>
+                          ) : null}
                         </Typography>
                         <Stack direction="row" spacing={1} alignItems="center">
                           <Typography variant="body2" color="text.secondary">
@@ -471,15 +486,29 @@ export default function WordsAlphabetPage() {
               />
             </Stack>
             <TextField
+              label="Название (KK)"
+              value={newLetter.nameKk}
+              onChange={(e) => setNewLetter((prev) => ({ ...prev, nameKk: e.target.value }))}
+              fullWidth
+            />
+            <TextField
               label="Транслит"
               value={newLetter.translit || ''}
               onChange={(e) => setNewLetter((prev) => ({ ...prev, translit: e.target.value }))}
               fullWidth
             />
             <TextField
-              label="Важно знать"
+              label="Интересно знать (RU)"
               value={newLetter.important || ''}
               onChange={(e) => setNewLetter((prev) => ({ ...prev, important: e.target.value }))}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+            <TextField
+              label="Интересно знать (KK)"
+              value={newLetter.importantKk || ''}
+              onChange={(e) => setNewLetter((prev) => ({ ...prev, importantKk: e.target.value }))}
               fullWidth
               multiline
               minRows={2}
@@ -590,6 +619,14 @@ export default function WordsAlphabetPage() {
                 fullWidth
               />
               <TextField
+                label="Название (KK)"
+                value={editLetter.nameKk || ''}
+                onChange={(e) =>
+                  setEditLetter((prev) => (prev ? { ...prev, nameKk: e.target.value } : null))
+                }
+                fullWidth
+              />
+              <TextField
                 label="Транслит"
                 value={editLetter.translit || ''}
                 onChange={(e) =>
@@ -598,10 +635,20 @@ export default function WordsAlphabetPage() {
                 fullWidth
               />
               <TextField
-                label="Важно знать"
+                label="Интересно знать (RU)"
                 value={editLetter.important || ''}
                 onChange={(e) =>
                   setEditLetter((prev) => (prev ? { ...prev, important: e.target.value } : null))
+                }
+                fullWidth
+                multiline
+                minRows={3}
+              />
+              <TextField
+                label="Интересно знать (KK)"
+                value={editLetter.importantKk || ''}
+                onChange={(e) =>
+                  setEditLetter((prev) => (prev ? { ...prev, importantKk: e.target.value } : null))
                 }
                 fullWidth
                 multiline
