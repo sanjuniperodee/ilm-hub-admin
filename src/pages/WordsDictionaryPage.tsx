@@ -52,6 +52,7 @@ interface DictionaryExample {
 interface DictionaryEntry {
   id: string
   arabic: string
+  arabicPlural?: string | null
   translit?: string | null
   translationRu: string
   translationKz?: string | null
@@ -102,6 +103,7 @@ export default function WordsDictionaryPage() {
     setEditingEntry({
       id: '',
       arabic: '',
+      arabicPlural: '',
       translit: '',
       translationRu: '',
       translationKz: '',
@@ -138,6 +140,7 @@ export default function WordsDictionaryPage() {
     const { id } = editingEntry
     const entryPayload = {
       arabic: editingEntry.arabic,
+      arabicPlural: editingEntry.arabicPlural?.trim() ? editingEntry.arabicPlural.trim() : null,
       translit: editingEntry.translit ?? null,
       translationRu: editingEntry.translationRu,
       translationKz: editingEntry.translationKz?.trim() ? editingEntry.translationKz : null,
@@ -518,6 +521,19 @@ export default function WordsDictionaryPage() {
                   onChange={(e) => handleEntryFieldChange('translit', e.target.value)}
                 />
               </Stack>
+              <TextField
+                fullWidth
+                label="Арабское (мн. ч.)"
+                value={editingEntry.arabicPlural || ''}
+                onChange={(e) => handleEntryFieldChange('arabicPlural', e.target.value)}
+                helperText="Оставьте пустым, если множественного числа нет"
+              />
+              <TextField
+                fullWidth
+                label="Заметка (блок и т.п.)"
+                value={editingEntry.noteRu || ''}
+                onChange={(e) => handleEntryFieldChange('noteRu', e.target.value)}
+              />
               <TextField
                 fullWidth
                 label="Перевод (RU)"
