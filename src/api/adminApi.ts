@@ -217,6 +217,9 @@ export const uploadWordsDictionaryEntryAudio = (id: string, file: File) => {
   })
 }
 
+export const deleteWordsDictionaryEntryAudio = (id: string) =>
+  apiClient.delete(`/admin/words/dictionary/${id}/audio`)
+
 export const createWordsDictionaryExample = (entryId: string, data: any) =>
   apiClient.post(`/admin/words/dictionary/${entryId}/examples`, data)
 

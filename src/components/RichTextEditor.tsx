@@ -19,6 +19,11 @@ import {
   LooksOne,
 } from '@mui/icons-material'
 import { useEffect, useRef, useState } from 'react'
+import {
+  ILM_RICHTEXT_TABLE_WRAP_CLASS,
+  ILM_RICHTEXT_TABLE_WRAP_STYLE,
+  wrapBareTablesInContainer,
+} from '../utils/wrapRichTextTables'
 
 const FONT_FAMILIES = [
   { value: '', label: 'Шрифт', family: '', weight: '' },
@@ -124,7 +129,8 @@ export default function RichTextEditor({
       .join('')
 
     insertHtmlAtCursor(
-      `<table style="width:100%;border-collapse:collapse;margin:8px 0;border-radius:12px;overflow:hidden;"><tbody>${body}</tbody></table><p></p>`,
+      `<div class="${ILM_RICHTEXT_TABLE_WRAP_CLASS}" style="${ILM_RICHTEXT_TABLE_WRAP_STYLE}">` +
+        `<table style="width:100%;border-collapse:collapse;"><tbody>${body}</tbody></table></div><p></p>`,
     )
   }
 
@@ -141,7 +147,8 @@ export default function RichTextEditor({
       .join('')
 
     insertHtmlAtCursor(
-      `<table style="width:100%;border-collapse:collapse;margin:8px 0;border-radius:12px;overflow:hidden;"><tbody>${body}</tbody></table><p></p>`,
+      `<div class="${ILM_RICHTEXT_TABLE_WRAP_CLASS}" style="${ILM_RICHTEXT_TABLE_WRAP_STYLE}">` +
+        `<table style="width:100%;border-collapse:collapse;"><tbody>${body}</tbody></table></div><p></p>`,
     )
   }
 
@@ -228,10 +235,12 @@ export default function RichTextEditor({
   }
 
   useEffect(() => {
-    if (!editorRef.current) return
-    if (editorRef.current.innerHTML !== value) {
-      editorRef.current.innerHTML = value || ''
+    const el = editorRef.current
+    if (!el) return
+    if (el.innerHTML !== value) {
+      el.innerHTML = value || ''
     }
+    wrapBareTablesInContainer(el)
   }, [value])
 
   return (
@@ -505,6 +514,28 @@ export default function RichTextEditor({
           '& p': { margin: '6px 0' },
           '& ul, & ol': { margin: '8px 0 8px 20px' },
           '& a': { color: 'primary.main' },
+          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
+            borderRadius: '12px',
+            overflow: 'hidden',
+            my: 1,
+            width: '100%',
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+          },
+          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
+            width: '100%',
+            borderCollapse: 'collapse',
+            borderSpacing: 0,
+            margin: 0,
+          },
+          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td`]: {
+            border: '1px solid #d8d8d8',
+            padding: '8px',
+          },
+          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: {
+            bgcolor: '#F5F0EB',
+            fontWeight: 600,
+          },
         }}
       />
     </Paper>

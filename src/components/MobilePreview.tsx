@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Box, Dialog, DialogContent, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { Close, PlayCircleFilled, VolumeUp, MusicOff, MenuBook, Star, TrendingUp, PhoneIphone, TabletMac } from '@mui/icons-material'
+import { ILM_RICHTEXT_TABLE_WRAP_CLASS, wrapRichTextTables } from '../utils/wrapRichTextTables'
 
 /* ─── Phone models ─── */
 const PHONE_MODELS = [
@@ -250,11 +251,12 @@ function TheoryPreview({ c }: { c: Record<string, any> }) {
   const title = (c.title as string) || ''
   const html = (c.html as string) || (c.text as string) || ''
   const examples = (c.examples as any[]) || []
+  const htmlForPreview = html ? wrapRichTextTables(html) : ''
 
   return (
     <Box>
       {title && <Typography sx={{ ...font(22, 600), mb: `${S.m}px` }}>{title}</Typography>}
-      {html && (
+      {htmlForPreview && (
         <Box
           sx={{
             ...font(16, 400),
@@ -266,13 +268,29 @@ function TheoryPreview({ c }: { c: Record<string, any> }) {
             '& img': { maxWidth: '100%', height: 'auto', borderRadius: '8px', my: 1 },
             '& audio': { width: '100%', my: 1 },
             '& video': { maxWidth: '100%', borderRadius: '8px', my: 1 },
-            '& table': { width: '100%', borderCollapse: 'collapse', borderRadius: '12px', overflow: 'hidden', my: 1 },
-            '& th, & td': { border: '1px solid #d8d8d8', p: 1 },
-            '& th': { bgcolor: '#F5F0EB', fontWeight: 600 },
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
+              borderRadius: '12px',
+              overflow: 'hidden',
+              my: 1,
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+            },
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
+              width: '100%',
+              borderCollapse: 'collapse',
+              borderSpacing: 0,
+              m: 0,
+            },
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td`]: {
+              border: '1px solid #d8d8d8',
+              p: 1,
+            },
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: { bgcolor: '#F5F0EB', fontWeight: 600 },
             '& ul, & ol': { pl: 2.5, my: 1 },
             '& a': { color: C.primary },
           }}
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: htmlForPreview }}
         />
       )}
       {examples.length > 0 && (

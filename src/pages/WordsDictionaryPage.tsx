@@ -38,6 +38,7 @@ import {
   updateWordsDictionaryExample,
   uploadWordsDictionaryEntryAudio,
   uploadWordsDictionaryExampleAudio,
+  deleteWordsDictionaryEntryAudio,
 } from '../api/adminApi'
 
 interface DictionaryExample {
@@ -73,6 +74,7 @@ export default function WordsDictionaryPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DictionaryEntry | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DictionaryEntry | null>(null)
+  const [deleteEntryAudioOpen, setDeleteEntryAudioOpen] = useState(false)
   const [draggingExampleId, setDraggingExampleId] = useState<string | null>(null)
   const pendingExamplesRef = useRef<DictionaryExample[] | null>(null)
 
@@ -172,6 +174,7 @@ export default function WordsDictionaryPage() {
         await updateWordsDictionaryEntry(id, entryPayload)
       }
       setEditOpen(false)
+      setDeleteEntryAudioOpen(false)
       await load()
       setSuccess('Слово сохранено')
     } catch (e: any) {
@@ -215,10 +218,34 @@ export default function WordsDictionaryPage() {
       setSuccess('')
       const { data } = await uploadWordsDictionaryEntryAudio(editingEntry.id, file)
       setEditingEntry((prev) => (prev ? { ...prev, audioUrl: data.audioUrl } : prev))
+      setEntries((prev) =>
+        prev.map((e) => (e.id === editingEntry.id ? { ...e, audioUrl: data.audioUrl } : e)),
+      )
       setSuccess('Аудио для слова загружено')
     } catch (e: any) {
       const msg =
         e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка загрузки аудио слова'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleConfirmDeleteEntryAudio = async () => {
+    if (!editingEntry?.id) return
+    const entryId = editingEntry.id
+    try {
+      setLoading(true)
+      setError('')
+      setSuccess('')
+      await deleteWordsDictionaryEntryAudio(entryId)
+      setDeleteEntryAudioOpen(false)
+      setEditingEntry((prev) => (prev ? { ...prev, audioUrl: null } : prev))
+      setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, audioUrl: null } : e)))
+      setSuccess('Аудио удалено')
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка удаления аудио'
       setError(msg)
     } finally {
       setLoading(false)
@@ -502,7 +529,15 @@ export default function WordsDictionaryPage() {
         />
       )}
 
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md">
+      <Dialog
+        open={editOpen}
+        onClose={() => {
+          setEditOpen(false)
+          setDeleteEntryAudioOpen(false)
+        }}
+        fullWidth
+        maxWidth="md"
+      >
         <DialogTitle>{editingEntry?.id ? 'Редактирование слова' : 'Новое слово'}</DialogTitle>
         {editingEntry && (
           <DialogContent>
@@ -547,21 +582,27 @@ export default function WordsDictionaryPage() {
                 onChange={(e) => handleEntryFieldChange('translationKz', e.target.value)}
               />
               {editingEntry.id && (
-                <Button
-                  component="label"
-                  size="small"
-                  variant="outlined"
-                  startIcon={<Audiotrack />}
-                  sx={{ alignSelf: 'flex-start' }}
-                >
-                  {editingEntry.audioUrl ? 'Заменить аудио слова' : 'Загрузить аудио слова'}
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    hidden
-                    onChange={(e) => handleUploadEntryAudio(e.target.files?.[0] || null)}
-                  />
-                </Button>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ alignSelf: 'flex-start' }}>
+                  <Button component="label" size="small" variant="outlined" startIcon={<Audiotrack />}>
+                    {editingEntry.audioUrl ? 'Заменить аудио' : 'Добавить аудио'}
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      hidden
+                      onChange={(e) => handleUploadEntryAudio(e.target.files?.[0] || null)}
+                    />
+                  </Button>
+                  {editingEntry.audioUrl ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      onClick={() => setDeleteEntryAudioOpen(true)}
+                    >
+                      Удалить аудио
+                    </Button>
+                  ) : null}
+                </Stack>
               )}
 
               {editingEntry.id && (
@@ -683,9 +724,29 @@ export default function WordsDictionaryPage() {
           </DialogContent>
         )}
         <DialogActions>
-          <Button onClick={() => setEditOpen(false)}>Отмена</Button>
+          <Button
+            onClick={() => {
+              setEditOpen(false)
+              setDeleteEntryAudioOpen(false)
+            }}
+          >
+            Отмена
+          </Button>
           <Button variant="contained" onClick={handleSaveEntry} disabled={loading}>
             Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteEntryAudioOpen} onClose={() => setDeleteEntryAudioOpen(false)}>
+        <DialogTitle>Удалить аудио?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mt: 0.5 }}>Вы уверены, что хотите удалить аудио?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteEntryAudioOpen(false)}>Отмена</Button>
+          <Button variant="contained" color="error" onClick={handleConfirmDeleteEntryAudio} disabled={loading}>
+            Удалить
           </Button>
         </DialogActions>
       </Dialog>
