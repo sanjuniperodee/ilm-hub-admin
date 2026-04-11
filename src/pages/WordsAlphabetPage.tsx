@@ -50,6 +50,7 @@ interface WordLetter {
   nameRu: string
   nameKk?: string | null
   translit?: string | null
+  translitKk?: string | null
   important?: string | null
   importantKk?: string | null
   audioUrl?: string | null
@@ -70,6 +71,7 @@ function normalizeWordLetter(raw: Record<string, unknown>): WordLetter {
     nameRu: str(r.nameRu ?? r.name_ru) ?? '',
     nameKk: str(r.nameKk ?? r.name_kk),
     translit: str(r.translit),
+    translitKk: str(r.translitKk ?? r.translit_kk),
     important: str(r.important),
     importantKk: str(r.importantKk ?? r.important_kk),
     audioUrl: str(r.audioUrl ?? r.audio_url),
@@ -104,6 +106,7 @@ function buildWordLetterPatchBody(letter: WordLetter) {
     nameRu: letter.nameRu,
     nameKk: trimOrNull(letter.nameKk),
     translit: trimOrNull(letter.translit),
+    translitKk: trimOrNull(letter.translitKk),
     important: trimOrNull(letter.important),
     importantKk: trimOrNull(letter.importantKk),
     orderIndex: letter.orderIndex,
@@ -129,6 +132,7 @@ export default function WordsAlphabetPage() {
     nameRu: '',
     nameKk: '',
     translit: '',
+    translitKk: '',
     important: '',
     importantKk: '',
     forms: { isolated: '', initial: '', middle: '', final: '' } as LetterForms,
@@ -230,6 +234,7 @@ export default function WordsAlphabetPage() {
         nameRu: newLetter.nameRu.trim(),
         nameKk: trimOrNull(newLetter.nameKk),
         translit: trimOrNull(newLetter.translit),
+        translitKk: trimOrNull(newLetter.translitKk),
         important: trimOrNull(newLetter.important),
         importantKk: trimOrNull(newLetter.importantKk),
         forms: {
@@ -247,6 +252,7 @@ export default function WordsAlphabetPage() {
         nameRu: '',
         nameKk: '',
         translit: '',
+        translitKk: '',
         important: '',
         importantKk: '',
         forms: { isolated: '', initial: '', middle: '', final: '' },
@@ -418,6 +424,7 @@ export default function WordsAlphabetPage() {
                           {letter.translit && (
                             <Typography variant="body2" color="text.secondary">
                               • {letter.translit}
+                              {letter.translitKk ? ` · ${letter.translitKk}` : ''}
                             </Typography>
                           )}
                         </Stack>
@@ -551,9 +558,15 @@ export default function WordsAlphabetPage() {
               fullWidth
             />
             <TextField
-              label="Транслит"
+              label="Транслит / произношение (RU)"
               value={newLetter.translit || ''}
               onChange={(e) => setNewLetter((prev) => ({ ...prev, translit: e.target.value }))}
+              fullWidth
+            />
+            <TextField
+              label="Транслит / произношение (KK)"
+              value={newLetter.translitKk || ''}
+              onChange={(e) => setNewLetter((prev) => ({ ...prev, translitKk: e.target.value }))}
               fullWidth
             />
             <TextField
@@ -691,10 +704,18 @@ export default function WordsAlphabetPage() {
                 fullWidth
               />
               <TextField
-                label="Транслит"
+                label="Транслит / произношение (RU)"
                 value={editLetter.translit || ''}
                 onChange={(e) =>
                   setEditLetter((prev) => (prev ? { ...prev, translit: e.target.value } : null))
+                }
+                fullWidth
+              />
+              <TextField
+                label="Транслит / произношение (KK)"
+                value={editLetter.translitKk || ''}
+                onChange={(e) =>
+                  setEditLetter((prev) => (prev ? { ...prev, translitKk: e.target.value } : null))
                 }
                 fullWidth
               />
