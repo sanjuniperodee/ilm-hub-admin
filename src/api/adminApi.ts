@@ -194,7 +194,7 @@ export const deleteWordLetterAudio = (code: string) =>
   apiClient.delete(`/admin/words/alphabet/${code}/audio`)
 
 // Words / Dictionary (backend-copy words module)
-export const getWordsDictionary = (params?: { page?: number; limit?: number }) =>
+export const getWordsDictionary = (params?: { page?: number; limit?: number; q?: string }) =>
   apiClient.get('/admin/words/dictionary', { params })
 
 export const getWordsDictionaryEntry = (id: string) =>

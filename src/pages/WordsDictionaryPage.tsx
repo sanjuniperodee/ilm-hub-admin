@@ -5,11 +5,13 @@ import {
   Button,
   Card,
   CardContent,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   LinearProgress,
   Stack,
   TablePagination,
@@ -25,6 +27,7 @@ import {
   Edit as EditIcon,
   Refresh,
   Save,
+  Search,
 } from '@mui/icons-material'
 import {
   createWordsDictionaryEntry,
@@ -40,6 +43,15 @@ import {
   uploadWordsDictionaryExampleAudio,
   deleteWordsDictionaryEntryAudio,
 } from '../api/adminApi'
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(value), delayMs)
+    return () => window.clearTimeout(t)
+  }, [value, delayMs])
+  return debounced
+}
 
 interface DictionaryExample {
   id: string
@@ -71,6 +83,8 @@ export default function WordsDictionaryPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(50)
+  const [searchInput, setSearchInput] = useState('')
+  const debouncedSearch = useDebouncedValue(searchInput, 400)
   const [editOpen, setEditOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DictionaryEntry | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DictionaryEntry | null>(null)
@@ -82,7 +96,12 @@ export default function WordsDictionaryPage() {
     setLoading(true)
     setError('')
     try {
-      const { data } = await getWordsDictionary({ page: page + 1, limit: rowsPerPage })
+      const q = debouncedSearch.trim()
+      const { data } = await getWordsDictionary({
+        page: page + 1,
+        limit: rowsPerPage,
+        ...(q ? { q } : {}),
+      })
       const list: DictionaryEntry[] = (data.data || data.entries || []).sort((a: DictionaryEntry, b: DictionaryEntry) =>
         a.arabic.localeCompare(b.arabic),
       )
@@ -99,7 +118,7 @@ export default function WordsDictionaryPage() {
 
   useEffect(() => {
     load()
-  }, [page, rowsPerPage])
+  }, [page, rowsPerPage, debouncedSearch])
 
   const openCreateDialog = () => {
     setEditingEntry({
@@ -426,14 +445,41 @@ export default function WordsDictionaryPage() {
 
       <Card sx={{ borderRadius: 4 }}>
         <CardContent>
-          {entries.length === 0 ? (
+          <TextField
+            fullWidth
+            size="small"
+            label="Поиск"
+            placeholder="Русский перевод или транскрипция"
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value)
+              setPage(0)
+            }}
+            sx={{ mb: 2 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          {loading && entries.length === 0 ? (
+            <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
+              <CircularProgress />
+            </Box>
+          ) : !loading && entries.length === 0 ? (
             <Box sx={{ py: 8, textAlign: 'center' }}>
               <Typography color="text.secondary" sx={{ mb: 2 }}>
-                Нет слов. Добавьте первое слово в словарь.
+                {debouncedSearch.trim()
+                  ? 'Ничего не найдено'
+                  : 'Нет слов. Добавьте первое слово в словарь.'}
               </Typography>
-              <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog}>
-                Добавить слово
-              </Button>
+              {!debouncedSearch.trim() ? (
+                <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog}>
+                  Добавить слово
+                </Button>
+              ) : null}
             </Box>
           ) : (
             <Stack spacing={1}>
