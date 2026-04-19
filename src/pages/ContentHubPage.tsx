@@ -511,6 +511,10 @@ export default function ContentHubPage() {
     navigate(`/content/level-tests/${levelCode}`)
   }
 
+  const openOnboardingPlacement = (slot: string) => {
+    navigate(`/content/onboarding-placement/${slot}`)
+  }
+
   const urlCourse = courses.find((c) => c.id === urlCourseId) || null
   const urlModule =
     urlCourseId && urlModuleId
@@ -529,9 +533,14 @@ export default function ContentHubPage() {
             Курсы → Модули → Уроки. Раскройте и перейдите к редактированию.
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)}>
-          Создать курс
-        </Button>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Button variant="outlined" size="small" onClick={() => openOnboardingPlacement('diagnostic')}>
+            Онбординг: диагностика
+          </Button>
+          <Button variant="contained" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)}>
+            Создать курс
+          </Button>
+        </Stack>
       </Stack>
 
       {loading && <LinearProgress sx={{ mb: 2 }} />}
@@ -667,6 +676,28 @@ export default function ContentHubPage() {
                                 size="small"
                                 variant="text"
                                 onClick={() => openLevelTest(levelCode)}
+                              >
+                                Открыть
+                              </Button>
+                            </Stack>
+                          </Tooltip>
+                        )}
+                        {['mahraj', 'a1', 'a2'].includes(String(c.code || '').toLowerCase()) && (
+                          <Tooltip title="Вопросы для ветки онбординга (без Premium)">
+                            <Stack
+                              direction="row"
+                              alignItems="center"
+                              spacing={1}
+                              sx={{ mb: 1, pl: 1 }}
+                            >
+                              <QuizOutlined sx={{ fontSize: 18, color: 'primary.main' }} />
+                              <Typography variant="body2" sx={{ flex: 1 }}>
+                                Тест онбординга ({c.code})
+                              </Typography>
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => openOnboardingPlacement(String(c.code).toLowerCase())}
                               >
                                 Открыть
                               </Button>

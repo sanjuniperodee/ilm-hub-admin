@@ -139,10 +139,12 @@ export const reorderBlockMedia = (blockId: string, mediaFileIds: string[]) =>
 
 // Tests management (backend-copy courses module)
 export const getTests = (params?: {
-  testType?: 'lesson' | 'module' | 'level'
+  testType?: 'lesson' | 'module' | 'level' | 'placement'
   lessonId?: string
   moduleId?: string
   levelCode?: string
+  courseId?: string
+  placementProfile?: string
 }) => apiClient.get('/courses/admin/tests', { params })
 
 export const getTestAttempts = (testId: string) =>

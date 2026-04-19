@@ -61,10 +61,14 @@ const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
 ]
 
 export interface TestEditorSharedProps {
-  testType: 'lesson' | 'module' | 'level'
+  testType: 'lesson' | 'module' | 'level' | 'placement'
   lessonId?: string
   moduleId?: string
   levelCode?: string
+  /** For placement tests tied to a catalog course */
+  courseId?: string
+  /** For diagnostic placement (no course) */
+  placementProfile?: string
   title: string
   onBack: () => void
 }
@@ -74,6 +78,8 @@ export function TestEditorShared({
   lessonId,
   moduleId,
   levelCode,
+  courseId,
+  placementProfile,
   title,
   onBack,
 }: TestEditorSharedProps) {
@@ -92,6 +98,10 @@ export function TestEditorShared({
       if (lessonId) params.lessonId = lessonId
       if (moduleId) params.moduleId = moduleId
       if (levelCode) params.levelCode = levelCode
+      if (testType === 'placement') {
+        if (placementProfile) params.placementProfile = placementProfile
+        else if (courseId) params.courseId = courseId
+      }
       const { data } = await getTests(params)
       const list = Array.isArray(data) ? data : []
       setTest(list[0] ?? null)
@@ -104,7 +114,7 @@ export function TestEditorShared({
 
   useEffect(() => {
     load()
-  }, [testType, lessonId, moduleId, levelCode])
+  }, [testType, lessonId, moduleId, levelCode, courseId, placementProfile])
 
   const notifyError = (msg: string) => {
     setError(msg)
@@ -125,6 +135,8 @@ export function TestEditorShared({
         lessonId: testType === 'lesson' ? lessonId : undefined,
         moduleId: testType === 'module' ? moduleId : undefined,
         levelCode: testType === 'level' ? levelCode : undefined,
+        courseId: testType === 'placement' && !placementProfile ? courseId : undefined,
+        placementProfile: testType === 'placement' && placementProfile ? placementProfile : undefined,
         titleRu: newTitle,
         passingScore: Number(newPassing) || 70,
       })

@@ -13,6 +13,7 @@ import CourseEditorPage from './pages/CourseEditorPage'
 import ModuleEditorPage from './pages/ModuleEditorPage'
 import ModuleTestPage from './pages/ModuleTestPage'
 import LevelTestPage from './pages/LevelTestPage'
+import OnboardingPlacementTestPage from './pages/OnboardingPlacementTestPage'
 import Layout from './components/Layout'
 import WordsAlphabetPage from './pages/WordsAlphabetPage'
 import WordsDictionaryPage from './pages/WordsDictionaryPage'
@@ -509,6 +510,10 @@ function App() {
               <Route path="content/courses/:courseId/modules/:moduleId/edit" element={<ModuleEditorPage />} />
               <Route path="content/courses/:courseId/modules/:moduleId/test" element={<ModuleTestPage />} />
               <Route path="content/level-tests/:levelCode" element={<LevelTestPage />} />
+              <Route
+                path="content/onboarding-placement/:slot"
+                element={<OnboardingPlacementTestPage />}
+              />
               <Route path="users" element={<UsersPage />} />
               <Route path="users/:id" element={<UserDetailPage />} />
               <Route
