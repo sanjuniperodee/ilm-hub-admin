@@ -22,6 +22,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  IconButton,
+  CircularProgress,
 } from '@mui/material'
 import {
   Add,
@@ -33,6 +35,7 @@ import {
   QuizOutlined,
   ArticleOutlined,
   DragIndicator,
+  DeleteOutline,
 } from '@mui/icons-material'
 import {
   createCourse,
@@ -43,6 +46,8 @@ import {
   getModules,
   reorderModules,
   reorderLessons,
+  deleteLesson,
+  getLessonDeletionImpact,
 } from '../api/adminApi'
 import {
   DndContext,
@@ -185,11 +190,15 @@ function SortableLessonRow({
   courseId,
   moduleId,
   navigate,
+  onRequestDelete,
+  isDeleting,
 }: {
   lesson: HubLesson
   courseId: string
   moduleId: string
   navigate: (path: string) => void
+  onRequestDelete: () => void
+  isDeleting: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lesson.id,
@@ -229,6 +238,22 @@ function SortableLessonRow({
       >
         Редактировать
       </Button>
+      <Tooltip title="Удалить урок">
+        <span>
+          <IconButton
+            size="small"
+            color="error"
+            disabled={isDeleting}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRequestDelete()
+            }}
+            aria-label="Удалить урок"
+          >
+            {isDeleting ? <CircularProgress size={18} color="inherit" /> : <DeleteOutline fontSize="small" />}
+          </IconButton>
+        </span>
+      </Tooltip>
     </Stack>
   )
 }
@@ -260,6 +285,7 @@ export default function ContentHubPage() {
   const [createCourseOpen, setCreateCourseOpen] = useState(false)
   const [createModuleOpen, setCreateModuleOpen] = useState(false)
   const [createLessonOpen, setCreateLessonOpen] = useState(false)
+  const [deletingLessonId, setDeletingLessonId] = useState<string | null>(null)
 
   const [contextCourseId, setContextCourseId] = useState('')
   const [contextModuleId, setContextModuleId] = useState('')
@@ -515,6 +541,38 @@ export default function ContentHubPage() {
     navigate(`/content/onboarding-placement/${slot}`)
   }
 
+  const ruUsersWord = (n: number) => {
+    if (n % 10 === 1 && n % 100 !== 11) return 'пользователь'
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'пользователя'
+    return 'пользователей'
+  }
+
+  const handleDeleteLesson = async (lesson: HubLesson, courseId: string) => {
+    try {
+      const { data } = await getLessonDeletionImpact(lesson.id)
+      const n = data?.distinctUserCount ?? 0
+      const progressHint =
+        n > 0
+          ? `\n\nВнимание: у ${n} ${ruUsersWord(n)} есть прогресс по уроку или мини-тесту. Эти данные будут удалены.`
+          : ''
+      if (
+        !window.confirm(
+          `Удалить урок «${lesson.titleRu}»? Действие нельзя отменить.${progressHint}`,
+        )
+      ) {
+        return
+      }
+      setDeletingLessonId(lesson.id)
+      await deleteLesson(lesson.id)
+      await loadHierarchy(courseId)
+      notifySuccess('Урок удалён')
+    } catch (e) {
+      notifyError(e, 'Не удалось удалить урок')
+    } finally {
+      setDeletingLessonId(null)
+    }
+  }
+
   const urlCourse = courses.find((c) => c.id === urlCourseId) || null
   const urlModule =
     urlCourseId && urlModuleId
@@ -733,6 +791,8 @@ export default function ContentHubPage() {
                                         courseId={c.id}
                                         moduleId={m.id}
                                         navigate={navigate}
+                                        onRequestDelete={() => void handleDeleteLesson(l, c.id)}
+                                        isDeleting={deletingLessonId === l.id}
                                       />
                                     ))}
                                   </Stack>
@@ -795,6 +855,23 @@ export default function ContentHubPage() {
                                     >
                                       Редактировать
                                     </Button>
+                                    <Tooltip title="Удалить урок">
+                                      <span>
+                                        <IconButton
+                                          size="small"
+                                          color="error"
+                                          disabled={deletingLessonId === l.id}
+                                          onClick={() => void handleDeleteLesson(l, c.id)}
+                                          aria-label="Удалить урок"
+                                        >
+                                          {deletingLessonId === l.id ? (
+                                            <CircularProgress size={18} color="inherit" />
+                                          ) : (
+                                            <DeleteOutline fontSize="small" />
+                                          )}
+                                        </IconButton>
+                                      </span>
+                                    </Tooltip>
                                   </Stack>
                                 ))}
                             </Stack>

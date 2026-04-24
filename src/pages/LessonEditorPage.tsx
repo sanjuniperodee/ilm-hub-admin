@@ -1432,6 +1432,10 @@ export default function LessonEditorPage() {
                           onUploadFile={uploadEditorMedia}
                           onRemoveMedia={removeEditorMedia}
                         />
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                          Чтобы удалить или заменить вставленное аудио, фото или видео: кликните по нему в тексте, затем на
+                          панели нажмите иконку корзины (удалит из текста и открепит загруженный файл на сервере).
+                        </Typography>
                       </Grid>
                       <Grid item xs={12} md={6}>
                         <TextField

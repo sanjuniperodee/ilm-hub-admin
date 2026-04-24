@@ -94,6 +94,8 @@ export const getLessons = (courseId?: string, moduleId?: string) => {
 export const getLessonById = (id: string) => apiClient.get(`/admin/lessons/${id}`)
 export const createLesson = (data: any) => apiClient.post('/admin/lessons', data)
 export const updateLesson = (id: string, data: any) => apiClient.patch(`/admin/lessons/${id}`, data)
+export const getLessonDeletionImpact = (lessonId: string) =>
+  apiClient.get<{ distinctUserCount: number }>(`/admin/lessons/${lessonId}/deletion-impact`)
 export const deleteLesson = (id: string) => apiClient.delete(`/admin/lessons/${id}`)
 
 // Lesson Blocks

@@ -17,8 +17,9 @@ import {
   ZoomInMap,
   TableChart,
   LooksOne,
+  ViewColumn,
 } from '@mui/icons-material'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   ILM_RICHTEXT_TABLE_WRAP_CLASS,
   ILM_RICHTEXT_TABLE_WRAP_STYLE,
@@ -51,6 +52,56 @@ const FONT_SIZES = [
   { value: '7', label: '48px' },
 ]
 
+/** Marker classes — mirrored in `MobilePreview` / `theory_block_widget` (customStyles). */
+const ILM_RICHTEXT_AUDIO_CLASS = 'ilm-richtext-audio'
+const ILM_RICHTEXT_AUDIO_COMPACT_CLASS = 'ilm-richtext-audio--compact'
+const ILM_RICHTEXT_AUDIO_TD_CLASS = 'ilm-richtext-td-audio'
+
+function findTableCellInEditor(anchor: Node | null, root: HTMLElement): HTMLTableCellElement | null {
+  let n: Node | null = anchor
+  while (n) {
+    if (n === root) return null
+    if (n.nodeType === Node.ELEMENT_NODE) {
+      const t = (n as Element).tagName
+      if (t === 'TD' || t === 'TH') {
+        if (root.contains(n)) return n as HTMLTableCellElement
+        return null
+      }
+    }
+    n = n.parentNode
+  }
+  return null
+}
+
+function isRangeInsideTableCell(range: Range, root: HTMLElement): boolean {
+  return findTableCellInEditor(range.commonAncestorContainer, root) != null
+}
+
+/** Finds <audio> / <video> / <img> in event path (incl. shadow roots for media controls). */
+function findMediaInComposedPath(event: { composedPath: () => EventTarget[] }, root: HTMLElement): HTMLElement | null {
+  for (const n of event.composedPath()) {
+    if (!(n instanceof HTMLElement)) continue
+    const tag = n.tagName
+    if (tag === 'AUDIO' || tag === 'VIDEO' || tag === 'IMG') {
+      if (root.contains(n)) return n
+    }
+  }
+  return null
+}
+
+function buildAudioHtml(options: { url: string; mediaId?: string; compact: boolean }): string {
+  const { url, mediaId, compact } = options
+  const idAttr = mediaId ? ` data-media-id="${mediaId}"` : ''
+  const cls = compact
+    ? `${ILM_RICHTEXT_AUDIO_CLASS} ${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}`
+    : ILM_RICHTEXT_AUDIO_CLASS
+  // Compact: in-table mini player. Full width otherwise (paragraph-level).
+  const style = compact
+    ? 'max-width:min(220px,100%);min-width:120px;height:40px;vertical-align:middle;display:inline-block;'
+    : 'width:100%;max-width:100%;min-height:40px;vertical-align:middle;'
+  return `<audio class="${cls}"${idAttr} controls="" preload="metadata" style="${style}"><source src="${url}" /></audio>`
+}
+
 interface RichTextEditorProps {
   value: string
   onChange: (value: string) => void
@@ -74,6 +125,10 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const selectionRef = useRef<Range | null>(null)
+  /** Cloned before async `onUploadFile` so insertion returns to the right cell after upload. */
+  const insertRangeRef = useRef<Range | null>(null)
+  /** Last media clicked in the editor (native <audio> controls do not set document selection). */
+  const lastMediaInEditorRef = useRef<HTMLElement | null>(null)
   const [currentFontFamily, setCurrentFontFamily] = useState('')
   const [currentFontSize, setCurrentFontSize] = useState('')
 
@@ -97,13 +152,108 @@ export default function RichTextEditor({
     selection.addRange(range)
   }
 
-  const insertHtmlAtCursor = (html: string) => {
-    editorRef.current?.focus()
-    restoreSelection()
-    toolbarAction('insertHTML', html)
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML)
+  const getSelectedMedia = (): { el: HTMLElement; mediaId: string | null } | null => {
+    const root = editorRef.current
+    if (!root) return null
+    const sel = window.getSelection()
+    if (sel?.rangeCount) {
+      const a = sel.anchorNode
+      if (a) {
+        const p = a instanceof Element ? a : a.parentElement
+        const m = p?.closest('audio,img,video') as HTMLElement | null
+        if (m && root.contains(m)) {
+          return { el: m, mediaId: m.getAttribute('data-media-id') }
+        }
+      }
     }
+    const last = lastMediaInEditorRef.current
+    if (last && root.contains(last)) {
+      return { el: last, mediaId: last.getAttribute('data-media-id') }
+    }
+    return null
+  }
+
+  const handleEditorPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const root = editorRef.current
+    if (!root) return
+    const native = e.nativeEvent
+    let media = findMediaInComposedPath(native, root)
+    if (!media) {
+      const t = e.target
+      if (t instanceof HTMLAudioElement || t instanceof HTMLVideoElement) {
+        if (root.contains(t)) media = t
+      } else if (t instanceof HTMLImageElement) {
+        if (root.contains(t)) media = t
+      }
+    }
+    if (media) {
+      lastMediaInEditorRef.current = media
+      const r = document.createRange()
+      r.selectNode(media)
+      const sel = window.getSelection()
+      if (sel) {
+        sel.removeAllRanges()
+        try {
+          sel.addRange(r)
+        } catch {
+          // ignore
+        }
+        try {
+          selectionRef.current = r.cloneRange()
+        } catch {
+          // ignore
+        }
+      }
+      return
+    }
+    lastMediaInEditorRef.current = null
+    rememberSelection()
+  }
+
+  const insertHtmlAtCursor = (html: string) => {
+    const root = editorRef.current
+    if (!root) return
+    root.focus()
+    restoreSelection()
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) {
+      const wrap = document.createElement('div')
+      wrap.innerHTML = html
+      const frag = document.createDocumentFragment()
+      while (wrap.firstChild) frag.appendChild(wrap.firstChild)
+      root.appendChild(frag)
+      onChange(root.innerHTML)
+      return
+    }
+
+    const range = sel.getRangeAt(0)
+    const inCell = isRangeInsideTableCell(range, root)
+
+    if (inCell) {
+      const tpl = document.createElement('template')
+      tpl.innerHTML = html.trim()
+      const frag = tpl.content
+      const lastBeforeInsert = frag.lastChild
+      try {
+        range.deleteContents()
+        range.insertNode(frag)
+        if (lastBeforeInsert) {
+          range.setStartAfter(lastBeforeInsert)
+          range.collapse(true)
+        }
+        sel.removeAllRanges()
+        sel.addRange(range)
+      } catch {
+        document.execCommand('insertHTML', false, html)
+      }
+    } else {
+      document.execCommand('insertHTML', false, html)
+    }
+
+    if (sel.rangeCount > 0) {
+      selectionRef.current = sel.getRangeAt(0).cloneRange()
+    }
+    onChange(root.innerHTML)
   }
 
   const askForUrl = (title: string): string | null => {
@@ -134,6 +284,29 @@ export default function RichTextEditor({
     )
   }
 
+  /** Two columns: text / labels + a narrow column for one audio per row. */
+  const insertTextAndAudioTable = () => {
+    const rowsInput = window.prompt('Количество строк (например, по одной на каждую огласовку)', '3')
+    const rows = Math.max(1, Math.min(20, Number(rowsInput || 0)))
+    if (!rows) return
+
+    const body = Array.from({ length: rows })
+      .map(
+        () =>
+          '<tr>' +
+          '<td style="border:1px solid #d8d8d8;padding:8px;vertical-align:middle;">&nbsp;</td>' +
+          `<td class="${ILM_RICHTEXT_AUDIO_TD_CLASS}" style="border:1px solid #d8d8d8;padding:6px 8px;vertical-align:middle;width:1%;min-width:128px;max-width:44%;text-align:center;">&nbsp;</td>` +
+          '</tr>',
+      )
+      .join('')
+
+    insertHtmlAtCursor(
+      `<div class="${ILM_RICHTEXT_TABLE_WRAP_CLASS}" style="${ILM_RICHTEXT_TABLE_WRAP_STYLE}">` +
+        '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">' +
+        `<tbody>${body}</tbody></table></div><p></p>`,
+    )
+  }
+
   const insertNumberedTable = () => {
     const rowsInput = window.prompt('Количество нумерованных строк', '4')
     const rows = Math.max(1, Math.min(30, Number(rowsInput || 0)))
@@ -159,47 +332,99 @@ export default function RichTextEditor({
     input.accept = accept
     input.onchange = async (event) => {
       const file = (event.target as HTMLInputElement).files?.[0]
-      if (!file) return
+      if (!file || !editorRef.current) return
+      const root = editorRef.current
+      root.focus()
+      restoreSelection()
+      let range: Range | null = null
+      const s0 = window.getSelection()
+      if (s0?.rangeCount) {
+        try {
+          range = s0.getRangeAt(0).cloneRange()
+        } catch {
+          range = null
+        }
+      }
+      if (!range && selectionRef.current) {
+        try {
+          range = selectionRef.current.cloneRange()
+        } catch {
+          range = null
+        }
+      }
+      insertRangeRef.current = range
+      const inTableCell = !!(
+        insertRangeRef.current && isRangeInsideTableCell(insertRangeRef.current, root)
+      )
       try {
         const uploaded = await onUploadFile(file)
+        if (insertRangeRef.current) {
+          const sel1 = window.getSelection()
+          if (sel1) {
+            sel1.removeAllRanges()
+            try {
+              sel1.addRange(insertRangeRef.current)
+            } catch {
+              // Range no longer valid — insertHtmlAtCursor will fall back
+            }
+          }
+          selectionRef.current = insertRangeRef.current
+        }
         if (uploaded.type === 'audio') {
           insertHtmlAtCursor(
-            `<audio data-media-id="${uploaded.id}" controls preload="metadata" style="width:100%;vertical-align:middle;"><source src="${uploaded.url}" /></audio>`,
+            buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: inTableCell }),
           )
           return
         }
         if (uploaded.type === 'video') {
+          const vStyle = inTableCell
+            ? 'max-width:min(100%,360px);max-height:200px;border-radius:8px;vertical-align:middle;display:inline-block;'
+            : 'max-width:100%;border-radius:8px;vertical-align:middle;'
           insertHtmlAtCursor(
-            `<video data-media-id="${uploaded.id}" controls preload="metadata" style="max-width:100%;border-radius:8px;vertical-align:middle;"><source src="${uploaded.url}" /></video>`,
+            `<video data-media-id="${uploaded.id}" controls="" preload="metadata" style="${vStyle}"><source src="${uploaded.url}" /></video>`,
           )
           return
         }
+        const iStyle = inTableCell
+          ? 'max-width:100%;height:auto;max-height:200px;border-radius:8px;vertical-align:middle;'
+          : 'max-width:100%;height:auto;border-radius:8px;vertical-align:middle;'
         insertHtmlAtCursor(
-          `<img data-media-id="${uploaded.id}" src="${uploaded.url}" alt="${file.name}" style="max-width:100%;height:auto;border-radius:8px;vertical-align:middle;" />`,
+          `<img data-media-id="${uploaded.id}" src="${uploaded.url}" alt="${file.name}" style="${iStyle}" />`,
         )
       } catch (e: any) {
         const message = e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить файл'
         window.alert(message)
+      } finally {
+        insertRangeRef.current = null
       }
     }
     input.click()
   }
 
   const removeCurrentMedia = async () => {
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0 || !editorRef.current) return
-    const anchorNode = selection.anchorNode
-    if (!anchorNode) return
-    const parent = anchorNode instanceof Element ? anchorNode : anchorNode.parentElement
-    if (!parent) return
-    const mediaEl = (parent.closest('[data-media-id],img,video,audio') as HTMLElement | null)
-    if (!mediaEl) return
-    const mediaId = mediaEl.getAttribute('data-media-id')
-    mediaEl.remove()
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML)
+    const root = editorRef.current
+    if (!root) return
+    const resolved = getSelectedMedia()
+    if (!resolved) {
+      window.alert(
+        'Кликните по аудио, видео или изображению в тексте, затем нажмите «Удалить выбранное медиа» на панели инструментов.',
+      )
+      return
     }
-    // Для новых медиа с data-media-id удаляем и на бэкенде, старые вставки без id просто убираем из HTML
+    const { el: mediaEl, mediaId } = resolved
+    const tag = mediaEl.tagName
+    if (tag === 'AUDIO') {
+      if (!window.confirm('Удалить эту аудио-дорожку из текста? Файл будет откреплён от блока.')) {
+        return
+      }
+    } else if (tag === 'VIDEO') {
+      if (!window.confirm('Удалить это видео из текста?')) return
+    } else if (tag === 'IMG') {
+      if (!window.confirm('Удалить это изображение из текста?')) return
+    }
+    lastMediaInEditorRef.current = null
+    mediaEl.remove()
+    onChange(root.innerHTML)
     if (mediaId && onRemoveMedia) {
       try {
         await onRemoveMedia(mediaId)
@@ -211,14 +436,15 @@ export default function RichTextEditor({
   }
 
   const resizeCurrentMedia = (direction: 'smaller' | 'larger') => {
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0 || !editorRef.current) return
-    const anchorNode = selection.anchorNode
-    if (!anchorNode) return
-    const parent = anchorNode instanceof Element ? anchorNode : anchorNode.parentElement
-    if (!parent) return
-    const mediaEl = parent.closest('img,video') as HTMLElement | null
-    if (!mediaEl) return
+    if (!editorRef.current) return
+    const resolved = getSelectedMedia()
+    if (!resolved) {
+      window.alert(
+        'Кликните по изображению, видео или аудио в тексте, затем снова нажмите уменьшение или увеличение.',
+      )
+      return
+    }
+    const mediaEl = resolved.el
 
     const current = Number(mediaEl.getAttribute('data-width-pct')) || 100
     const step = 25
@@ -342,13 +568,18 @@ export default function RichTextEditor({
             onClick={() => {
               if (onUploadFile) {
                 pickAndUpload('audio/*')
-              } else {
-                const url = askForUrl('Вставьте URL аудио (mp3/ogg/m4a и т.д.)')
-                if (!url) return
-                insertHtmlAtCursor(
-                  `<audio controls preload="metadata" style="width:100%;vertical-align:middle;"><source src="${url}" /></audio>`,
-                )
+                return
               }
+              editorRef.current?.focus()
+              restoreSelection()
+              const s = window.getSelection()
+              const compact =
+                s && s.rangeCount > 0 && editorRef.current
+                  ? isRangeInsideTableCell(s.getRangeAt(0), editorRef.current)
+                  : false
+              const url = askForUrl('Вставьте URL аудио (mp3/ogg/m4a и т.д.)')
+              if (!url) return
+              insertHtmlAtCursor(buildAudioHtml({ url, compact }))
             }}
           >
             <Audiotrack fontSize="small" />
@@ -391,6 +622,15 @@ export default function RichTextEditor({
             <LooksOne fontSize="small" />
           </IconButton>
         </Tooltip>
+        <Tooltip title="Таблица: колонка текста + колонка под аудио (по строке)">
+          <IconButton
+            size="small"
+            onMouseDown={rememberSelection}
+            onClick={insertTextAndAudioTable}
+          >
+            <ViewColumn fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <Tooltip title="Уменьшить выбранное медиа">
           <span>
             <IconButton
@@ -411,14 +651,14 @@ export default function RichTextEditor({
             </IconButton>
           </span>
         </Tooltip>
-        <Tooltip title="Удалить выбранное медиа">
+        <Tooltip title="Удалить встроенное фото, аудио или видео: сначала кликните по нему в тексте, затем сюда. Для вставок по URL медиа только убирается из текста.">
           <span>
             <IconButton
               size="small"
               onClick={() => {
                 void removeCurrentMedia()
               }}
-              disabled={!onRemoveMedia}
+              color="error"
             >
               <DeleteOutline fontSize="small" />
             </IconButton>
@@ -499,7 +739,7 @@ export default function RichTextEditor({
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
-        onMouseUp={rememberSelection}
+        onPointerUp={handleEditorPointerUp}
         onKeyUp={rememberSelection}
         onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
         sx={{
@@ -535,6 +775,26 @@ export default function RichTextEditor({
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: {
             bgcolor: '#F5F0EB',
             fontWeight: 600,
+          },
+          [`& .${ILM_RICHTEXT_AUDIO_CLASS}`]: {
+            width: '100%',
+            maxWidth: '100%',
+            minHeight: 40,
+            display: 'block',
+            my: 0.5,
+          },
+          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td .${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th .${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}`]: {
+            width: '100%',
+            minWidth: 120,
+            maxWidth: 220,
+            height: 40,
+            display: 'block',
+            my: 0.25,
+          },
+          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .${ILM_RICHTEXT_AUDIO_TD_CLASS}`]: {
+            verticalAlign: 'middle',
+            textAlign: 'center',
+            whiteSpace: 'nowrap',
           },
         }}
       />
