@@ -86,6 +86,7 @@ import {
   getConfigTemplate,
 } from '../components/QuestionConfigEditors'
 import MobilePreview from '../components/MobilePreview'
+import GridBlockEditor, { newGridItemRow, type GridItemRow } from '../components/GridBlockEditor'
 
 type BlockType =
   | 'theory'
@@ -104,6 +105,7 @@ type BlockType =
   | 'audio_choice'
   | 'find_letter_in_word'
   | 'listen_and_choose_word'
+  | 'grid'
 type DetailTab = 'meta' | 'blocks' | 'test'
 type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
 
@@ -124,6 +126,7 @@ const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'audio_choice', label: 'Аудио → Буква (Махрадж)' },
   { value: 'find_letter_in_word', label: 'Найди букву в слове' },
   { value: 'listen_and_choose_word', label: 'Послушай → Слово' },
+  { value: 'grid', label: 'Сетка' },
 ]
 
 interface StudioBlock {
@@ -151,6 +154,69 @@ function stripHtml(html: string): string {
   const div = document.createElement('div')
   div.innerHTML = html
   return div.textContent || div.innerText || ''
+}
+
+function parseGridBlockForDraft(block: StudioBlock): {
+  gridItemRows: GridItemRow[]
+  gridColumnMode: '2' | '3' | '4' | 'auto'
+  gridShowCaption: boolean
+  gridInteractive: boolean
+} {
+  const cr = (block.contentRu || {}) as Record<string, any>
+  const kz = (block.contentKz || {}) as Record<string, any>
+  const ar = (block.contentAr || {}) as Record<string, any>
+  const colRaw = cr.columns
+  let gridColumnMode: '2' | '3' | '4' | 'auto' = '3'
+  if (colRaw === 'auto' || colRaw === 'Auto') {
+    gridColumnMode = 'auto'
+  } else {
+    const n = Math.min(4, Math.max(2, Number(colRaw) || 3))
+    gridColumnMode = (String(n) as '2' | '3' | '4')
+  }
+  const gridShowCaption = !!cr.showCaption
+  const gridInteractive = !!cr.interactive
+  const itemsRaw = cr.items
+  if (Array.isArray(itemsRaw) && itemsRaw.length > 0) {
+    if (typeof itemsRaw[0] === 'string') {
+      const strs = (itemsRaw as string[]).map((s) => String(s))
+      return {
+        gridItemRows: strs.length
+          ? strs.map((s) => {
+              const g = newGridItemRow()
+              g.mainRu = s
+              g.mainKz = s
+              g.mainAr = s
+              return g
+            })
+          : [newGridItemRow()],
+        gridColumnMode,
+        gridShowCaption: false,
+        gridInteractive: false,
+      }
+    }
+    return {
+      gridItemRows: (itemsRaw as any[]).map((r, i) => {
+        const g = newGridItemRow()
+        g.mainRu = (r?.mainText as string) || ''
+        g.mainKz = (Array.isArray(kz.items) ? kz.items[i] : null)?.mainText || ''
+        g.mainAr = (Array.isArray(ar.items) ? ar.items[i] : null)?.mainText || ''
+        g.captionRu = (r?.caption as string) || ''
+        g.captionKz = (Array.isArray(kz.items) ? kz.items[i] : null)?.caption || ''
+        g.captionAr = (Array.isArray(ar.items) ? ar.items[i] : null)?.caption || ''
+        g.audioUrl = (r?.audioUrl as string) || ''
+        return g
+      }),
+      gridColumnMode,
+      gridShowCaption,
+      gridInteractive,
+    }
+  }
+  return {
+    gridItemRows: [newGridItemRow()],
+    gridColumnMode,
+    gridShowCaption,
+    gridInteractive,
+  }
 }
 
 const EXERCISE_BLOCK_TYPES: BlockType[] = [
@@ -476,6 +542,10 @@ export default function LessonEditorPage() {
     summaryRu?: string
     nextActionRu?: string
     nextActionButtonRu?: string
+    gridItemRows: GridItemRow[]
+    gridColumnMode: '2' | '3' | '4' | 'auto'
+    gridShowCaption: boolean
+    gridInteractive: boolean
   }>({
     type: 'theory',
     orderIndex: 1,
@@ -488,6 +558,10 @@ export default function LessonEditorPage() {
     arabicWord: '',
     transcription: '',
     translationRu: '',
+    gridItemRows: [newGridItemRow()],
+    gridColumnMode: '3',
+    gridShowCaption: false,
+    gridInteractive: false,
   })
 
   const breadcrumb = useMemo(() => {
@@ -611,6 +685,10 @@ export default function LessonEditorPage() {
       summaryRu: undefined,
       nextActionRu: undefined,
       nextActionButtonRu: undefined,
+      gridItemRows: [newGridItemRow()],
+      gridColumnMode: '3',
+      gridShowCaption: false,
+      gridInteractive: false,
     })
     setMediaFiles([])
   }
@@ -618,9 +696,11 @@ export default function LessonEditorPage() {
   const editBlock = (block: StudioBlock) => {
     const isExercise = EXERCISE_BLOCK_TYPES.includes(block.type as BlockType)
     const isLessonComplete = block.type === 'lesson_complete'
+    const isGridLike = block.type === 'grid' || block.type === 'element_grid'
+    const gridDraft = isGridLike ? parseGridBlockForDraft(block) : null
     setBlockDraft({
       id: block.id,
-      type: block.type as BlockType,
+      type: (isGridLike ? 'grid' : block.type) as BlockType,
       orderIndex: block.orderIndex,
       titleRu: (block.contentRu?.title as string) || '',
       textRuHtml: (block.contentRu?.html as string) || (block.contentRu?.text as string) || '',
@@ -636,13 +716,19 @@ export default function LessonEditorPage() {
       summaryRu: isLessonComplete ? (block.contentRu?.summaryRu as string) || '' : undefined,
       nextActionRu: isLessonComplete ? (block.contentRu?.nextActionRu as string) || '' : undefined,
       nextActionButtonRu: isLessonComplete ? (block.contentRu?.nextActionButtonRu as string) || '' : undefined,
+      gridItemRows: gridDraft?.gridItemRows || [newGridItemRow()],
+      gridColumnMode: gridDraft?.gridColumnMode || '3',
+      gridShowCaption: gridDraft?.gridShowCaption ?? false,
+      gridInteractive: gridDraft?.gridInteractive ?? false,
     })
     if (
       block.type === 'illustration' ||
       block.type === 'audio_multiple_choice' ||
       block.type === 'listen_repeat' ||
       block.type === 'image_word_match' ||
-      block.type === 'match_pairs'
+      block.type === 'match_pairs' ||
+      block.type === 'grid' ||
+      block.type === 'element_grid'
     ) {
       setMediaFiles([])
       void loadBlockMedia(block.id)
@@ -664,6 +750,57 @@ export default function LessonEditorPage() {
         },
         contentKz: {},
         contentAr: {},
+      }
+      return includeLessonId && lessonId ? { lessonId, ...base } : base
+    }
+
+    if (blockDraft.type === 'grid') {
+      const rows = (blockDraft.gridItemRows || []).filter((r) => (r.mainRu || '').trim().length > 0)
+      const col =
+        blockDraft.gridColumnMode === 'auto' ? 'auto' : Number(blockDraft.gridColumnMode)
+      const showCaption = blockDraft.gridShowCaption
+      const interactive = blockDraft.gridInteractive
+      const buildItems = (locale: 'ru' | 'kz' | 'ar') =>
+        rows.map((r) => {
+          const main =
+            locale === 'ru' ? r.mainRu.trim() : locale === 'kz' ? (r.mainKz || r.mainRu).trim() : (r.mainAr || r.mainRu).trim()
+          const cap =
+            locale === 'ru'
+              ? (r.captionRu || '').trim()
+              : locale === 'kz'
+                ? (r.captionKz || '').trim()
+                : (r.captionAr || '').trim()
+          const audio = (r.audioUrl || '').trim()
+          return {
+            mainText: main,
+            ...(showCaption ? { caption: cap } : {}),
+            ...(interactive && audio ? { audioUrl: audio } : {}),
+          }
+        })
+      const base = {
+        type: 'grid' as const,
+        orderIndex: Number(blockDraft.orderIndex) || 0,
+        contentRu: {
+          title: blockDraft.titleRu || '',
+          columns: col,
+          showCaption,
+          interactive,
+          items: buildItems('ru'),
+        },
+        contentKz: {
+          title: blockDraft.titleKz || '',
+          columns: col,
+          showCaption,
+          interactive,
+          items: buildItems('kz'),
+        },
+        contentAr: {
+          title: blockDraft.titleAr || '',
+          columns: col,
+          showCaption,
+          interactive,
+          items: buildItems('ar'),
+        },
       }
       return includeLessonId && lessonId ? { lessonId, ...base } : base
     }
@@ -738,6 +875,21 @@ export default function LessonEditorPage() {
       setError('Укажите тип блока')
       return
     }
+    if (blockDraft.type === 'grid') {
+      const rows = (blockDraft.gridItemRows || []).filter((r) => (r.mainRu || '').trim().length > 0)
+      if (rows.length === 0) {
+        setError('Сетка: добавьте хотя бы один элемент с основным текстом (RU)')
+        return
+      }
+      if (blockDraft.gridInteractive) {
+        for (const r of rows) {
+          if (!(r.audioUrl || '').trim()) {
+            setError('Сетка: для интерактивного режима загрузите аудио у каждой карточки (или отключите интерактив)')
+            return
+          }
+        }
+      }
+    }
     const payload = buildBlockPayload(false)
     try {
       if (blockDraft.id) {
@@ -804,6 +956,15 @@ export default function LessonEditorPage() {
       /* ignore */
     }
     await loadBlockMedia(blockDraft.id)
+  }
+
+  const handleGridItemAudio = async (rowId: string, file: File) => {
+    const blockId = await ensureBlockIdForMedia()
+    const { data } = await uploadBlockMedia(blockId, file, 'audio', `grid-${rowId.slice(0, 12)}`)
+    await loadBlockMedia(blockId)
+    const url = (data as { url?: string })?.url
+    if (!url) throw new Error('Нет URL в ответе загрузки')
+    return url
   }
 
   const removeBlock = async (id: string) => {
@@ -1161,7 +1322,12 @@ export default function LessonEditorPage() {
                             <Typography variant="caption" color="text.secondary" noWrap>
                               {b.type === 'illustration'
                                 ? ((b.contentRu?.arabicWord as string) || (b.contentRu?.translation as string) || 'Без заголовка')
-                                : ((b.contentRu?.title as string) || (b.contentRu?.question as string) || 'Без заголовка')}
+                                : b.type === 'element_grid' || b.type === 'grid'
+                                  ? ((b.contentRu?.title as string) ||
+                                      (Array.isArray((b.contentRu as { items?: string[] } | undefined)?.items) &&
+                                        (b.contentRu as { items: string[] }).items[0]) ||
+                                      'Сетка')
+                                  : ((b.contentRu?.title as string) || (b.contentRu?.question as string) || 'Без заголовка')}
                             </Typography>
                           </Box>
                           <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
@@ -1203,6 +1369,14 @@ export default function LessonEditorPage() {
                             ...p,
                             type: t,
                             exerciseConfig: EXERCISE_BLOCK_TYPES.includes(t) ? (p.exerciseConfig || {}) : undefined,
+                            ...(t === 'grid'
+                              ? {
+                                  gridItemRows: p.gridItemRows?.length ? p.gridItemRows : [newGridItemRow()],
+                                  gridColumnMode: p.gridColumnMode || '3',
+                                  gridShowCaption: p.gridShowCaption ?? false,
+                                  gridInteractive: p.gridInteractive ?? false,
+                                }
+                              : {}),
                           }))
                         }}
                       >
@@ -1351,6 +1525,25 @@ export default function LessonEditorPage() {
                         />
                       </Grid>
                     </>
+                  ) : blockDraft.type === 'grid' ? (
+                    <Grid item xs={12}>
+                      <GridBlockEditor
+                        blockId={blockDraft.id}
+                        titleRu={blockDraft.titleRu}
+                        titleKz={blockDraft.titleKz}
+                        titleAr={blockDraft.titleAr}
+                        onTitleChange={(field, v) => setBlockDraft((p) => ({ ...p, [field]: v }))}
+                        columnMode={blockDraft.gridColumnMode}
+                        onColumnMode={(m) => setBlockDraft((p) => ({ ...p, gridColumnMode: m }))}
+                        showCaption={blockDraft.gridShowCaption}
+                        onShowCaption={(v) => setBlockDraft((p) => ({ ...p, gridShowCaption: v }))}
+                        interactive={blockDraft.gridInteractive}
+                        onInteractive={(v) => setBlockDraft((p) => ({ ...p, gridInteractive: v }))}
+                        items={blockDraft.gridItemRows}
+                        onItemsChange={(rows) => setBlockDraft((p) => ({ ...p, gridItemRows: rows }))}
+                        onUploadItemAudio={handleGridItemAudio}
+                      />
+                    </Grid>
                   ) : blockDraft.type === 'illustration' ? (
                     <>
                       <Grid item xs={12}>

@@ -59,6 +59,8 @@ const BLOCK_LABELS: Record<string, string> = {
   audio_choice: 'Аудио → Буква',
   find_letter_in_word: 'Найди букву',
   listen_and_choose_word: 'Послушай → Слово',
+  element_grid: 'Сетка (старый тип)',
+  grid: 'Сетка',
 }
 
 /* ─── Main Component ─── */
@@ -156,6 +158,7 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
             {/* Scrollable content */}
             <Box sx={{ flex: 1, overflow: 'auto', p: `${S.m}px`, minHeight: 0 }}>
               {block.type === 'theory' && <TheoryPreview c={cr} />}
+              {(block.type === 'element_grid' || block.type === 'grid') && <ElementGridPreview c={cr} />}
               {block.type === 'illustration' && <IllustrationPreview c={cr} />}
               {block.type === 'audio' && <AudioBlockPreview c={cr} />}
               {block.type === 'video' && <VideoBlockPreview c={cr} />}
@@ -246,6 +249,74 @@ function OptionCard({ text, isRadio = true, arabic }: { text: string; isRadio?: 
 
 /* FeedbackBanner — reserved for interactive preview mode */
 
+/* ─── Element grid (letters / symbols) ─── */
+function ElementGridPreview({ c }: { c: Record<string, any> }) {
+  const title = (c.title as string) || ''
+  const rawItems = (c.items as unknown[]) || []
+  const n = rawItems.length
+  const colSpec = c.columns
+  const isAuto = colSpec === 'auto' || colSpec === 'Auto'
+  let cols = Math.min(4, Math.max(2, Number(colSpec) || 3))
+  if (isAuto) {
+    if (n <= 4) cols = 2
+    else if (n <= 9) cols = 3
+    else cols = 4
+  }
+  const gap = cols === 4 ? 6 : 8
+  const isLegacy = rawItems.length > 0 && typeof rawItems[0] === 'string'
+  const cells: { main: string; sub?: string }[] = isLegacy
+    ? (rawItems as string[]).map((t) => ({ main: t }))
+    : (rawItems as { mainText?: string; caption?: string }[]).map((it) => ({
+        main: (it?.mainText as string) || '',
+        sub: (c.showCaption && (it?.caption as string)) || undefined,
+      }))
+  return (
+    <Box>
+      {title && <Typography sx={{ ...font(20, 600), textAlign: 'center', mb: `${S.m}px` }}>{title}</Typography>}
+      {cells.length === 0 ? (
+        <Typography sx={{ ...font(14, 400), color: C.textSecondary, textAlign: 'center' }}>—</Typography>
+      ) : (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            gap: `${gap}px`,
+            maxWidth: 360,
+            mx: 'auto',
+            py: `${S.m}px`,
+          }}
+        >
+          {cells.map((cell, i) => (
+            <Box
+              key={i}
+              sx={{
+                border: `0.5px solid ${C.border}`,
+                borderRadius: '8px',
+                p: 1.25,
+                textAlign: 'center',
+                bgcolor: C.bgWhite,
+                fontFamily: "'Noto Sans Arabic', 'Montserrat', sans-serif",
+                color: C.textPrimary,
+                minHeight: 44,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+              }}
+            >
+              <Box sx={{ fontSize: 22, fontWeight: 600 }}>{cell.main}</Box>
+              {cell.sub && (
+                <Box sx={{ ...font(12, 500), color: C.textSecondary }}>{cell.sub}</Box>
+              )}
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 /* ─── Theory ─── */
 function TheoryPreview({ c }: { c: Record<string, any> }) {
   const title = (c.title as string) || ''
@@ -294,20 +365,24 @@ function TheoryPreview({ c }: { c: Record<string, any> }) {
             [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
               borderRadius: '12px',
               overflow: 'hidden',
-              my: 1,
+              my: 1.5,
               width: '100%',
               maxWidth: '100%',
               boxSizing: 'border-box',
+              textAlign: 'center',
             },
             [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
-              width: '100%',
+              display: 'inline-table',
+              maxWidth: '100%',
               borderCollapse: 'collapse',
               borderSpacing: 0,
+              tableLayout: 'fixed',
               m: 0,
             },
             [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td`]: {
               border: '1px solid #d8d8d8',
-              p: 1,
+              p: 1.25,
+              textAlign: 'left',
             },
             [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: { bgcolor: '#F5F0EB', fontWeight: 600 },
             '& ul, & ol': { pl: 2.5, my: 1 },
