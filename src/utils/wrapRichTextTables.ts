@@ -5,8 +5,9 @@
  */
 export const ILM_RICHTEXT_TABLE_WRAP_CLASS = 'ilm-richtext-table-wrap'
 
+/** `border-radius` must match mobile `kIlmRichtextTableCornerPx` (14). */
 export const ILM_RICHTEXT_TABLE_WRAP_STYLE =
-  'border-radius:12px;overflow:hidden;margin:12px 0;width:100%;max-width:100%;box-sizing:border-box'
+  'border-radius:14px;overflow:hidden;margin:12px 0;width:100%;max-width:100%;box-sizing:border-box'
 
 /**
  * Wraps bare <table> nodes in a clip container so border-radius works with border-collapse.

@@ -57,6 +57,14 @@ const ILM_RICHTEXT_AUDIO_CLASS = 'ilm-richtext-audio'
 const ILM_RICHTEXT_AUDIO_COMPACT_CLASS = 'ilm-richtext-audio--compact'
 const ILM_RICHTEXT_AUDIO_TD_CLASS = 'ilm-richtext-td-audio'
 
+/** Compact chip player only in the dedicated «аудио» column (see insertTextAndAudioTable). */
+function useCompactAudioForInsertion(root: HTMLElement, range: Range | null): boolean {
+  if (!range) return false
+  if (!isRangeInsideTableCell(range, root)) return false
+  const cell = findTableCellInEditor(range.commonAncestorContainer, root)
+  return cell ? cell.classList.contains(ILM_RICHTEXT_AUDIO_TD_CLASS) : false
+}
+
 function findTableCellInEditor(anchor: Node | null, root: HTMLElement): HTMLTableCellElement | null {
   let n: Node | null = anchor
   while (n) {
@@ -97,8 +105,8 @@ function buildAudioHtml(options: { url: string; mediaId?: string; compact: boole
     : ILM_RICHTEXT_AUDIO_CLASS
   // Compact: in-table mini player. Full width otherwise (paragraph-level).
   const style = compact
-    ? 'max-width:min(220px,100%);min-width:120px;height:40px;vertical-align:middle;display:inline-block;'
-    : 'width:100%;max-width:100%;min-height:40px;vertical-align:middle;'
+    ? 'max-width:min(220px,100%);min-width:120px;height:40px;vertical-align:middle;display:inline-block;border-radius:8px;'
+    : 'width:100%;max-width:100%;min-height:40px;vertical-align:middle;border-radius:10px;'
   return `<audio class="${cls}"${idAttr} controls="" preload="metadata" style="${style}"><source src="${url}" /></audio>`
 }
 
@@ -270,10 +278,10 @@ export default function RichTextEditor({
     if (!rows || !cols) return
 
     const body = Array.from({ length: rows })
-      .map(
+            .map(
         () =>
           `<tr>${Array.from({ length: cols })
-            .map(() => '<td style="border:1px solid #d8d8d8;padding:8px;">&nbsp;</td>')
+            .map(() => '<td style="border:1px solid #c9bcad;padding:10px 12px;">&nbsp;</td>')
             .join('')}</tr>`,
       )
       .join('')
@@ -294,8 +302,8 @@ export default function RichTextEditor({
       .map(
         () =>
           '<tr>' +
-          '<td style="border:1px solid #d8d8d8;padding:8px;vertical-align:middle;">&nbsp;</td>' +
-          `<td class="${ILM_RICHTEXT_AUDIO_TD_CLASS}" style="border:1px solid #d8d8d8;padding:6px 8px;vertical-align:middle;width:1%;min-width:128px;max-width:44%;text-align:center;">&nbsp;</td>` +
+          '<td style="border:1px solid #c9bcad;padding:10px 12px;vertical-align:middle;">&nbsp;</td>' +
+          `<td class="${ILM_RICHTEXT_AUDIO_TD_CLASS}" style="border:1px solid #c9bcad;padding:8px 10px;vertical-align:middle;width:1%;min-width:128px;max-width:44%;text-align:center;background:#faf8f5;">&nbsp;</td>` +
           '</tr>',
       )
       .join('')
@@ -315,7 +323,7 @@ export default function RichTextEditor({
     const body = Array.from({ length: rows })
       .map(
         (_, idx) =>
-          `<tr><td style="width:56px;border:1px solid #d8d8d8;padding:8px;text-align:center;">${idx + 1}.</td><td style="border:1px solid #d8d8d8;padding:8px;">&nbsp;</td></tr>`,
+          `<tr><td style="width:56px;border:1px solid #c9bcad;padding:10px 8px;text-align:center;">${idx + 1}.</td><td style="border:1px solid #c9bcad;padding:10px 12px;">&nbsp;</td></tr>`,
       )
       .join('')
 
@@ -353,9 +361,6 @@ export default function RichTextEditor({
         }
       }
       insertRangeRef.current = range
-      const inTableCell = !!(
-        insertRangeRef.current && isRangeInsideTableCell(insertRangeRef.current, root)
-      )
       try {
         const uploaded = await onUploadFile(file)
         if (insertRangeRef.current) {
@@ -370,9 +375,13 @@ export default function RichTextEditor({
           }
           selectionRef.current = insertRangeRef.current
         }
+        const inTableCell = !!(
+          insertRangeRef.current && isRangeInsideTableCell(insertRangeRef.current, root)
+        )
+        const audioCompact = useCompactAudioForInsertion(root, insertRangeRef.current)
         if (uploaded.type === 'audio') {
           insertHtmlAtCursor(
-            buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: inTableCell }),
+            buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: audioCompact }),
           )
           return
         }
@@ -561,7 +570,13 @@ export default function RichTextEditor({
             <GifBox fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title={onUploadFile ? 'Загрузить аудио' : 'Аудио по URL'}>
+        <Tooltip
+          title={
+            onUploadFile
+              ? 'Загрузить аудио. В таблице «текст+аудио» поставьте курсор в правую ячейку — вставится компактный плеер.'
+              : 'Аудио по URL. В колонке «аудио» — компактный плеер; в ячейке с текстом — полноширинный.'
+          }
+        >
           <IconButton
             size="small"
             onMouseUp={rememberSelection}
@@ -575,7 +590,7 @@ export default function RichTextEditor({
               const s = window.getSelection()
               const compact =
                 s && s.rangeCount > 0 && editorRef.current
-                  ? isRangeInsideTableCell(s.getRangeAt(0), editorRef.current)
+                  ? useCompactAudioForInsertion(editorRef.current, s.getRangeAt(0))
                   : false
               const url = askForUrl('Вставьте URL аудио (mp3/ogg/m4a и т.д.)')
               if (!url) return
@@ -755,12 +770,14 @@ export default function RichTextEditor({
           '& ul, & ol': { margin: '8px 0 8px 20px' },
           '& a': { color: 'primary.main' },
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
-            borderRadius: '12px',
+            borderRadius: '14px',
             overflow: 'hidden',
             my: 1,
             width: '100%',
             maxWidth: '100%',
             boxSizing: 'border-box',
+            border: '1px solid #c9bcad',
+            boxShadow: '0 6px 18px rgba(26, 15, 0, 0.07)',
           },
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
             width: '100%',
@@ -769,11 +786,11 @@ export default function RichTextEditor({
             margin: 0,
           },
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td`]: {
-            border: '1px solid #d8d8d8',
-            padding: '8px',
+            border: '1px solid #c9bcad',
+            padding: '10px 12px',
           },
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: {
-            bgcolor: '#F5F0EB',
+            bgcolor: '#f0ebe4',
             fontWeight: 600,
           },
           [`& .${ILM_RICHTEXT_AUDIO_CLASS}`]: {
@@ -782,14 +799,16 @@ export default function RichTextEditor({
             minHeight: 40,
             display: 'block',
             my: 0.5,
+            borderRadius: '10px',
           },
-          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td .${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th .${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}`]: {
+          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .ilm-richtext-td-audio .${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}`]: {
             width: '100%',
             minWidth: 120,
             maxWidth: 220,
             height: 40,
             display: 'block',
             my: 0.25,
+            borderRadius: '8px',
           },
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .${ILM_RICHTEXT_AUDIO_TD_CLASS}`]: {
             verticalAlign: 'middle',

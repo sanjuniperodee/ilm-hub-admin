@@ -347,29 +347,34 @@ function TheoryPreview({ c }: { c: Record<string, any> }) {
               verticalAlign: 'middle',
               my: 0.25,
             },
-            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td audio, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th audio`]: {
+            // Compact chip: only the dedicated «аудио» column; text column = full width bar
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .ilm-richtext-td-audio audio`]: {
               width: 'auto',
               minWidth: 120,
               maxWidth: 220,
               height: 40,
               display: 'inline-block',
               verticalAlign: 'middle',
+              borderRadius: '8px',
             },
             [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .ilm-richtext-td-audio`]: {
               minWidth: '112px',
               textAlign: 'center',
               whiteSpace: 'nowrap',
               verticalAlign: 'middle',
+              bgcolor: '#faf8f5',
             },
             '& video': { maxWidth: '100%', borderRadius: '8px', my: 1 },
             [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
-              borderRadius: '12px',
+              borderRadius: '14px',
               overflow: 'hidden',
               my: 1.5,
               width: '100%',
               maxWidth: '100%',
               boxSizing: 'border-box',
               textAlign: 'center',
+              border: '1px solid #c9bcad',
+              boxShadow: '0 6px 18px rgba(26, 15, 0, 0.07)',
             },
             [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
               display: 'inline-table',
@@ -380,11 +385,11 @@ function TheoryPreview({ c }: { c: Record<string, any> }) {
               m: 0,
             },
             [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td`]: {
-              border: '1px solid #d8d8d8',
-              p: 1.25,
+              border: '1px solid #c9bcad',
+              p: 1.5,
               textAlign: 'left',
             },
-            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: { bgcolor: '#F5F0EB', fontWeight: 600 },
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: { bgcolor: '#f0ebe4', fontWeight: 600 },
             '& ul, & ol': { pl: 2.5, my: 1 },
             '& a': { color: C.primary },
           }}
