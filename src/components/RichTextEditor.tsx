@@ -769,6 +769,9 @@ export default function RichTextEditor({
           '& p': { margin: '6px 0' },
           '& ul, & ol': { margin: '8px 0 8px 20px' },
           '& a': { color: 'primary.main' },
+          // WYSIWYG: do not draw a «card» border/shadow here — that looked like boxes around
+          // every block when tables/Word layout nest oddly. Rounded table shell + cell lines
+          // come from inline HTML; final look is in MobilePreview & app.
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
             borderRadius: '14px',
             overflow: 'hidden',
@@ -776,8 +779,6 @@ export default function RichTextEditor({
             width: '100%',
             maxWidth: '100%',
             boxSizing: 'border-box',
-            border: '1px solid #c9bcad',
-            boxShadow: '0 6px 18px rgba(26, 15, 0, 0.07)',
           },
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
             width: '100%',
@@ -785,31 +786,11 @@ export default function RichTextEditor({
             borderSpacing: 0,
             margin: 0,
           },
-          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th, & .${ILM_RICHTEXT_TABLE_WRAP_CLASS} td`]: {
-            border: '1px solid #c9bcad',
-            padding: '10px 12px',
-          },
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: {
             bgcolor: '#f0ebe4',
             fontWeight: 600,
           },
-          [`& .${ILM_RICHTEXT_AUDIO_CLASS}`]: {
-            width: '100%',
-            maxWidth: '100%',
-            minHeight: 40,
-            display: 'block',
-            my: 0.5,
-            borderRadius: '10px',
-          },
-          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .ilm-richtext-td-audio .${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}`]: {
-            width: '100%',
-            minWidth: 120,
-            maxWidth: 220,
-            height: 40,
-            display: 'block',
-            my: 0.25,
-            borderRadius: '8px',
-          },
+          // Layout hints only; avoid heavy chrome that reads as extra «frames» on <audio>
           [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .${ILM_RICHTEXT_AUDIO_TD_CLASS}`]: {
             verticalAlign: 'middle',
             textAlign: 'center',
