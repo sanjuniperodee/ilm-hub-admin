@@ -1,8 +1,12 @@
-/** Matches mobile theory table radius (theory_block_widget.dart _kTheoryTableCornerPx). */
+/**
+ * Class + inline style for the table “card” shell.
+ * Parity: mobile `kIlmRichtextTableCornerPx` / `kIlmRichtextTableBlockMarginPx` and
+ * [MobilePreview] `my: 1.5` (12px) on this class.
+ */
 export const ILM_RICHTEXT_TABLE_WRAP_CLASS = 'ilm-richtext-table-wrap'
 
 export const ILM_RICHTEXT_TABLE_WRAP_STYLE =
-  'border-radius:12px;overflow:hidden;margin:8px 0;width:100%;max-width:100%;box-sizing:border-box'
+  'border-radius:12px;overflow:hidden;margin:12px 0;width:100%;max-width:100%;box-sizing:border-box'
 
 /**
  * Wraps bare <table> nodes in a clip container so border-radius works with border-collapse.
@@ -24,6 +28,8 @@ export function wrapBareTablesInContainer(root: HTMLElement): void {
 
 /**
  * HTML fragment → same fragment with bare tables wrapped (for preview / SSR-safe string path).
+ * **Persistence:** LessonEditorPage also runs this on save so the API stores the same
+ * structure the editor and mobile agree on. Safe to call multiple times.
  */
 export function wrapRichTextTables(html: string): string {
   if (!html || !html.toLowerCase().includes('<table')) return html

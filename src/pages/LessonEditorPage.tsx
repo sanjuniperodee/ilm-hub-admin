@@ -87,6 +87,7 @@ import {
 } from '../components/QuestionConfigEditors'
 import MobilePreview from '../components/MobilePreview'
 import GridBlockEditor, { newGridItemRow, type GridItemRow } from '../components/GridBlockEditor'
+import { wrapRichTextTables } from '../utils/wrapRichTextTables'
 
 type BlockType =
   | 'theory'
@@ -831,7 +832,9 @@ export default function LessonEditorPage() {
       : {
           title: blockDraft.titleRu,
           text: stripHtml(blockDraft.textRuHtml),
-          html: blockDraft.textRuHtml,
+          // Same contract as mobile [preprocessIlmRichtextHtml]: bare tables get a clip wrapper
+          // (idempotent; matches RichTextEditor + MobilePreview [wrapRichTextTables]).
+          html: wrapRichTextTables(blockDraft.textRuHtml),
         }
 
     const basePayload = {
