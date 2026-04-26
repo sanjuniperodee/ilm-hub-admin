@@ -73,6 +73,10 @@ apiClient.interceptors.response.use(
           localStorage.setItem('admin_refresh_token', newRefreshToken)
         }
 
+        window.dispatchEvent(
+          new CustomEvent('ilm-admin-token-refreshed', { detail: { accessToken: newAccessToken } }),
+        )
+
         onRefreshed(newAccessToken)
         originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
         return apiClient(originalRequest)
