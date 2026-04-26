@@ -291,33 +291,39 @@ export default function WordsCardsPage() {
       {themes.map((theme) => (
         <Card key={theme.id} sx={{ mb: 2 }}>
           <CardContent sx={{ pb: expandedThemeId === theme.id ? 0 : undefined }}>
-            <Stack direction="row" alignItems="center" spacing={2}>
-              <Typography variant="h5">{theme.emoji}</Typography>
-              <Box flex={1}>
-                <Typography variant="h6">{theme.titleRu}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {theme.cardsCount} cards &middot; order: {theme.orderIndex}
-                </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="h5">{theme.emoji}</Typography>
+                <Box flex={1}>
+                  <Typography variant="h6">{theme.titleRu}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {theme.cardsCount} cards &middot; order: {theme.orderIndex}
+                  </Typography>
+                </Box>
               </Box>
-              <Chip
-                label={theme.quizEnabled !== false ? 'Quiz on' : 'Quiz off'}
-                color={theme.quizEnabled !== false ? 'primary' : 'default'}
-                size="small"
-              />
-              <Chip
-                label={theme.isActive ? 'Active' : 'Inactive'}
-                color={theme.isActive ? 'success' : 'default'}
-                size="small"
-              />
-              <IconButton size="small" onClick={() => openEditTheme(theme)} sx={{ minWidth: 44, minHeight: 44 }}>
-                <Edit fontSize="small" />
-              </IconButton>
-              <IconButton size="small" color="error" onClick={() => handleDeleteTheme(theme.id)} sx={{ minWidth: 44, minHeight: 44 }}>
-                <Delete fontSize="small" />
-              </IconButton>
-              <IconButton onClick={() => toggleExpand(theme.id)}>
-                {expandedThemeId === theme.id ? <ExpandLess /> : <ExpandMore />}
-              </IconButton>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignSelf: 'center' }}>
+                <Chip
+                  label={theme.quizEnabled !== false ? 'Quiz on' : 'Quiz off'}
+                  color={theme.quizEnabled !== false ? 'primary' : 'default'}
+                  size="small"
+                />
+                <Chip
+                  label={theme.isActive ? 'Active' : 'Inactive'}
+                  color={theme.isActive ? 'success' : 'default'}
+                  size="small"
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                <IconButton size="small" onClick={() => openEditTheme(theme)} sx={{ minWidth: 44, minHeight: 44 }}>
+                  <Edit fontSize="small" />
+                </IconButton>
+                <IconButton size="small" color="error" onClick={() => handleDeleteTheme(theme.id)} sx={{ minWidth: 44, minHeight: 44 }}>
+                  <Delete fontSize="small" />
+                </IconButton>
+                <IconButton onClick={() => toggleExpand(theme.id)} sx={{ minWidth: 44, minHeight: 44 }}>
+                  {expandedThemeId === theme.id ? <ExpandLess /> : <ExpandMore />}
+                </IconButton>
+              </Box>
             </Stack>
           </CardContent>
 

@@ -247,9 +247,9 @@ export default function IslamHajjGuidePage() {
                         <Collapse in={expandedId === s.id} unmountOnExit>
                           <Box sx={{ py: 2, pl: 4 }}>
                             {/* Instructions */}
-                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
                               <Typography variant="subtitle2">Инструкции</Typography>
-                              <Button size="small" startIcon={<Add />} onClick={() => openCreateInstr(s.id)}>Добавить</Button>
+                              <Button size="small" startIcon={<Add />} onClick={() => openCreateInstr(s.id)} sx={{ alignSelf: 'flex-start' }}>Добавить</Button>
                             </Stack>
                             <Table size="small">
                               <TableHead>
@@ -280,7 +280,7 @@ export default function IslamHajjGuidePage() {
                             <Divider sx={{ my: 2 }} />
 
                             {/* Phrases */}
-                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
                               <Typography variant="subtitle2">Фразы</Typography>
                               <Button size="small" startIcon={<Add />} onClick={() => openCreatePhrase(s.id)}>Добавить</Button>
                             </Stack>

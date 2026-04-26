@@ -124,8 +124,8 @@ function SortableModuleRow({
   return (
     <Box ref={setNodeRef} style={style} sx={{ mb: 1, opacity: isDragging ? 0.5 : 1 }}>
       <Stack
-        direction="row"
-        alignItems="center"
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
         spacing={1}
         sx={{
           p: 1,
@@ -135,21 +135,23 @@ function SortableModuleRow({
           flexWrap: 'wrap',
         }}
       >
-        <Box
-          {...attributes}
-          {...listeners}
-          sx={{ cursor: 'grab', display: 'flex', color: 'text.secondary', '&:active': { cursor: 'grabbing' } }}
-        >
-          <DragIndicator sx={{ fontSize: 20 }} />
-        </Box>
-        <Box
-          component="span"
-          sx={{ width: 28, display: 'flex', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
-          onClick={() => toggleModule(module.id)}
-        >
-          {moduleExpanded ? <ExpandLess sx={{ fontSize: 20, color: 'text.secondary' }} /> : <ExpandMore sx={{ fontSize: 20, color: 'text.secondary' }} />}
-        </Box>
-        <MenuBookOutlined sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0 }} />
+        <Stack direction={{ xs: 'row', sm: 'column' }} spacing={0.5} sx={{ flexShrink: 0 }}>
+          <Box
+            {...attributes}
+            {...listeners}
+            sx={{ cursor: 'grab', display: 'flex', color: 'text.secondary', '&:active': { cursor: 'grabbing' } }}
+          >
+            <DragIndicator sx={{ fontSize: 20 }} />
+          </Box>
+          <Box
+            component="span"
+            sx={{ width: 28, display: 'flex', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+            onClick={() => toggleModule(module.id)}
+          >
+            {moduleExpanded ? <ExpandLess sx={{ fontSize: 20, color: 'text.secondary' }} /> : <ExpandMore sx={{ fontSize: 20, color: 'text.secondary' }} />}
+          </Box>
+          <MenuBookOutlined sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0 }} />
+        </Stack>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1, minWidth: 0 }} onClick={() => openModuleEdit(courseId, module.id)}>
           <Typography variant="body2" sx={{ fontWeight: 600, cursor: 'pointer' }}>
             {module.orderIndex}. {module.titleRu}
@@ -728,10 +730,10 @@ export default function ContentHubPage() {
                         {levelCode && (
                           <Tooltip title={`Тест уровня ${levelCode} — проверка знаний по всему уровню`}>
                             <Stack
-                              direction="row"
-                              alignItems="center"
+                              direction={{ xs: 'column', sm: 'row' }}
+                              alignItems={{ xs: 'flex-start', sm: 'center' }}
                               spacing={1}
-                              sx={{ mb: 1, pl: 1 }}
+                              sx={{ mb: 1, pl: { xs: 0, sm: 1 } }}
                             >
                               <QuizOutlined sx={{ fontSize: 18, color: 'text.secondary' }} />
                               <Typography variant="body2" sx={{ flex: 1 }}>
@@ -750,10 +752,10 @@ export default function ContentHubPage() {
                         {['mahraj', 'a1', 'a2'].includes(String(c.code || '').toLowerCase()) && (
                           <Tooltip title="Вопросы для ветки онбординга (без Premium)">
                             <Stack
-                              direction="row"
-                              alignItems="center"
+                              direction={{ xs: 'column', sm: 'row' }}
+                              alignItems={{ xs: 'flex-start', sm: 'center' }}
                               spacing={1}
-                              sx={{ mb: 1, pl: 1 }}
+                              sx={{ mb: 1, pl: { xs: 0, sm: 1 } }}
                             >
                               <QuizOutlined sx={{ fontSize: 18, color: 'primary.main' }} />
                               <Typography variant="body2" sx={{ flex: 1 }}>
@@ -833,13 +835,14 @@ export default function ContentHubPage() {
                                 .map((l) => (
                                   <Stack
                                     key={l.id}
-                                    direction="row"
-                                    alignItems="center"
+                                    direction={{ xs: 'column', sm: 'row' }}
+                                    alignItems={{ xs: 'flex-start', sm: 'center' }}
                                     spacing={1}
                                     sx={{
                                       p: 0.75,
                                       borderRadius: 1,
                                       '&:hover': { bgcolor: 'action.hover' },
+                                      flexWrap: 'wrap',
                                     }}
                                   >
                                     <ArticleOutlined sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
@@ -860,7 +863,7 @@ export default function ContentHubPage() {
                                         navigate(`/content/courses/${c.id}/lessons/${l.id}`)
                                       }
                                     >
-                                      Редактировать
+                                      Редакт.
                                     </Button>
                                     <Tooltip title="Удалить урок">
                                       <span>

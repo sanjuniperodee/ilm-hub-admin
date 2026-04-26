@@ -206,7 +206,7 @@ export default function UserDetailPage() {
         </Grid>
       </Paper>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2, minHeight: 44 }}>
         <Tab label="Обзор" value="overview" />
         <Tab label="Прогресс" value="progress" />
         <Tab label="Тесты" value="tests" />
@@ -350,7 +350,7 @@ function UserProgressTab({ userId }: { userId: string }) {
       {data.map((c: any) => (
         <Card key={c.id} variant="outlined">
           <CardContent>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1 }}>
               <Typography variant="subtitle1" fontWeight={600}>
                 {c.titleRu} ({c.code})
               </Typography>
@@ -425,7 +425,7 @@ function UserTestsTab({ userId }: { userId: string }) {
           <MenuItem value="level">Уровень</MenuItem>
         </Select>
       </FormControl>
-      <TableContainer component={Paper} variant="outlined">
+      <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -632,7 +632,7 @@ function UserProfileTab({ userId }: { userId: string }) {
             Подписки
           </Typography>
           {subscriptions.length > 0 ? (
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -667,7 +667,7 @@ function UserProfileTab({ userId }: { userId: string }) {
             OAuth провайдеры
           </Typography>
           {oauthProviders.length > 0 ? (
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -779,7 +779,7 @@ function UserWordsTab({ userId }: { userId: string }) {
             Прогресс по темам
           </Typography>
           {byTheme.length > 0 ? (
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>
@@ -810,7 +810,7 @@ function UserWordsTab({ userId }: { userId: string }) {
             Попытки квиза карточек
           </Typography>
           {quizAttempts.length > 0 ? (
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table size="small">
                 <TableHead>
                   <TableRow>

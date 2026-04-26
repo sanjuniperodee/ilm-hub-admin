@@ -503,7 +503,7 @@ export default function IslamQuranPage() {
           </Stack>
           <Stack spacing={1} mt={2}>
             {reciters.map((reciter) => (
-              <Stack key={reciter.id} direction="row" alignItems="center" justifyContent="space-between" sx={{ border: '1px solid #eee', borderRadius: 1, px: 1.5, py: 1 }}>
+              <Stack key={reciter.id} direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={1} sx={{ border: '1px solid #eee', borderRadius: 1, px: 1.5, py: 1 }}>
                 <Typography>{reciter.displayName} ({reciter.slug})</Typography>
                 <FormControlLabel
                   control={<Switch checked={reciter.isActive} onChange={() => handleToggleReciterActive(reciter)} />}
@@ -562,7 +562,7 @@ export default function IslamQuranPage() {
                     <TableCell colSpan={10} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
                       <Collapse in={expandedId === s.id} unmountOnExit>
                         <Box sx={{ py: 2, pl: 4 }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
                             <Typography variant="subtitle2">Аяты суры {s.nameRu}</Typography>
                             <Button size="small" startIcon={<Add />} onClick={() => openCreateAyah(s.id)}>Добавить аят</Button>
                           </Stack>
@@ -639,7 +639,7 @@ export default function IslamQuranPage() {
                   <Typography fontWeight={600} mb={1}>Прогресс по рецитаторам</Typography>
                   <Stack spacing={1}>
                     {syncStatus.reciters.slice(0, 20).map((r: any) => (
-                      <Stack key={r.reciterId || r.reciterSlug} direction="row" justifyContent="space-between">
+                      <Stack key={r.reciterId || r.reciterSlug} direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
                         <Typography>{r.reciterDisplayName || r.reciterSlug}</Typography>
                         <Typography color="text.secondary">
                           {r.status}: {r.success}/{r.processed} (fail {r.failed})

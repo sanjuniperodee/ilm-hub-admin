@@ -324,7 +324,7 @@ export default function WordsAlphabetPage() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4 }}>
             Алфавит
@@ -333,11 +333,11 @@ export default function WordsAlphabetPage() {
             Буквы арабского алфавита и аудио-произношение для приложения.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignSelf: 'stretch' }}>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             Обновить
           </Button>
-          <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>
+          <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             Добавить букву
           </Button>
         </Stack>
@@ -520,7 +520,7 @@ export default function WordsAlphabetPage() {
         <DialogTitle>Новая буква алфавита</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Stack direction="row" spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
               <TextField
                 label="Код (латиницей, уникальный)"
                 value={newLetter.code}
@@ -534,10 +534,10 @@ export default function WordsAlphabetPage() {
                 onChange={(e) =>
                   setNewLetter((prev) => ({ ...prev, orderIndex: Number(e.target.value) || 0 }))
                 }
-                sx={{ width: 120 }}
+                sx={{ minWidth: 80 }}
               />
             </Stack>
-            <Stack direction="row" spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
               <TextField
                 label="Арабская буква"
                 value={newLetter.arabic}
@@ -662,7 +662,7 @@ export default function WordsAlphabetPage() {
         {editLetter && (
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              <Stack direction="row" alignItems="center" spacing={2}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
                 <Box
                   sx={{
                     width: 64,
@@ -747,7 +747,7 @@ export default function WordsAlphabetPage() {
               <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
                 Формы буквы (позиция в слове)
               </Typography>
-              <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap sx={{ '& > *': { minWidth: 80 } }}>
                 <TextField
                   label="Изолированная"
                   value={editLetter.forms?.isolated ?? ''}
@@ -841,11 +841,11 @@ export default function WordsAlphabetPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
+      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} fullWidth maxWidth="xs">
         <DialogTitle>Удалить букву?</DialogTitle>
         <DialogContent>
           {deleteConfirm && (
-            <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 1 }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mt: 1 }}>
               <Box
                 sx={{
                   width: 48,

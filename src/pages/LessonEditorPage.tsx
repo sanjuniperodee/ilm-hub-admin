@@ -1321,7 +1321,7 @@ export default function LessonEditorPage() {
           <Grid item xs={12} md={4}>
             <Card variant="outlined" sx={{ borderRadius: 3 }}>
               <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                     Блоки урока
                   </Typography>

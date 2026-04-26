@@ -420,7 +420,7 @@ export default function WordsDictionaryPage() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4 }}>
             Словарь
@@ -429,11 +429,11 @@ export default function WordsDictionaryPage() {
             Слова с переводами, примерами и аудио для приложения.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignSelf: 'stretch' }}>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             Обновить
           </Button>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog}>
+          <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             Добавить слово
           </Button>
         </Stack>
@@ -588,7 +588,7 @@ export default function WordsDictionaryPage() {
         {editingEntry && (
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              <Stack direction="row" spacing={2}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 <TextField
                   fullWidth
                   label="Арабское"
@@ -653,7 +653,7 @@ export default function WordsDictionaryPage() {
 
               {editingEntry.id && (
                 <Box>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1.5 }}>
                     <Typography variant="subtitle2" color="text.secondary">
                       Примеры
                     </Typography>
@@ -784,7 +784,7 @@ export default function WordsDictionaryPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={deleteEntryAudioOpen} onClose={() => setDeleteEntryAudioOpen(false)}>
+      <Dialog open={deleteEntryAudioOpen} onClose={() => setDeleteEntryAudioOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Удалить аудио?</DialogTitle>
         <DialogContent>
           <Typography sx={{ mt: 0.5 }}>Вы уверены, что хотите удалить аудио?</Typography>
@@ -797,7 +797,7 @@ export default function WordsDictionaryPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
+      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} fullWidth maxWidth="xs">
         <DialogTitle>Удалить слово?</DialogTitle>
         <DialogContent>
           {deleteConfirm && (
