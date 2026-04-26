@@ -5,7 +5,6 @@ import {
   Box,
   Breadcrumbs,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,8 +27,9 @@ import { alpha, useTheme } from '@mui/material/styles'
 import {
   Add,
   Edit as EditIcon,
-  ExpandLess,
-  ExpandMore,
+  ChevronRight,
+  KeyboardArrowDown,
+  KeyboardArrowUp,
   MenuBookOutlined,
   SchoolOutlined,
   QuizOutlined,
@@ -69,6 +69,75 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 
+/** Веб-аппроксимация палитры и метрик Apple HIG (iOS grouped lists, типографика) */
+const HIG = {
+  font: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  groupedBackground: '#F2F2F7',
+  secondaryGrouped: '#FFFFFF',
+  tertiaryGrouped: '#FAFAFA',
+  separator: 'rgba(60, 60, 67, 0.29)',
+  separatorOpaque: 'rgba(60, 60, 67, 0.12)',
+  label: '#1C1C1E',
+  secondaryLabel: 'rgba(60, 60, 67, 0.6)',
+  tertiaryLabel: 'rgba(60, 60, 67, 0.45)',
+  fillQuaternary: 'rgba(116, 116, 128, 0.08)',
+  fillTertiary: 'rgba(118, 118, 128, 0.24)',
+  gray6: '#F2F2F7',
+  systemGray5: '#E5E5EA',
+  systemGray4: '#D1D1D6',
+  cornerRadius: 10,
+  rowMinHeight: 52,
+  rowCompact: 44,
+  largeTitle: { fontSize: '1.75rem', fontWeight: 700 as const, letterSpacing: '-0.022em', lineHeight: 1.2 },
+  title3: { fontSize: '1.25rem', fontWeight: 600 as const, letterSpacing: '-0.019em' },
+  body: { fontSize: '1.0625rem', fontWeight: 400 as const, letterSpacing: '-0.016em' },
+  bodyEmphasized: { fontSize: '1.0625rem', fontWeight: 600 as const, letterSpacing: '-0.016em' },
+  subheadline: { fontSize: '0.9375rem', fontWeight: 400 as const, letterSpacing: '-0.015em' },
+  footnote: { fontSize: '0.8125rem', fontWeight: 400 as const, letterSpacing: '-0.01em' },
+  footnoteCaps: { fontSize: '0.6875rem', fontWeight: 600 as const, letterSpacing: '0.06em' },
+  caption1: { fontSize: '0.75rem', fontWeight: 400 as const },
+}
+
+function InsetGrouped({
+  header,
+  children,
+  sx,
+}: {
+  header?: string
+  children: React.ReactNode
+  sx?: object
+}) {
+  return (
+    <Box sx={{ mb: 2, ...sx }}>
+      {header ? (
+        <Typography
+          sx={{
+            px: 2,
+            mb: 0.75,
+            ...HIG.footnoteCaps,
+            color: HIG.secondaryLabel,
+            textTransform: 'uppercase',
+          }}
+        >
+          {header}
+        </Typography>
+      ) : null}
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: `${HIG.cornerRadius}px`,
+          overflow: 'hidden',
+          bgcolor: HIG.secondaryGrouped,
+          border: `0.5px solid ${HIG.separatorOpaque}`,
+          boxShadow: 'none',
+        }}
+      >
+        {children}
+      </Paper>
+    </Box>
+  )
+}
+
 interface HubCourse {
   id: string
   code: string
@@ -100,8 +169,9 @@ function SortableModuleRow({
   openModuleTest,
   setContextCourseId,
   setContextModuleId,
-                               setCreateLessonOpen,
+  setCreateLessonOpen,
   moduleLessons,
+  isLast,
   children,
 }: {
   module: HubModule
@@ -115,8 +185,11 @@ function SortableModuleRow({
   setCreateModuleOpen: (v: boolean) => void
   setCreateLessonOpen: (v: boolean) => void
   moduleLessons: HubLesson[]
+  isLast: boolean
   children: React.ReactNode
 }) {
+  const theme = useTheme()
+  const tint = theme.palette.primary.main
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: module.id,
     data: { type: 'module', courseId },
@@ -124,72 +197,120 @@ function SortableModuleRow({
   const style = { transform: CSS.Transform.toString(transform), transition }
   const moduleExpanded = expandedModules.has(module.id)
   return (
-    <Box ref={setNodeRef} style={style} sx={{ mb: 1, opacity: isDragging ? 0.5 : 1 }}>
+    <Box
+      ref={setNodeRef}
+      style={style}
+      sx={{
+        opacity: isDragging ? 0.55 : 1,
+        borderBottom: isLast ? 'none' : `0.5px solid ${HIG.separatorOpaque}`,
+      }}
+    >
       <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
-        spacing={1}
+        direction="row"
+        alignItems="center"
+        spacing={0}
         sx={{
-          p: 1.25,
-          borderRadius: 2,
-          bgcolor: (t) => alpha(t.palette.primary.main, 0.04),
-          border: '1px solid',
-          borderColor: 'divider',
-          '&:hover': {
-            bgcolor: (t) => alpha(t.palette.primary.main, 0.07),
-            borderColor: (t) => alpha(t.palette.primary.main, 0.2),
-          },
-          flexWrap: 'wrap',
+          minHeight: HIG.rowMinHeight,
+          pl: 1,
+          pr: 0.5,
+          py: 0.5,
+          gap: 0.5,
+          bgcolor: moduleExpanded ? HIG.tertiaryGrouped : HIG.secondaryGrouped,
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          '&:hover': { bgcolor: moduleExpanded ? HIG.tertiaryGrouped : HIG.fillQuaternary },
         }}
       >
-        <Stack direction={{ xs: 'row', sm: 'column' }} spacing={0.5} sx={{ flexShrink: 0 }}>
-          <Box
-            {...attributes}
-            {...listeners}
-            sx={{ cursor: 'grab', display: 'flex', color: 'text.secondary', '&:active': { cursor: 'grabbing' } }}
-          >
-            <DragIndicator sx={{ fontSize: 20 }} />
-          </Box>
-          <Box
-            component="span"
-            sx={{ width: 28, display: 'flex', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
-            onClick={() => toggleModule(module.id)}
-          >
-            {moduleExpanded ? <ExpandLess sx={{ fontSize: 20, color: 'text.secondary' }} /> : <ExpandMore sx={{ fontSize: 20, color: 'text.secondary' }} />}
-          </Box>
-          <MenuBookOutlined sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0 }} />
-        </Stack>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ flex: 1, minWidth: 0 }} onClick={() => openModuleEdit(courseId, module.id)}>
-          <Typography variant="body2" sx={{ fontWeight: 600, cursor: 'pointer' }}>
+        <Box
+          {...attributes}
+          {...listeners}
+          sx={{
+            cursor: 'grab',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 36,
+            minHeight: HIG.rowCompact,
+            color: HIG.tertiaryLabel,
+            touchAction: 'none',
+            '&:active': { cursor: 'grabbing' },
+          }}
+          aria-label="Изменить порядок модуля"
+        >
+          <DragIndicator sx={{ fontSize: 22 }} />
+        </Box>
+        <IconButton
+          size="small"
+          onClick={() => toggleModule(module.id)}
+          sx={{
+            width: 40,
+            height: 40,
+            color: HIG.secondaryLabel,
+            borderRadius: `${HIG.cornerRadius}px`,
+          }}
+          aria-expanded={moduleExpanded}
+          aria-label={moduleExpanded ? 'Свернуть уроки' : 'Показать уроки'}
+        >
+          {moduleExpanded ? <KeyboardArrowUp sx={{ fontSize: 22 }} /> : <KeyboardArrowDown sx={{ fontSize: 22 }} />}
+        </IconButton>
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: '8px',
+            bgcolor: HIG.fillQuaternary,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <MenuBookOutlined sx={{ fontSize: 18, color: HIG.secondaryLabel }} />
+        </Box>
+        <Stack
+          direction="column"
+          justifyContent="center"
+          sx={{ flex: 1, minWidth: 0, py: 0.5, cursor: 'pointer' }}
+          onClick={() => openModuleEdit(courseId, module.id)}
+        >
+          <Typography sx={{ ...HIG.bodyEmphasized, color: HIG.label, lineHeight: 1.25 }}>
             {module.orderIndex}. {module.titleRu}
           </Typography>
-          <Chip label={`${moduleLessons.length} уроков`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+          <Typography sx={{ ...HIG.caption1, color: HIG.secondaryLabel, mt: 0.25 }}>
+            {moduleLessons.length === 1 ? '1 урок' : `${moduleLessons.length} уроков`}
+          </Typography>
         </Stack>
-        <Tooltip title="Редактировать модуль">
-          <IconButton size="small" onClick={() => openModuleEdit(courseId, module.id)} sx={{ minWidth: 44, minHeight: 44 }}>
-            <EditIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Тест модуля">
-          <IconButton size="small" onClick={() => openModuleTest(courseId, module.id)} sx={{ minWidth: 44, minHeight: 44 }}>
-            <QuizOutlined sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title={`Добавить урок в ${module.titleRu}`}>
-          <IconButton
-            size="small"
-            onClick={() => {
-              setContextCourseId(courseId)
-              setContextModuleId(module.id)
-              setCreateLessonOpen(true)
-            }}
-            sx={{ minWidth: 44, minHeight: 44 }}
-          >
-            <Add sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
+        <Stack direction="row" alignItems="center" sx={{ flexShrink: 0 }}>
+          <Tooltip title="Редактировать модуль">
+            <IconButton
+              onClick={() => openModuleEdit(courseId, module.id)}
+              sx={{ width: 44, height: 44, color: tint, borderRadius: `${HIG.cornerRadius}px` }}
+            >
+              <EditIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Тест модуля">
+            <IconButton
+              onClick={() => openModuleTest(courseId, module.id)}
+              sx={{ width: 44, height: 44, color: HIG.secondaryLabel, borderRadius: `${HIG.cornerRadius}px` }}
+            >
+              <QuizOutlined sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={`Добавить урок в «${module.titleRu}»`}>
+            <IconButton
+              onClick={() => {
+                setContextCourseId(courseId)
+                setContextModuleId(module.id)
+                setCreateLessonOpen(true)
+              }}
+              sx={{ width: 44, height: 44, color: tint, borderRadius: `${HIG.cornerRadius}px` }}
+            >
+              <Add sx={{ fontSize: 22 }} />
+            </IconButton>
+          </Tooltip>
+        </Stack>
       </Stack>
-      {children}
+      {children ? <Box sx={{ bgcolor: HIG.groupedBackground }}>{children}</Box> : null}
     </Box>
   )
 }
@@ -201,6 +322,7 @@ function SortableLessonRow({
   navigate,
   onRequestDelete,
   isDeleting,
+  isLast,
 }: {
   lesson: HubLesson
   courseId: string
@@ -208,69 +330,106 @@ function SortableLessonRow({
   navigate: (path: string) => void
   onRequestDelete: () => void
   isDeleting: boolean
+  isLast: boolean
 }) {
+  const theme = useTheme()
+  const tint = theme.palette.primary.main
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lesson.id,
     data: { type: 'lesson', moduleId, courseId },
   })
   const style = { transform: CSS.Transform.toString(transform), transition }
+  const path = `/content/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`
   return (
     <Stack
       ref={setNodeRef}
       style={style}
-      direction={{ xs: 'column', sm: 'row' }}
-      alignItems="flex-start"
-      spacing={1}
+      direction="row"
+      alignItems="center"
+      spacing={0}
       sx={{
-        p: 1,
-        borderRadius: 1.5,
-        bgcolor: 'background.paper',
-        border: '1px solid',
-        borderColor: 'divider',
-        '&:hover': { bgcolor: 'action.hover', borderColor: (t) => alpha(t.palette.primary.main, 0.15) },
-        opacity: isDragging ? 0.5 : 1,
-        flexWrap: 'wrap',
+        minHeight: HIG.rowCompact,
+        pl: 1.5,
+        pr: 0.5,
+        py: 0.25,
+        ml: 1.5,
+        mr: 0,
+        borderLeft: `3px solid ${HIG.separatorOpaque}`,
+        borderBottom: isLast ? 'none' : `0.5px solid ${HIG.separatorOpaque}`,
+        bgcolor: HIG.secondaryGrouped,
+        opacity: isDragging ? 0.55 : 1,
+        flexWrap: { xs: 'wrap', sm: 'nowrap' },
+        '&:hover': { bgcolor: HIG.tertiaryGrouped },
       }}
     >
-      <Box {...attributes} {...listeners} sx={{ cursor: 'grab', display: 'flex', color: 'text.secondary', '&:active': { cursor: 'grabbing' } }}>
-        <DragIndicator sx={{ fontSize: 16 }} />
+      <Box
+        {...attributes}
+        {...listeners}
+        sx={{
+          cursor: 'grab',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 32,
+          minHeight: 40,
+          color: HIG.tertiaryLabel,
+          '&:active': { cursor: 'grabbing' },
+        }}
+        aria-label="Изменить порядок урока"
+      >
+        <DragIndicator sx={{ fontSize: 18 }} />
       </Box>
-      <ArticleOutlined sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+      <ArticleOutlined sx={{ fontSize: 18, color: HIG.secondaryLabel, flexShrink: 0, mr: 1 }} />
       <Typography
-        variant="body2"
-        sx={{ flex: 1, cursor: 'pointer' }}
-        onClick={() => navigate(`/content/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`)}
+        sx={{
+          ...HIG.subheadline,
+          color: HIG.label,
+          flex: 1,
+          minWidth: 0,
+          cursor: 'pointer',
+          py: 0.5,
+        }}
+        onClick={() => navigate(path)}
       >
         {lesson.orderIndex}. {lesson.titleRu}
       </Typography>
-      <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0, flexWrap: 'wrap' }}>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<EditIcon sx={{ fontSize: 14 }} />}
-          onClick={() => navigate(`/content/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`)}
-          sx={{ whiteSpace: 'nowrap' }}
-        >
-          Редакт.
-        </Button>
-        <Tooltip title="Удалить урок">
-          <span>
-            <IconButton
-              size="small"
-              color="error"
-              disabled={isDeleting}
-              onClick={(e) => {
-                e.stopPropagation()
-                onRequestDelete()
-              }}
-              aria-label="Удалить урок"
-              sx={{ minWidth: 44, minHeight: 44 }}
-            >
-              {isDeleting ? <CircularProgress size={18} color="inherit" /> : <DeleteOutline fontSize="small" />}
-            </IconButton>
-          </span>
-        </Tooltip>
-      </Box>
+      <Button
+        variant="text"
+        disableRipple
+        onClick={() => navigate(path)}
+        sx={{
+          ...HIG.subheadline,
+          fontWeight: 600,
+          color: tint,
+          minWidth: 44,
+          minHeight: 44,
+          px: 1.5,
+          textTransform: 'none',
+          '&:hover': { bgcolor: alpha(tint, 0.1) },
+        }}
+      >
+        Открыть
+      </Button>
+      <Tooltip title="Удалить урок">
+        <span>
+          <IconButton
+            disabled={isDeleting}
+            onClick={(e) => {
+              e.stopPropagation()
+              onRequestDelete()
+            }}
+            aria-label="Удалить урок"
+            sx={{
+              width: 44,
+              height: 44,
+              color: '#FF3B30',
+              borderRadius: `${HIG.cornerRadius}px`,
+            }}
+          >
+            {isDeleting ? <CircularProgress size={18} sx={{ color: '#FF3B30' }} /> : <DeleteOutline sx={{ fontSize: 20 }} />}
+          </IconButton>
+        </span>
+      </Tooltip>
     </Stack>
   )
 }
@@ -567,6 +726,18 @@ export default function ContentHubPage() {
     return 'пользователей'
   }
 
+  const ruModuleWord = (n: number) => {
+    if (n % 10 === 1 && n % 100 !== 11) return 'модуль'
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'модуля'
+    return 'модулей'
+  }
+
+  const ruLessonWord = (n: number) => {
+    if (n % 10 === 1 && n % 100 !== 11) return 'урок'
+    if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'урока'
+    return 'уроков'
+  }
+
   const handleDeleteLesson = async (lesson: HubLesson, courseId: string) => {
     try {
       const { data } = await getLessonDeletionImpact(lesson.id)
@@ -599,174 +770,241 @@ export default function ContentHubPage() {
       ? (modulesByCourse[urlCourseId] || []).find((m) => m.id === urlModuleId) || null
       : null
 
+  const iosFilledProminent = {
+    minHeight: 44,
+    px: 2.5,
+    borderRadius: `${HIG.cornerRadius}px`,
+    textTransform: 'none' as const,
+    fontWeight: 600,
+    fontSize: '0.9375rem',
+    letterSpacing: '-0.01em',
+    bgcolor: theme.palette.primary.main,
+    backgroundImage: 'none',
+    boxShadow: 'none',
+    '&:hover': {
+      bgcolor: theme.palette.primary.dark,
+      backgroundImage: 'none',
+      boxShadow: 'none',
+      transform: 'none',
+    },
+  }
+
+  const iosGraySecondary = {
+    minHeight: 44,
+    px: 2.5,
+    borderRadius: `${HIG.cornerRadius}px`,
+    textTransform: 'none' as const,
+    fontWeight: 500,
+    fontSize: '0.9375rem',
+    letterSpacing: '-0.01em',
+    bgcolor: HIG.systemGray5,
+    color: HIG.label,
+    border: 'none',
+    boxShadow: 'none',
+    '&:hover': {
+      bgcolor: HIG.systemGray4,
+      boxShadow: 'none',
+      transform: 'none',
+    },
+  }
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-    <Box sx={{ maxWidth: 960, mx: 'auto' }}>
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 2.5, sm: 3 },
-          mb: 3,
-          borderRadius: 3,
-          border: '1px solid',
-          borderColor: 'divider',
-          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.07)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 55%, ${alpha(theme.palette.primary.main, 0.03)} 100%)`,
-          position: 'relative',
-          overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: 4,
-            height: '100%',
-            borderRadius: '4px 0 0 4px',
-            background: `linear-gradient(180deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-          },
-        }}
-      >
+    <Box
+      sx={{
+        fontFamily: HIG.font,
+        bgcolor: HIG.groupedBackground,
+        mx: { xs: -2, sm: -3, md: -4 },
+        px: { xs: 2, sm: 3, md: 4 },
+        pb: 5,
+        pt: 0.5,
+        minHeight: '60vh',
+      }}
+    >
+      <Box sx={{ maxWidth: 880, mx: 'auto' }}>
+      <Stack spacing={0} sx={{ mb: 2.5 }}>
+        <Typography sx={{ ...HIG.footnoteCaps, color: HIG.secondaryLabel, px: 0.5 }}>
+          Учебные программы
+        </Typography>
         <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          alignItems={{ xs: 'flex-start', md: 'center' }}
+          direction={{ xs: 'column', sm: 'row' }}
+          alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
           justifyContent="space-between"
           spacing={2}
-          sx={{ pl: { xs: 0.5, sm: 1 } }}
+          sx={{ pt: 0.5 }}
         >
-          <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ minWidth: 0 }}>
-            <Box
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ ...HIG.largeTitle, color: HIG.label }}>Контент</Typography>
+            <Typography sx={{ ...HIG.subheadline, color: HIG.secondaryLabel, mt: 0.75, maxWidth: 480, lineHeight: 1.5 }}>
+              Курсы, модули и уроки в виде сгруппированного списка. Перетаскивайте строки за ручку слева.
+            </Typography>
+            {!loading && courses.length > 0 && (
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2, gap: 1 }}>
+                <Box
+                  sx={{
+                    ...HIG.footnote,
+                    fontWeight: 500,
+                    px: 1.25,
+                    py: 0.5,
+                    borderRadius: '100px',
+                    bgcolor: HIG.fillQuaternary,
+                    color: HIG.secondaryLabel,
+                  }}
+                >
+                  {courses.length}{' '}
+                  {courses.length === 1 ? 'курс' : courses.length >= 2 && courses.length <= 4 ? 'курса' : 'курсов'}
+                </Box>
+                <Box
+                  sx={{
+                    ...HIG.footnote,
+                    fontWeight: 500,
+                    px: 1.25,
+                    py: 0.5,
+                    borderRadius: '100px',
+                    bgcolor: HIG.fillQuaternary,
+                    color: HIG.secondaryLabel,
+                  }}
+                >
+                  {courses.reduce((acc, x) => acc + (lessonsByCourse[x.id]?.length ?? 0), 0)} уроков всего
+                </Box>
+              </Stack>
+            )}
+          </Box>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, flexShrink: 0 }}>
+            <Button
+              variant="text"
+              onClick={() => openOnboardingPlacement('diagnostic')}
               sx={{
-                width: 48,
-                height: 48,
-                borderRadius: 2,
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: alpha(theme.palette.primary.main, 0.14),
-                color: 'primary.main',
+                ...iosGraySecondary,
+                color: HIG.label,
               }}
             >
-              <SchoolOutlined sx={{ fontSize: 28 }} />
-            </Box>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: '0.08em', fontWeight: 700, lineHeight: 1.2 }}>
-                Учебные программы
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-0.03em', fontSize: { xs: '1.35rem', sm: '1.6rem' }, mt: 0.25 }}>
-                Контент
-              </Typography>
-              <Typography color="text.secondary" sx={{ mt: 0.5, maxWidth: 520, lineHeight: 1.55 }}>
-                Иерархия: курсы, модули и уроки. Раскройте строку, перетаскивайте для порядка, откройте редактор.
-              </Typography>
-              {!loading && courses.length > 0 && (
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5, gap: 1 }}>
-                  <Chip size="small" color="primary" variant="outlined" label={`${courses.length} ${courses.length === 1 ? 'курс' : courses.length >= 2 && courses.length <= 4 ? 'курса' : 'курсов'}`} />
-                  <Chip
-                    size="small"
-                    variant="outlined"
-                    label={`${courses.reduce((acc, x) => acc + (lessonsByCourse[x.id]?.length ?? 0), 0)} уроков всего`}
-                    sx={{ borderColor: 'divider' }}
-                  />
-                </Stack>
-              )}
-            </Box>
-          </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
-            <Button variant="outlined" size="medium" onClick={() => openOnboardingPlacement('diagnostic')} sx={{ bgcolor: 'background.paper' }}>
               Онбординг: диагностика
             </Button>
-            <Button variant="contained" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)}>
+            <Button
+              variant="contained"
+              startIcon={<Add sx={{ fontSize: 20 }} />}
+              onClick={() => setCreateCourseOpen(true)}
+              sx={iosFilledProminent}
+            >
               Создать курс
             </Button>
           </Stack>
         </Stack>
-      </Paper>
+      </Stack>
 
-      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
-      {!!error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {!!success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {loading && (
+        <LinearProgress
+          sx={{
+            mb: 2,
+            borderRadius: 1,
+            height: 3,
+            bgcolor: HIG.fillQuaternary,
+            '& .MuiLinearProgress-bar': { bgcolor: theme.palette.primary.main },
+          }}
+        />
+      )}
+      {!!error && (
+        <Alert severity="error" sx={{ mb: 2, borderRadius: `${HIG.cornerRadius}px`, ...HIG.footnote }}>
+          {error}
+        </Alert>
+      )}
+      {!!success && (
+        <Alert severity="success" sx={{ mb: 2, borderRadius: `${HIG.cornerRadius}px`, ...HIG.footnote }}>
+          {success}
+        </Alert>
+      )}
 
-      <Paper
-        elevation={0}
-        variant="outlined"
-        sx={{
-          px: 2,
-          py: 1.25,
-          mb: 2.5,
-          borderRadius: 2,
-          bgcolor: alpha(theme.palette.primary.main, 0.02),
-          borderColor: 'divider',
-        }}
-      >
-        <Breadcrumbs separator="›" sx={{ '& .MuiBreadcrumbs-separator': { mx: 0.75, color: 'text.disabled' } }}>
+      <Box sx={{ px: 0.5, mb: 2 }}>
+        <Breadcrumbs
+          separator={<ChevronRight sx={{ fontSize: 18, color: HIG.tertiaryLabel }} />}
+          sx={{ '& .MuiBreadcrumbs-li': { display: 'flex', alignItems: 'center' } }}
+        >
           <Link
             component="button"
-            variant="body2"
-            color={urlCourseId ? 'text.secondary' : 'text.primary'}
             onClick={() => navigate('/content')}
-            sx={{ fontWeight: urlCourseId ? 400 : 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' }, cursor: 'pointer' }}
+            sx={{
+              ...HIG.subheadline,
+              fontWeight: urlCourseId ? 400 : 600,
+              color: urlCourseId ? HIG.secondaryLabel : HIG.label,
+              textDecoration: 'none',
+              cursor: 'pointer',
+              border: 'none',
+              background: 'none',
+              padding: 0,
+              '&:hover': { textDecoration: 'underline' },
+            }}
           >
             Контент
           </Link>
           {urlCourse && (
             <Link
               component="button"
-              variant="body2"
-              color={urlModuleId ? 'text.secondary' : 'text.primary'}
               onClick={() => navigate(`/content/courses/${urlCourse.id}`)}
-              sx={{ fontWeight: urlModuleId ? 400 : 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' }, cursor: 'pointer' }}
+              sx={{
+                ...HIG.subheadline,
+                fontWeight: urlModuleId ? 400 : 600,
+                color: urlModuleId ? HIG.secondaryLabel : HIG.label,
+                textDecoration: 'none',
+                cursor: 'pointer',
+                border: 'none',
+                background: 'none',
+                padding: 0,
+                '&:hover': { textDecoration: 'underline' },
+              }}
             >
               {urlCourse.code}
             </Link>
           )}
           {urlModule && (
-            <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
+            <Typography sx={{ ...HIG.subheadline, fontWeight: 600, color: HIG.label }}>
               {urlModule.titleRu}
             </Typography>
           )}
         </Breadcrumbs>
-      </Paper>
+      </Box>
 
-      <Stack spacing={2}>
+      <Stack spacing={1.5}>
           {courses.length === 0 && !loading ? (
-            <Paper
-              elevation={0}
-              variant="outlined"
-              sx={{
-                py: 8,
-                px: 3,
-                textAlign: 'center',
-                borderRadius: 3,
-                borderStyle: 'dashed',
-                bgcolor: alpha(theme.palette.primary.main, 0.02),
-              }}
-            >
-              <Box
-                sx={{
-                  width: 72,
-                  height: 72,
-                  mx: 'auto',
-                  mb: 2,
-                  borderRadius: 3,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  color: 'primary.main',
-                }}
-              >
-                <SchoolOutlined sx={{ fontSize: 40 }} />
-              </Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
-                Пока нет курсов
-              </Typography>
-              <Typography color="text.secondary" sx={{ mb: 3, maxWidth: 360, mx: 'auto' }}>
-                Добавьте первый курс — затем наполните его модулями и уроками.
-              </Typography>
-              <Button variant="contained" size="large" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)}>
-                Создать курс
-              </Button>
-            </Paper>
+            <InsetGrouped>
+              <Stack alignItems="center" sx={{ py: 6, px: 2 }}>
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: '13px',
+                    bgcolor: HIG.fillQuaternary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 2,
+                  }}
+                >
+                  <SchoolOutlined sx={{ fontSize: 28, color: HIG.secondaryLabel }} />
+                </Box>
+                <Typography sx={{ ...HIG.title3, color: HIG.label, mb: 0.75 }}>Нет курсов</Typography>
+                <Typography
+                  sx={{
+                    ...HIG.subheadline,
+                    color: HIG.secondaryLabel,
+                    textAlign: 'center',
+                    mb: 3,
+                    maxWidth: 300,
+                    lineHeight: 1.45,
+                  }}
+                >
+                  Создайте курс, чтобы добавить модули и уроки.
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<Add sx={{ fontSize: 20 }} />}
+                  onClick={() => setCreateCourseOpen(true)}
+                  sx={iosFilledProminent}
+                >
+                  Создать курс
+                </Button>
+              </Stack>
+            </InsetGrouped>
           ) : (
             courses.map((c) => {
                 const courseExpanded = expandedCourses.has(c.id)
@@ -778,309 +1016,349 @@ export default function ContentHubPage() {
                   <Paper
                     key={c.id}
                     elevation={0}
-                    variant="outlined"
                     sx={{
-                      borderRadius: 3,
+                      borderRadius: `${HIG.cornerRadius}px`,
                       overflow: 'hidden',
-                      borderColor: courseExpanded ? alpha(theme.palette.primary.main, 0.45) : 'divider',
-                      boxShadow: courseExpanded ? `0 0 0 1px ${alpha(theme.palette.primary.main, 0.12)}` : 'none',
-                      transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-                      '&:hover': {
-                        borderColor: courseExpanded ? alpha(theme.palette.primary.main, 0.55) : alpha(theme.palette.divider, 0.14),
-                      },
+                      border: `0.5px solid ${HIG.separatorOpaque}`,
+                      bgcolor: HIG.secondaryGrouped,
+                      boxShadow: 'none',
                     }}
                   >
                     <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      alignItems={{ xs: 'flex-start', sm: 'center' }}
-                      spacing={1.5}
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
                       sx={{
-                        flexWrap: 'wrap',
-                        gap: 1,
-                        p: { xs: 1.5, sm: 2 },
+                        minHeight: 56,
+                        px: 2,
+                        py: 1,
                         cursor: 'pointer',
-                        bgcolor: courseExpanded ? alpha(theme.palette.primary.main, 0.03) : 'background.paper',
+                        bgcolor: courseExpanded ? HIG.tertiaryGrouped : HIG.secondaryGrouped,
+                        flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                        gap: 1,
+                        '&:hover': { bgcolor: HIG.fillQuaternary },
                       }}
                       onClick={() => toggleCourse(c.id)}
                     >
-                      <Box
-                        component="span"
+                      <IconButton
+                        size="small"
                         onClick={(e) => {
                           e.stopPropagation()
                           toggleCourse(c.id)
                         }}
-                        sx={{ width: 36, display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
+                        sx={{ color: HIG.secondaryLabel, borderRadius: `${HIG.cornerRadius}px` }}
+                        aria-expanded={courseExpanded}
+                        aria-label={courseExpanded ? 'Свернуть курс' : 'Развернуть курс'}
                       >
-                        {courseExpanded ? (
-                          <ExpandLess sx={{ fontSize: 24, color: 'primary.main' }} />
-                        ) : (
-                          <ExpandMore sx={{ fontSize: 24, color: 'text.secondary' }} />
-                        )}
+                        {courseExpanded ? <KeyboardArrowUp sx={{ fontSize: 22 }} /> : <KeyboardArrowDown sx={{ fontSize: 22 }} />}
+                      </IconButton>
+                      <Box
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: '9px',
+                          bgcolor: HIG.fillQuaternary,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <SchoolOutlined sx={{ fontSize: 22, color: HIG.secondaryLabel }} />
                       </Box>
-                      <SchoolOutlined sx={{ fontSize: 24, color: courseExpanded ? 'primary.main' : 'text.secondary', flexShrink: 0 }} />
                       <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        alignItems={{ xs: 'flex-start', sm: 'center' }}
-                        spacing={1}
-                        sx={{ flex: 1, minWidth: 0 }}
+                        direction="column"
+                        sx={{ flex: 1, minWidth: 0, py: 0.25 }}
                         onClick={(e) => {
                           e.stopPropagation()
                           openCourseEdit(c.id)
                         }}
                       >
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700, cursor: 'pointer', letterSpacing: '-0.01em' }}>
+                        <Typography sx={{ ...HIG.bodyEmphasized, color: HIG.label, cursor: 'pointer' }}>
                           {c.orderIndex}. {c.titleRu}
                         </Typography>
-                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ gap: 0.75 }}>
-                          <Chip label={c.code} size="small" color="primary" variant="outlined" sx={{ fontWeight: 600 }} />
-                          <Chip label={`${mods.length} мод.`} size="small" variant="outlined" />
-                          <Chip label={`${les.length} урок.`} size="small" variant="outlined" />
+                        <Stack direction="row" flexWrap="wrap" sx={{ mt: 0.35, gap: 0.5, alignItems: 'center' }}>
+                          <Typography sx={{ ...HIG.caption1, color: theme.palette.primary.main, fontWeight: 600 }}>{c.code}</Typography>
+                          <Typography sx={{ ...HIG.caption1, color: HIG.tertiaryLabel }}>·</Typography>
+                          <Typography sx={{ ...HIG.caption1, color: HIG.secondaryLabel }}>
+                            {mods.length} {ruModuleWord(mods.length)}
+                          </Typography>
+                          <Typography sx={{ ...HIG.caption1, color: HIG.tertiaryLabel }}>·</Typography>
+                          <Typography sx={{ ...HIG.caption1, color: HIG.secondaryLabel }}>
+                            {les.length} {ruLessonWord(les.length)}
+                          </Typography>
                         </Stack>
                       </Stack>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          flexDirection: { xs: 'column', sm: 'row' },
-                          gap: 1,
-                          flexShrink: 0,
-                          flexWrap: 'wrap',
-                          width: { xs: '100%', sm: 'auto' },
-                          alignSelf: { xs: 'stretch', sm: 'auto' },
-                        }}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        spacing={0.5}
+                        sx={{ flexShrink: 0, flexWrap: 'wrap' }}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<EditIcon sx={{ fontSize: 14 }} />}
+                          variant="text"
                           onClick={() => openCourseEdit(c.id)}
-                          sx={{ whiteSpace: { sm: 'nowrap' }, width: { xs: '100%', sm: 'auto' }, bgcolor: 'background.paper' }}
+                          sx={{
+                            ...HIG.subheadline,
+                            fontWeight: 600,
+                            color: theme.palette.primary.main,
+                            minHeight: 44,
+                            px: 1.5,
+                            textTransform: 'none',
+                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                          }}
                         >
-                          Редактировать
+                          Изменить
                         </Button>
                         {courseExpanded && (
-                          <Tooltip title={`Добавить модуль в ${c.titleRu}`}>
+                          <Tooltip title={`Новый модуль в «${c.titleRu}»`}>
                             <Button
-                              size="small"
                               variant="contained"
-                              color="secondary"
-                              startIcon={<Add />}
                               onClick={() => {
                                 setContextCourseId(c.id)
                                 setCreateModuleOpen(true)
                               }}
-                              sx={{ whiteSpace: { sm: 'nowrap' }, width: { xs: '100%', sm: 'auto' } }}
+                              sx={{
+                                ...iosFilledProminent,
+                                minHeight: 36,
+                                px: 2,
+                                fontSize: '0.875rem',
+                              }}
                             >
                               Модуль
                             </Button>
                           </Tooltip>
                         )}
-                      </Box>
+                      </Stack>
                     </Stack>
 
                     {courseExpanded && (
                       <Box
                         sx={{
-                          px: { xs: 1.5, sm: 2 },
+                          borderTop: `0.5px solid ${HIG.separatorOpaque}`,
+                          bgcolor: HIG.groupedBackground,
+                          px: 1.5,
                           pb: 2,
-                          pt: 0,
-                          borderTop: '1px solid',
-                          borderColor: 'divider',
-                          bgcolor: alpha(theme.palette.primary.main, 0.02),
+                          pt: 1.5,
                         }}
                       >
-                        <Stack spacing={1} sx={{ pt: 2 }}>
-                        {levelCode && (
-                          <Tooltip title={`Тест уровня ${levelCode} — проверка знаний по всему уровню`}>
-                            <Paper
-                              elevation={0}
-                              variant="outlined"
-                              sx={{
-                                px: 1.5,
-                                py: 1,
-                                borderRadius: 2,
-                                display: 'flex',
-                                flexDirection: { xs: 'column', sm: 'row' },
-                                alignItems: { xs: 'flex-start', sm: 'center' },
-                                gap: 1,
-                                bgcolor: 'background.paper',
-                              }}
-                            >
-                              <QuizOutlined sx={{ fontSize: 20, color: 'text.secondary' }} />
-                              <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
-                                Тест уровня ({levelCode})
-                              </Typography>
-                              <Button size="small" variant="outlined" onClick={() => openLevelTest(levelCode)}>
-                                Открыть
-                              </Button>
-                            </Paper>
-                          </Tooltip>
-                        )}
-                        {['mahraj', 'a1', 'a2'].includes(String(c.code || '').toLowerCase()) && (
-                          <Tooltip title="Вопросы для ветки онбординга (без Premium)">
-                            <Paper
-                              elevation={0}
-                              variant="outlined"
-                              sx={{
-                                px: 1.5,
-                                py: 1,
-                                borderRadius: 2,
-                                display: 'flex',
-                                flexDirection: { xs: 'column', sm: 'row' },
-                                alignItems: { xs: 'flex-start', sm: 'center' },
-                                gap: 1,
-                                borderColor: (t) => alpha(t.palette.primary.main, 0.25),
-                                bgcolor: (t) => alpha(t.palette.primary.main, 0.04),
-                              }}
-                            >
-                              <QuizOutlined sx={{ fontSize: 20, color: 'primary.main' }} />
-                              <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
-                                Тест онбординга ({c.code})
-                              </Typography>
-                              <Button size="small" variant="contained" onClick={() => openOnboardingPlacement(String(c.code).toLowerCase())}>
-                                Открыть
-                              </Button>
-                            </Paper>
-                          </Tooltip>
-                        )}
-                        <SortableContext items={mods.map((m) => m.id)} strategy={verticalListSortingStrategy}>
-                        {mods.map((m) => {
-                          const moduleLessons = les.filter((l) => l.moduleId === m.id)
-                          return (
-                            <SortableModuleRow
-                              key={m.id}
-                              module={m}
-                              courseId={c.id}
-                              expandedModules={expandedModules}
-                              toggleModule={toggleModule}
-                              openModuleEdit={openModuleEdit}
-                              openModuleTest={openModuleTest}
-                              setContextCourseId={setContextCourseId}
-                              setContextModuleId={setContextModuleId}
-                              setCreateModuleOpen={setCreateModuleOpen}
-                              setCreateLessonOpen={setCreateLessonOpen}
-                              moduleLessons={moduleLessons}
-                            >
-                              {expandedModules.has(m.id) && (
-                                <SortableContext items={moduleLessons.map((l) => l.id)} strategy={verticalListSortingStrategy}>
-                                  <Stack sx={{ pl: { xs: 2, sm: 4 }, mt: 0.5 }} spacing={0.25}>
-                                    {moduleLessons.map((l) => (
-                                      <SortableLessonRow
-                                        key={l.id}
-                                        lesson={l}
-                                        courseId={c.id}
-                                        moduleId={m.id}
-                                        navigate={navigate}
-                                        onRequestDelete={() => void handleDeleteLesson(l, c.id)}
-                                        isDeleting={deletingLessonId === l.id}
-                                      />
-                                    ))}
+                        <Stack spacing={2}>
+                          {levelCode && (
+                            <Tooltip title={`Тест уровня ${levelCode} — проверка знаний по всему уровню`}>
+                              <Box component="span" sx={{ display: 'block' }}>
+                                <InsetGrouped header="Проверка знаний">
+                                  <Stack
+                                    direction="row"
+                                    alignItems="center"
+                                    sx={{ minHeight: HIG.rowMinHeight, px: 2, py: 0.5 }}
+                                  >
+                                    <QuizOutlined sx={{ fontSize: 22, color: HIG.secondaryLabel, mr: 1.5, flexShrink: 0 }} />
+                                    <Stack sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography sx={{ ...HIG.body, color: HIG.label, lineHeight: 1.3 }}>
+                                        Тест уровня {levelCode}
+                                      </Typography>
+                                      <Typography sx={{ ...HIG.caption1, color: HIG.secondaryLabel, mt: 0.25 }}>
+                                        Итог по всему уровню
+                                      </Typography>
+                                    </Stack>
+                                    <Button
+                                      variant="text"
+                                      onClick={() => openLevelTest(levelCode)}
+                                      sx={{
+                                        ...HIG.subheadline,
+                                        fontWeight: 600,
+                                        color: theme.palette.primary.main,
+                                        textTransform: 'none',
+                                        minHeight: 44,
+                                        flexShrink: 0,
+                                        '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                                      }}
+                                    >
+                                      Открыть
+                                    </Button>
                                   </Stack>
-                                </SortableContext>
-                              )}
-                            </SortableModuleRow>
-                          )
-                        })}
-                        </SortableContext>
+                                </InsetGrouped>
+                              </Box>
+                            </Tooltip>
+                          )}
+                          {['mahraj', 'a1', 'a2'].includes(String(c.code || '').toLowerCase()) && (
+                            <Tooltip title="Вопросы для ветки онбординга (без Premium)">
+                              <Box component="span" sx={{ display: 'block' }}>
+                                <InsetGrouped header="Онбординг">
+                                  <Stack
+                                    direction="row"
+                                    alignItems="center"
+                                    sx={{ minHeight: HIG.rowMinHeight, px: 2, py: 0.5 }}
+                                  >
+                                    <QuizOutlined
+                                      sx={{ fontSize: 22, color: theme.palette.primary.main, mr: 1.5, flexShrink: 0 }}
+                                    />
+                                    <Stack sx={{ flex: 1, minWidth: 0 }}>
+                                      <Typography sx={{ ...HIG.body, color: HIG.label, lineHeight: 1.3 }}>
+                                        Тест ветки ({c.code})
+                                      </Typography>
+                                      <Typography sx={{ ...HIG.caption1, color: HIG.secondaryLabel, mt: 0.25 }}>
+                                        Без Premium
+                                      </Typography>
+                                    </Stack>
+                                    <Button
+                                      variant="contained"
+                                      onClick={() => openOnboardingPlacement(String(c.code).toLowerCase())}
+                                      sx={{
+                                        ...iosFilledProminent,
+                                        minHeight: 36,
+                                        px: 2,
+                                        fontSize: '0.8125rem',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      Открыть
+                                    </Button>
+                                  </Stack>
+                                </InsetGrouped>
+                              </Box>
+                            </Tooltip>
+                          )}
+                          <InsetGrouped header="Модули и уроки">
+                            <SortableContext items={mods.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+                              {mods.map((m, modIdx) => {
+                                const moduleLessons = les.filter((l) => l.moduleId === m.id)
+                                const isLastMod = modIdx === mods.length - 1
+                                return (
+                                  <SortableModuleRow
+                                    key={m.id}
+                                    module={m}
+                                    courseId={c.id}
+                                    expandedModules={expandedModules}
+                                    toggleModule={toggleModule}
+                                    openModuleEdit={openModuleEdit}
+                                    openModuleTest={openModuleTest}
+                                    setContextCourseId={setContextCourseId}
+                                    setContextModuleId={setContextModuleId}
+                                    setCreateModuleOpen={setCreateModuleOpen}
+                                    setCreateLessonOpen={setCreateLessonOpen}
+                                    moduleLessons={moduleLessons}
+                                    isLast={isLastMod}
+                                  >
+                                    {expandedModules.has(m.id) && (
+                                      <SortableContext items={moduleLessons.map((l) => l.id)} strategy={verticalListSortingStrategy}>
+                                        <Box sx={{ pt: 0.5, pb: 0.5 }}>
+                                          {moduleLessons.map((l, li) => (
+                                            <SortableLessonRow
+                                              key={l.id}
+                                              lesson={l}
+                                              courseId={c.id}
+                                              moduleId={m.id}
+                                              navigate={navigate}
+                                              onRequestDelete={() => void handleDeleteLesson(l, c.id)}
+                                              isDeleting={deletingLessonId === l.id}
+                                              isLast={li === moduleLessons.length - 1}
+                                            />
+                                          ))}
+                                        </Box>
+                                      </SortableContext>
+                                    )}
+                                  </SortableModuleRow>
+                                )
+                              })}
+                            </SortableContext>
+                          </InsetGrouped>
 
-                        {les.filter((l) => !l.moduleId).length > 0 && (
-                          <Paper
-                            elevation={0}
-                            variant="outlined"
-                            sx={{
-                              p: 1.5,
-                              borderRadius: 2,
-                              borderStyle: 'dashed',
-                              borderColor: (t) => alpha(t.palette.warning.main, 0.35),
-                              bgcolor: (t) => alpha(t.palette.warning.main, 0.03),
-                              mt: 0.5,
-                            }}
-                          >
-                            <Typography
-                              variant="caption"
-                              sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 1.25, letterSpacing: '0.04em' }}
-                            >
-                              Уроки без модуля
-                            </Typography>
-                            <Stack spacing={0.5}>
+                          {les.filter((l) => !l.moduleId).length > 0 && (
+                            <InsetGrouped header="Уроки вне модуля">
                               {les
                                 .filter((l) => !l.moduleId)
                                 .sort((a, b) => a.orderIndex - b.orderIndex)
-                                .map((l) => (
-                                  <Stack
-                                    key={l.id}
-                                    direction={{ xs: 'column', sm: 'row' }}
-                                    alignItems={{ xs: 'flex-start', sm: 'center' }}
-                                    spacing={1}
-                                    sx={{
-                                      p: 1,
-                                      borderRadius: 1.5,
-                                      bgcolor: 'background.paper',
-                                      border: '1px solid',
-                                      borderColor: 'divider',
-                                      '&:hover': { bgcolor: 'action.hover' },
-                                      flexWrap: 'wrap',
-                                    }}
-                                  >
-                                    <ArticleOutlined sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
-                                    <Typography
-                                      variant="body2"
-                                      sx={{ flex: 1, cursor: 'pointer' }}
-                                      onClick={() =>
-                                        navigate(`/content/courses/${c.id}/lessons/${l.id}`)
-                                      }
+                                .map((l, oi, oa) => {
+                                  const pathLoose = `/content/courses/${c.id}/lessons/${l.id}`
+                                  return (
+                                    <Stack
+                                      key={l.id}
+                                      direction="row"
+                                      alignItems="center"
+                                      sx={{
+                                        minHeight: HIG.rowCompact,
+                                        px: 2,
+                                        py: 0.5,
+                                        borderBottom:
+                                          oi < oa.length - 1 ? `0.5px solid ${HIG.separatorOpaque}` : 'none',
+                                        '&:hover': { bgcolor: HIG.fillQuaternary },
+                                      }}
                                     >
-                                      {l.orderIndex}. {l.titleRu}
-                                    </Typography>
-                                    <Button
-                                      size="small"
-                                      variant="outlined"
-                                      startIcon={<EditIcon sx={{ fontSize: 14 }} />}
-                                      onClick={() =>
-                                        navigate(`/content/courses/${c.id}/lessons/${l.id}`)
-                                      }
-                                    >
-                                      Редакт.
-                                    </Button>
-                                    <Tooltip title="Удалить урок">
-                                      <span>
-                                        <IconButton
-                                          size="small"
-                                          color="error"
-                                          disabled={deletingLessonId === l.id}
-                                          onClick={() => void handleDeleteLesson(l, c.id)}
-                                          aria-label="Удалить урок"
-                                        >
-                                          {deletingLessonId === l.id ? (
-                                            <CircularProgress size={18} color="inherit" />
-                                          ) : (
-                                            <DeleteOutline fontSize="small" />
-                                          )}
-                                        </IconButton>
-                                      </span>
-                                    </Tooltip>
-                                  </Stack>
-                                ))}
-                            </Stack>
-                          </Paper>
-                        )}
+                                      <ArticleOutlined sx={{ fontSize: 18, color: HIG.secondaryLabel, mr: 1.5, flexShrink: 0 }} />
+                                      <Typography
+                                        sx={{ ...HIG.subheadline, color: HIG.label, flex: 1, cursor: 'pointer' }}
+                                        onClick={() => navigate(pathLoose)}
+                                      >
+                                        {l.orderIndex}. {l.titleRu}
+                                      </Typography>
+                                      <Button
+                                        variant="text"
+                                        onClick={() => navigate(pathLoose)}
+                                        sx={{
+                                          ...HIG.subheadline,
+                                          fontWeight: 600,
+                                          color: theme.palette.primary.main,
+                                          textTransform: 'none',
+                                          minHeight: 44,
+                                          flexShrink: 0,
+                                          '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                                        }}
+                                      >
+                                        Открыть
+                                      </Button>
+                                      <Tooltip title="Удалить урок">
+                                        <span>
+                                          <IconButton
+                                            disabled={deletingLessonId === l.id}
+                                            onClick={() => void handleDeleteLesson(l, c.id)}
+                                            aria-label="Удалить урок"
+                                            sx={{
+                                              width: 44,
+                                              height: 44,
+                                              color: '#FF3B30',
+                                              borderRadius: `${HIG.cornerRadius}px`,
+                                            }}
+                                          >
+                                            {deletingLessonId === l.id ? (
+                                              <CircularProgress size={18} sx={{ color: '#FF3B30' }} />
+                                            ) : (
+                                              <DeleteOutline sx={{ fontSize: 20 }} />
+                                            )}
+                                          </IconButton>
+                                        </span>
+                                      </Tooltip>
+                                    </Stack>
+                                  )
+                                })}
+                            </InsetGrouped>
+                          )}
 
-                        <Stack direction="row" spacing={1} sx={{ mt: 1.5, pl: 1 }}>
-                          <Tooltip title={`Добавить урок в ${c.titleRu}`}>
-                            <Button
-                              size="small"
-                              variant="text"
-                              startIcon={<Add />}
-                              onClick={() => {
-                                setContextCourseId(c.id)
-                                setContextModuleId('')
-                                setCreateLessonOpen(true)
-                              }}
-                            >
-                              + Урок в курс
-                            </Button>
-                          </Tooltip>
-                        </Stack>
+                          <Box sx={{ px: 1 }}>
+                            <Tooltip title={`Добавить урок в «${c.titleRu}»`}>
+                              <Button
+                                variant="text"
+                                startIcon={<Add sx={{ fontSize: 20 }} />}
+                                onClick={() => {
+                                  setContextCourseId(c.id)
+                                  setContextModuleId('')
+                                  setCreateLessonOpen(true)
+                                }}
+                                sx={{
+                                  ...HIG.subheadline,
+                                  fontWeight: 600,
+                                  color: theme.palette.primary.main,
+                                  textTransform: 'none',
+                                  minHeight: 44,
+                                  px: 1,
+                                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                                }}
+                              >
+                                Урок в курс
+                              </Button>
+                            </Tooltip>
+                          </Box>
                         </Stack>
                       </Box>
                     )}
@@ -1089,6 +1367,7 @@ export default function ContentHubPage() {
               })
           )}
       </Stack>
+      </Box>
 
       <Dialog open={createCourseOpen} onClose={() => setCreateCourseOpen(false)} {...narrowFormSm}>
         <DialogTitle>Новый курс</DialogTitle>
