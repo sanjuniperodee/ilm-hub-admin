@@ -26,12 +26,16 @@ import {
   createTestQuestion,
   deleteTest,
   deleteTestAnswer,
+  deleteTestMedia,
   deleteTestQuestion,
+  getTestMedia,
   getTests,
   updateTestAnswer,
   updateTestMeta,
   updateTestQuestion,
+  uploadTestMedia,
 } from '../api/adminApi'
+import MediaUploader from './MediaUploader'
 import {
   FillBlankConfigEditor,
   MatchPairsConfigEditor,
@@ -89,6 +93,7 @@ export function TestEditorShared({
   const [test, setTest] = useState<any | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [newPassing, setNewPassing] = useState(70)
+  const [testMediaFiles, setTestMediaFiles] = useState<any[]>([])
 
   const load = async () => {
     setLoading(true)
@@ -105,10 +110,22 @@ export function TestEditorShared({
       const { data } = await getTests(params)
       const list = Array.isArray(data) ? data : []
       setTest(list[0] ?? null)
+      if (list[0]?.id) {
+        await loadTestMedia(list[0].id)
+      }
     } catch (e: any) {
       setError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить тест')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadTestMedia = async (miniTestId: string) => {
+    try {
+      const { data } = await getTestMedia(miniTestId)
+      setTestMediaFiles(Array.isArray(data) ? data : [])
+    } catch {
+      setTestMediaFiles([])
     }
   }
 
@@ -262,6 +279,16 @@ export function TestEditorShared({
     }
   }
 
+  const handleTestMediaUpload = async (file: File, _type: 'image' | 'audio' | 'video', description?: string) => {
+    if (!test?.id) return
+    await uploadTestMedia(test.id, file, description)
+  }
+
+  const handleTestMediaDelete = async (mediaFileId: string) => {
+    if (!test?.id) return
+    await deleteTestMedia(test.id, mediaFileId)
+  }
+
   if (loading && !test) {
     return <Typography color="text.secondary">Загрузка…</Typography>
   }
@@ -351,6 +378,24 @@ export function TestEditorShared({
 
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+                Медиа файлы теста
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Загрузите аудио и изображения для вопросов. Затем выберите их в настройках вопроса.
+              </Typography>
+              <MediaUploader
+                blockId={undefined}
+                mediaFiles={testMediaFiles}
+                onUpload={handleTestMediaUpload}
+                onDelete={handleTestMediaDelete}
+                onRefresh={() => test?.id && loadTestMedia(test.id)}
+              />
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                   Вопросы
@@ -368,6 +413,7 @@ export function TestEditorShared({
                   <QuestionCard
                     key={q.id}
                     question={q}
+                    mediaFiles={testMediaFiles}
                     onSave={saveQuestion}
                     onDelete={() => removeQuestion(q.id)}
                     onAddAnswer={() => addAnswer(q.id, (q.answers || []).length)}
@@ -386,6 +432,7 @@ export function TestEditorShared({
 
 function QuestionCard({
   question,
+  mediaFiles,
   onSave,
   onDelete,
   onAddAnswer,
@@ -393,6 +440,7 @@ function QuestionCard({
   onDeleteAnswer,
 }: {
   question: any
+  mediaFiles: any[]
   onSave: (q: any) => void
   onDelete: () => void
   onAddAnswer: () => void
@@ -410,13 +458,13 @@ function QuestionCard({
   const renderConfig = () => {
     const type = q.type || 'multiple_choice'
     if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
+    if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
     if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
+    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
+    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
+    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
     if (type === 'find_letter_in_word') return <FindLetterInWordConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
+    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
     return <MultipleChoiceConfigEditor />
   }
 

@@ -14,12 +14,15 @@ import {
   Typography,
 } from '@mui/material'
 import { Add, Delete, LinkOff } from '@mui/icons-material'
+import { AudioMediaPicker, type MediaFile } from './AudioMediaPicker'
+import { ImageMediaPicker } from './ImageMediaPicker'
 
 export type ConfigEditorType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'audio_multiple_choice' | 'image_word_match' | 'audio_choice' | 'find_letter_in_word' | 'listen_and_choose_word'
 
 interface EditorProps {
   value: Record<string, any>
   onChange: (value: Record<string, any>) => void
+  mediaFiles?: MediaFile[]
 }
 
 // ----------------------------------------------------------------------
@@ -140,7 +143,7 @@ export function FillBlankConfigEditor({ value, onChange }: EditorProps) {
 // ----------------------------------------------------------------------
 
 type MatchItemType = 'text' | 'audio' | 'image'
-type MatchItem = { id: string; text: string; imageUrl?: string; itemType?: MatchItemType; audioUrl?: string }
+type MatchItem = { id: string; text: string; imageUrl?: string; imageMediaId?: string; itemType?: MatchItemType; audioUrl?: string; audioMediaId?: string }
 
 function normalizeMatchPairs(value: Record<string, any>): {
   leftItems: MatchItem[]
@@ -153,13 +156,13 @@ function normalizeMatchPairs(value: Record<string, any>): {
   const mapItem = (o: any, i: number, prefix: string): MatchItem =>
     typeof o === 'string'
       ? { id: `${prefix}${i + 1}`, text: o, itemType: 'text' }
-      : { id: o?.id ?? `${prefix}${i + 1}`, text: o?.text ?? o?.textRu ?? '', imageUrl: o?.imageUrl, itemType: o?.itemType ?? 'text', audioUrl: o?.audioUrl }
+      : { id: o?.id ?? `${prefix}${i + 1}`, text: o?.text ?? o?.textRu ?? '', imageUrl: o?.imageUrl, imageMediaId: o?.imageMediaId, itemType: o?.itemType ?? 'text', audioUrl: o?.audioUrl, audioMediaId: o?.audioMediaId }
   const leftItems = Array.isArray(left) ? left.map((o, i) => mapItem(o, i, 'l')) : []
   const rightItems = Array.isArray(right) ? right.map((o, i) => mapItem(o, i, 'r')) : []
   return { leftItems, rightItems, correctPairs: pairs }
 }
 
-export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
+export function MatchPairsConfigEditor({ value, onChange, mediaFiles = [] }: EditorProps & { mediaFiles?: MediaFile[] }) {
   const { leftItems: li, rightItems: ri, correctPairs } = normalizeMatchPairs(value || {})
   const leftItems = li.length > 0 ? li : [{ id: 'l1', text: '', itemType: 'text' as const }]
   const rightItems = ri.length > 0 ? ri : [{ id: 'r1', text: '', itemType: 'text' as const }]
@@ -212,13 +215,43 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
     onChange({ ...value, rightItems: nextRight, correctPairs: nextPairs })
   }
 
-  const updateLeft = (index: number, field: string, val: string) => {
-    const next = leftItems.map((o, i) => (i === index ? { ...o, [field]: val } : o))
+  const updateLeftText = (index: number, text: string) => {
+    const next = leftItems.map((o, i) => (i === index ? { ...o, text } : o))
     onChange({ ...value, leftItems: next })
   }
 
-  const updateRight = (rightId: string, field: string, val: string) => {
-    const next = rightItems.map((o) => (o.id === rightId ? { ...o, [field]: val } : o))
+  const updateRightText = (rightId: string, text: string) => {
+    const next = rightItems.map((o) => (o.id === rightId ? { ...o, text } : o))
+    onChange({ ...value, rightItems: next })
+  }
+
+  const updateLeftItemType = (index: number, itemType: string) => {
+    const next = leftItems.map((o, i) => (i === index ? { ...o, itemType } : o))
+    onChange({ ...value, leftItems: next })
+  }
+
+  const updateRightItemType = (rightId: string, itemType: string) => {
+    const next = rightItems.map((o) => (o.id === rightId ? { ...o, itemType } : o))
+    onChange({ ...value, rightItems: next })
+  }
+
+  const updateLeftAudio = (index: number, audioUrl: string, audioMediaId?: string) => {
+    const next = leftItems.map((o, i) => (i === index ? { ...o, audioUrl, audioMediaId } : o))
+    onChange({ ...value, leftItems: next })
+  }
+
+  const updateRightAudio = (rightId: string, audioUrl: string, audioMediaId?: string) => {
+    const next = rightItems.map((o) => (o.id === rightId ? { ...o, audioUrl, audioMediaId } : o))
+    onChange({ ...value, rightItems: next })
+  }
+
+  const updateLeftImage = (index: number, imageUrl: string, imageMediaId?: string) => {
+    const next = leftItems.map((o, i) => (i === index ? { ...o, imageUrl, imageMediaId } : o))
+    onChange({ ...value, leftItems: next })
+  }
+
+  const updateRightImage = (rightId: string, imageUrl: string, imageMediaId?: string) => {
+    const next = rightItems.map((o) => (o.id === rightId ? { ...o, imageUrl, imageMediaId } : o))
     onChange({ ...value, rightItems: next })
   }
 
@@ -231,18 +264,13 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
   const getPairedRight = (leftId: string) => correctPairs.find((p) => p.leftId === leftId)?.rightId ?? ''
   const usedRightIds = new Set(correctPairs.map((p) => p.rightId))
 
-  const renderItemFields = (
-    item: MatchItem,
-    updateFn: (field: string, val: string) => void,
-    side: 'left' | 'right',
-    index: number,
-  ) => (
+  const renderLeftItemFields = (item: MatchItem, index: number) => (
     <>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
         <Select
           size="small"
           value={item.itemType ?? 'text'}
-          onChange={(e) => updateFn('itemType', e.target.value as string)}
+          onChange={(e) => updateLeftItemType(index, e.target.value as string)}
           sx={{ minWidth: 90 }}
         >
           <MenuItem value="text">Текст</MenuItem>
@@ -252,30 +280,75 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
           <TextField
             fullWidth
             size="small"
-            label={`${side === 'left' ? 'Левая' : 'Правая'} часть ${index + 1}`}
+            label={`Левая часть ${index + 1}`}
             value={item.text}
-            onChange={(e) => updateFn('text', e.target.value)}
+            onChange={(e) => updateLeftText(index, e.target.value)}
             placeholder="Текст части"
           />
         ) : (
-          <TextField
-            fullWidth
-            size="small"
-            label="URL аудио"
-            value={item.audioUrl || ''}
-            onChange={(e) => updateFn('audioUrl', e.target.value)}
-            placeholder="https://storage.example.com/audio.mp3"
-          />
+          <Box sx={{ flex: 1 }}>
+            <AudioMediaPicker
+              mediaFiles={mediaFiles}
+              audioUrl={item.audioUrl}
+              audioMediaId={(item as any).audioMediaId}
+              onChange={(url, mediaId) => updateLeftAudio(index, url, mediaId)}
+              label=""
+            />
+          </Box>
         )}
       </Box>
       {(item.itemType ?? 'text') === 'text' && (
-        <TextField
+        <ImageMediaPicker
+          mediaFiles={mediaFiles}
+          imageUrl={item.imageUrl}
+          imageMediaId={(item as any).imageMediaId}
+          onChange={(url, mediaId) => updateLeftImage(index, url, mediaId)}
+          label="Изображение (опционально)"
+        />
+      )}
+    </>
+  )
+
+  const renderRightItemFields = (item: MatchItem, index: number) => (
+    <>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+        <Select
           size="small"
-          fullWidth
-          label="URL изображения (опционально)"
-          value={item.imageUrl || ''}
-          onChange={(e) => updateFn('imageUrl', e.target.value)}
-          placeholder="https://..."
+          value={item.itemType ?? 'text'}
+          onChange={(e) => updateRightItemType(item.id, e.target.value as string)}
+          sx={{ minWidth: 90 }}
+        >
+          <MenuItem value="text">Текст</MenuItem>
+          <MenuItem value="audio">Аудио</MenuItem>
+        </Select>
+        {(item.itemType ?? 'text') === 'text' ? (
+          <TextField
+            fullWidth
+            size="small"
+            label={`Правая часть ${index + 1}`}
+            value={item.text}
+            onChange={(e) => updateRightText(item.id, e.target.value)}
+            placeholder="Текст части"
+          />
+        ) : (
+          <Box sx={{ flex: 1 }}>
+            <AudioMediaPicker
+              mediaFiles={mediaFiles}
+              audioUrl={item.audioUrl}
+              audioMediaId={(item as any).audioMediaId}
+              onChange={(url, mediaId) => updateRightAudio(item.id, url, mediaId)}
+              label=""
+            />
+          </Box>
+        )}
+      </Box>
+      {(item.itemType ?? 'text') === 'text' && (
+        <ImageMediaPicker
+          mediaFiles={mediaFiles}
+          imageUrl={item.imageUrl}
+          imageMediaId={(item as any).imageMediaId}
+          onChange={(url, mediaId) => updateRightImage(item.id, url, mediaId)}
+          label="Изображение (опционально)"
         />
       )}
     </>
@@ -283,6 +356,9 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
 
   return (
     <Stack spacing={2}>
+      <Alert severity="info" sx={{ fontSize: 13 }}>
+        Загрузите аудио и изображения через «Медиа файлы теста», затем выберите их ниже.
+      </Alert>
       <TextField
         fullWidth
         size="small"
@@ -296,7 +372,7 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
       <Typography variant="subtitle2">Левые элементы (вопросы)</Typography>
       {leftItems.map((item, i) => (
         <Box key={item.id} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-          {renderItemFields(item, (field, val) => updateLeft(i, field, val), 'left', i)}
+          {renderLeftItemFields(item, i)}
           <Box sx={{ mt: 1 }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
               Правильный правый элемент
@@ -344,7 +420,7 @@ export function MatchPairsConfigEditor({ value, onChange }: EditorProps) {
                 <Delete fontSize="small" />
               </IconButton>
             </Box>
-            {renderItemFields(item, (field, val) => updateRight(item.id, field, val), 'right', rightItems.indexOf(item))}
+            {renderRightItemFields(item, rightItems.indexOf(item))}
           </Box>
         )
       })}
@@ -421,7 +497,7 @@ function normalizeAudioOptions(raw: any): Array<{ id: string; text: string; isCo
   }))
 }
 
-export function AudioMultipleChoiceConfigEditor({ value, onChange }: EditorProps) {
+export function AudioMultipleChoiceConfigEditor({ value, onChange, mediaFiles = [] }: EditorProps & { mediaFiles?: MediaFile[] }) {
   const options = normalizeAudioOptions(value?.options)
   const normalized = useRef(false)
 
@@ -459,15 +535,14 @@ export function AudioMultipleChoiceConfigEditor({ value, onChange }: EditorProps
   return (
     <Stack spacing={2}>
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Введите URL аудиофайла. Пользователь прослушает его, а затем выберет правильный вариант.
+        Загрузите аудиофайл через «Медиа файлы теста», затем выберите его ниже.
       </Alert>
-      <TextField
-        fullWidth
-        size="small"
-        label="URL аудио"
-        value={(value?.audioUrl as string) || ''}
-        onChange={(e) => onChange({ ...value, audioUrl: e.target.value })}
-        placeholder="https://storage.example.com/audio.mp3"
+      <AudioMediaPicker
+        mediaFiles={mediaFiles}
+        audioUrl={value?.audioUrl as string}
+        audioMediaId={value?.audioMediaId as string}
+        onChange={(url, mediaId) => onChange({ ...value, audioUrl: url, audioMediaId: mediaId || undefined })}
+        label="Аудио файл"
       />
       <Typography variant="subtitle2">Варианты ответов (отметьте правильный)</Typography>
       {options.map((opt) => (
@@ -510,7 +585,7 @@ export function AudioMultipleChoiceConfigEditor({ value, onChange }: EditorProps
 // ImageWordMatchConfigEditor
 // ----------------------------------------------------------------------
 
-export function ImageWordMatchConfigEditor({ value, onChange }: EditorProps) {
+export function ImageWordMatchConfigEditor({ value, onChange, mediaFiles = [] }: EditorProps & { mediaFiles?: MediaFile[] }) {
   const pairs: Array<{ id: string; word: string; imageUrl: string }> = Array.isArray(value?.pairs)
     ? value.pairs.map((p: any) => ({ id: p.id ?? crypto.randomUUID(), word: p.word ?? '', imageUrl: p.imageUrl ?? '' }))
     : []
@@ -554,7 +629,7 @@ export function ImageWordMatchConfigEditor({ value, onChange }: EditorProps) {
         placeholder="Соедини картинку и слово"
       />
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Введите прямой URL изображения (HTTPS). Арабское слово отображается справа.
+        Загрузите изображения через «Медиа файлы теста», затем выберите их ниже.
       </Alert>
       {pairs.map((pair, idx) => (
         <Box key={pair.id} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -573,24 +648,18 @@ export function ImageWordMatchConfigEditor({ value, onChange }: EditorProps) {
               <Delete fontSize="small" />
             </IconButton>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <TextField
-              fullWidth
-              size="small"
-              label="URL изображения"
-              value={pair.imageUrl}
-              onChange={(e) => updatePair(pair.id, 'imageUrl', e.target.value)}
-              placeholder="https://..."
-            />
-            {pair.imageUrl && (
-              <Box
-                component="img"
-                src={pair.imageUrl}
-                sx={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 1, border: '1px solid', borderColor: 'divider', flexShrink: 0 }}
-                onError={(e: any) => { e.target.style.display = 'none' }}
-              />
-            )}
-          </Box>
+          <ImageMediaPicker
+            mediaFiles={mediaFiles}
+            imageUrl={pair.imageUrl}
+            imageMediaId={(pair as any).imageMediaId}
+            onChange={(url, mediaId) => {
+              updatePair(pair.id, 'imageUrl', url)
+              if (mediaId !== undefined) {
+                onChange({ ...value, pairs: pairs.map((p) => p.id === pair.id ? { ...p, imageMediaId: mediaId } : p) })
+              }
+            }}
+            label={`Изображение пары ${idx + 1}`}
+          />
         </Box>
       ))}
       <Button size="small" startIcon={<Add />} onClick={addPair} variant="outlined">
@@ -632,7 +701,7 @@ function normalizeAudioChoiceOptions(raw: any): Array<{ id: string; text: string
   }))
 }
 
-export function AudioChoiceConfigEditor({ value, onChange }: EditorProps) {
+export function AudioChoiceConfigEditor({ value, onChange, mediaFiles = [] }: EditorProps & { mediaFiles?: MediaFile[] }) {
   const options = normalizeAudioChoiceOptions(value?.options)
   const normalized = useRef(false)
 
@@ -674,7 +743,7 @@ export function AudioChoiceConfigEditor({ value, onChange }: EditorProps) {
   return (
     <Stack spacing={2}>
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Загрузите аудиофайл через «Медиа файлы» после сохранения блока, затем вставьте URL ниже.
+        Загрузите аудиофайл через «Медиа файлы теста», затем выберите его ниже.
       </Alert>
       <TextField
         fullWidth
@@ -684,13 +753,12 @@ export function AudioChoiceConfigEditor({ value, onChange }: EditorProps) {
         onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Какая это буква?"
       />
-      <TextField
-        fullWidth
-        size="small"
-        label="URL аудио"
-        value={(value?.audioUrl as string) || ''}
-        onChange={(e) => onChange({ ...value, audioUrl: e.target.value })}
-        placeholder="https://storage.example.com/letter.mp3"
+      <AudioMediaPicker
+        mediaFiles={mediaFiles}
+        audioUrl={value?.audioUrl as string}
+        audioMediaId={value?.audioMediaId as string}
+        onChange={(url, mediaId) => onChange({ ...value, audioUrl: url, audioMediaId: mediaId || undefined })}
+        label="Аудио файл"
       />
       <Typography variant="subtitle2">Варианты — буквы или слоги (отметьте правильный)</Typography>
       {options.map((opt) => (
@@ -815,7 +883,7 @@ function normalizeWordOptions(raw: any): Array<{ id: string; text: string; isCor
   }))
 }
 
-export function ListenAndChooseWordConfigEditor({ value, onChange }: EditorProps) {
+export function ListenAndChooseWordConfigEditor({ value, onChange, mediaFiles = [] }: EditorProps & { mediaFiles?: MediaFile[] }) {
   const options = normalizeWordOptions(value?.options)
   const normalized = useRef(false)
 
@@ -857,7 +925,7 @@ export function ListenAndChooseWordConfigEditor({ value, onChange }: EditorProps
   return (
     <Stack spacing={2}>
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Загрузите аудиофайл через «Медиа файлы» после сохранения блока, затем вставьте URL ниже.
+        Загрузите аудиофайл через «Медиа файлы теста», затем выберите его ниже.
       </Alert>
       <TextField
         fullWidth
@@ -867,13 +935,12 @@ export function ListenAndChooseWordConfigEditor({ value, onChange }: EditorProps
         onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Послушайте и выберите слово"
       />
-      <TextField
-        fullWidth
-        size="small"
-        label="URL аудио"
-        value={(value?.audioUrl as string) || ''}
-        onChange={(e) => onChange({ ...value, audioUrl: e.target.value })}
-        placeholder="https://storage.example.com/word.mp3"
+      <AudioMediaPicker
+        mediaFiles={mediaFiles}
+        audioUrl={value?.audioUrl as string}
+        audioMediaId={value?.audioMediaId as string}
+        onChange={(url, mediaId) => onChange({ ...value, audioUrl: url, audioMediaId: mediaId || undefined })}
+        label="Аудио файл"
       />
       <Typography variant="subtitle2">Варианты — слова с огласовками (отметьте правильный)</Typography>
       {options.map((opt) => (

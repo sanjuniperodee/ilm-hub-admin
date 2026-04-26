@@ -136,6 +136,26 @@ export const deleteBlockMedia = (blockId: string, mediaFileId: string) =>
 export const deleteMediaFile = (mediaFileId: string) =>
   apiClient.delete(`/admin/media/${mediaFileId}`)
 
+// Mini-test (test) media
+export const uploadTestMedia = (
+  miniTestId: string,
+  file: File,
+  description?: string,
+) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (description) formData.append('description', description)
+  return apiClient.post(`/admin/mini-tests/${miniTestId}/media`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export const getTestMedia = (miniTestId: string) =>
+  apiClient.get(`/admin/mini-tests/${miniTestId}/media`)
+
+export const deleteTestMedia = (miniTestId: string, mediaFileId: string) =>
+  apiClient.delete(`/admin/mini-tests/${miniTestId}/media/${mediaFileId}`)
+
 export const reorderBlockMedia = (blockId: string, mediaFileIds: string[]) =>
   apiClient.patch(`/admin/lesson-blocks/${blockId}/reorder-media`, { mediaFileIds })
 
