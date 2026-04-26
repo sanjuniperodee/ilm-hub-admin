@@ -54,6 +54,9 @@ import {
   getModules,
   getTests,
   uploadBlockMedia,
+  uploadTestMedia,
+  getTestMedia,
+  deleteTestMedia,
   updateLesson,
   updateLessonBlock,
   updateTestAnswer,
@@ -520,6 +523,7 @@ export default function LessonEditorPage() {
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null)
 
   const [lessonTest, setLessonTest] = useState<any | null>(null)
+  const [testMediaFiles, setTestMediaFiles] = useState<MediaFile[]>([])
   const [newTestTitle, setNewTestTitle] = useState('')
   const [newTestPassing, setNewTestPassing] = useState(70)
   const [addQuestionMenuAnchor, setAddQuestionMenuAnchor] = useState<null | HTMLElement>(null)
@@ -581,6 +585,25 @@ export default function LessonEditorPage() {
     }
   }
 
+  const loadTestMedia = async (miniTestId: string) => {
+    try {
+      const { data } = await getTestMedia(miniTestId)
+      setTestMediaFiles(Array.isArray(data) ? data : [])
+    } catch {
+      setTestMediaFiles([])
+    }
+  }
+
+  const handleTestMediaUpload = async (file: File, _type: 'image' | 'audio' | 'video', description?: string) => {
+    if (!lessonTest?.id) return
+    await uploadTestMedia(lessonTest.id, file, description)
+  }
+
+  const handleTestMediaDelete = async (mediaFileId: string) => {
+    if (!lessonTest?.id) return
+    await deleteTestMedia(lessonTest.id, mediaFileId)
+  }
+
   const notifyError = (e: any, fallback: string) => {
     const msg = e?.response?.data?.message?.[0] || e?.message || fallback
     setError(msg)
@@ -632,6 +655,9 @@ export default function LessonEditorPage() {
       const { data: testsData } = await getTests({ testType: 'lesson', lessonId })
       const list = Array.isArray(testsData) ? testsData : []
       setLessonTest(list[0] ?? null)
+      if (list[0]?.id) {
+        await loadTestMedia(list[0].id)
+      }
     } catch (e) {
       notifyError(e, 'Не удалось загрузить урок')
     } finally {
@@ -1765,6 +1791,24 @@ export default function LessonEditorPage() {
 
               <Card variant="outlined" sx={{ borderRadius: 3 }}>
                 <CardContent>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+                    Медиа файлы теста
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Загрузите аудио и изображения для вопросов. Затем выберите их в настройках вопроса.
+                  </Typography>
+                  <MediaUploader
+                    blockId={undefined}
+                    mediaFiles={testMediaFiles}
+                    onUpload={handleTestMediaUpload}
+                    onDelete={handleTestMediaDelete}
+                    onRefresh={() => lessonTest?.id && loadTestMedia(lessonTest.id)}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card variant="outlined" sx={{ borderRadius: 3 }}>
+                <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                       Вопросы и ответы
@@ -1809,6 +1853,7 @@ export default function LessonEditorPage() {
                       <TestQuestionCard
                         key={q.id}
                         question={q}
+                        mediaFiles={testMediaFiles}
                         onSave={saveQuestion}
                         onDelete={() => removeQuestion(q.id)}
                         onAddAnswer={() => addAnswer(q.id, (q.answers || []).length)}
@@ -1835,6 +1880,7 @@ export default function LessonEditorPage() {
 
 function TestQuestionCard({
   question,
+  mediaFiles,
   onSave,
   onDelete,
   onAddAnswer,
@@ -1842,6 +1888,7 @@ function TestQuestionCard({
   onDeleteAnswer,
 }: {
   question: any
+  mediaFiles: any[]
   onSave: (q: any) => void
   onDelete: () => void
   onAddAnswer: () => void
@@ -1863,13 +1910,13 @@ function TestQuestionCard({
   const renderConfigEditor = () => {
     const type = q.type || 'multiple_choice'
     if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
+    if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
     if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
+    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
+    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
+    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
     if (type === 'find_letter_in_word') return <FindLetterInWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
+    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
     return <MultipleChoiceConfigEditor />
   }
 
