@@ -1720,7 +1720,6 @@ export default function LessonEditorPage() {
               </CardContent>
             </Card>
           </Stack>
-        )}
       )}
 
       {activeTab === 'test' && (
