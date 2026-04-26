@@ -207,7 +207,7 @@ export default function LoginPage() {
                       onClick={() => setShowPassword(!showPassword)}
                       edge="end"
                       size="small"
-                      sx={{ color: 'rgba(255,255,255,0.3)' }}
+                      sx={{ color: 'rgba(255,255,255,0.3)', minWidth: 44, minHeight: 44 }}
                     >
                       {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                     </IconButton>
