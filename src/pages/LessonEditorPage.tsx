@@ -1317,73 +1317,75 @@ export default function LessonEditorPage() {
       )}
 
       {activeTab === 'blocks' && (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <Card variant="outlined" sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    Блоки урока
-                  </Typography>
-                  <Button size="small" onClick={resetBlockDraft}>
-                    Новый
-                  </Button>
-                </Stack>
-                <Stack spacing={1}>
-                  {blocks.map((b) => (
-                    <Card
-                      key={b.id}
-                      variant="outlined"
-                      draggable
-                      onDragStart={() => setDraggingBlockId(b.id)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => handleBlockDrop(b.id)}
-                      sx={{
-                        borderRadius: 2,
-                        cursor: 'grab',
-                        opacity: draggingBlockId === b.id ? 0.7 : 1,
-                        borderColor: draggingBlockId === b.id ? 'primary.main' : 'divider',
-                      }}
-                    >
-                      <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }} noWrap>
-                              #{b.orderIndex} • {b.type}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" noWrap>
-                              {b.type === 'illustration'
-                                ? ((b.contentRu?.arabicWord as string) || (b.contentRu?.translation as string) || 'Без заголовка')
-                                : b.type === 'element_grid' || b.type === 'grid'
-                                  ? ((b.contentRu?.title as string) ||
-                                      (Array.isArray((b.contentRu as { items?: string[] } | undefined)?.items) &&
-                                        (b.contentRu as { items: string[] }).items[0]) ||
-                                      'Сетка')
-                                  : ((b.contentRu?.title as string) || (b.contentRu?.question as string) || 'Без заголовка')}
-                            </Typography>
-                          </Box>
-                          <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
-                            <IconButton size="small" onClick={() => setPreviewBlock(b)} title="Просмотр">
-                              <VisibilityOutlined fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={() => editBlock(b)} title="Изменить">
-                              <EditOutlined fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" color="error" onClick={() => removeBlock(b.id)} title="Удалить">
-                              <DeleteOutline fontSize="small" />
-                            </IconButton>
-                          </Stack>
+        <Stack direction="column" spacing={3}>
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  Блоки урока
+                </Typography>
+                <Button size="small" onClick={resetBlockDraft}>
+                  Новый
+                </Button>
+              </Stack>
+              <Stack spacing={1}>
+                {blocks.map((b) => (
+                  <Card
+                    key={b.id}
+                    variant="outlined"
+                    draggable
+                    onDragStart={() => setDraggingBlockId(b.id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleBlockDrop(b.id)}
+                    sx={{
+                      borderRadius: 2,
+                      cursor: 'grab',
+                      opacity: draggingBlockId === b.id ? 0.7 : 1,
+                      borderColor: draggingBlockId === b.id ? 'primary.main' : 'divider',
+                    }}
+                  >
+                    <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }} noWrap>
+                            #{b.orderIndex} • {b.type}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {b.type === 'illustration'
+                              ? ((b.contentRu?.arabicWord as string) || (b.contentRu?.translation as string) || 'Без заголовка')
+                              : b.type === 'element_grid' || b.type === 'grid'
+                                ? ((b.contentRu?.title as string) ||
+                                    (Array.isArray((b.contentRu as { items?: string[] } | undefined)?.items) &&
+                                      (b.contentRu as { items: string[] }).items[0]) ||
+                                    'Сетка')
+                                : ((b.contentRu?.title as string) || (b.contentRu?.question as string) || 'Без заголовка')}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
+                          <IconButton size="small" onClick={() => setPreviewBlock(b)} title="Просмотр">
+                            <VisibilityOutlined fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => editBlock(b)} title="Изменить">
+                            <EditOutlined fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => removeBlock(b.id)} title="Удалить">
+                            <DeleteOutline fontSize="small" />
+                          </IconButton>
                         </Stack>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+                {blocks.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                    Блоки не созданы. Используйте форму справа.
+                  </Typography>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
 
-          <Grid item xs={12} md={8}>
-            <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
               <CardContent>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
                   {blockDraft.id ? 'Редактировать блок' : 'Создать блок'}
@@ -1717,8 +1719,8 @@ export default function LessonEditorPage() {
                 </Grid>
               </CardContent>
             </Card>
-          </Grid>
-        </Grid>
+          </Stack>
+        )}
       )}
 
       {activeTab === 'test' && (

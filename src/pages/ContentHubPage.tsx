@@ -662,18 +662,7 @@ export default function ContentHubPage() {
 
                 return (
                   <Box key={c.id}>
-                    <Stack
-                      direction="row"
-                      alignItems="center"
-                      spacing={1}
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        '&:hover': { bgcolor: 'action.hover' },
-                        flexWrap: 'wrap',
-                        gap: 1,
-                      }}
-                    >
+                    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                       <Box
                         component="span"
                         sx={{ width: 32, display: 'flex', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
@@ -687,8 +676,8 @@ export default function ContentHubPage() {
                       </Box>
                       <SchoolOutlined sx={{ fontSize: 22, color: 'text.secondary', flexShrink: 0 }} />
                       <Stack
-                        direction="row"
-                        alignItems="center"
+                        direction={{ xs: 'column', sm: 'row' }}
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
                         spacing={1.5}
                         sx={{ flex: 1, minWidth: 0 }}
                         onClick={() => openCourseEdit(c.id)}
@@ -697,32 +686,36 @@ export default function ContentHubPage() {
                           {c.orderIndex}. {c.titleRu}
                         </Typography>
                         <Chip label={c.code} size="small" sx={{ fontSize: '0.7rem' }} />
-                        <Chip label={`${mods.length} модулей`} size="small" variant="outlined" />
-                        <Chip label={`${les.length} уроков`} size="small" variant="outlined" />
+                        <Chip label={`${mods.length} модулей`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+                        <Chip label={`${les.length} уроков`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
                       </Stack>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={<EditIcon sx={{ fontSize: 16 }} />}
-                        onClick={() => openCourseEdit(c.id)}
-                      >
-                        Редактировать
-                      </Button>
-                      {courseExpanded && (
-                        <Tooltip title={`Добавить модуль в ${c.titleRu}`}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<Add />}
-                            onClick={() => {
-                              setContextCourseId(c.id)
-                              setCreateModuleOpen(true)
-                            }}
-                          >
-                            Модуль
-                          </Button>
-                        </Tooltip>
-                      )}
+                      <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0, flexWrap: 'wrap' }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<EditIcon sx={{ fontSize: 14 }} />}
+                          onClick={() => openCourseEdit(c.id)}
+                          sx={{ whiteSpace: 'nowrap' }}
+                        >
+                          Редакт.
+                        </Button>
+                        {courseExpanded && (
+                          <Tooltip title={`Добавить модуль в ${c.titleRu}`}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<Add />}
+                              onClick={() => {
+                                setContextCourseId(c.id)
+                                setCreateModuleOpen(true)
+                              }}
+                              sx={{ whiteSpace: 'nowrap' }}
+                            >
+                              Модуль
+                            </Button>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </Stack>
 
                     {courseExpanded && (

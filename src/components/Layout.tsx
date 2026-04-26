@@ -31,7 +31,7 @@ import {
   Explore as ExploreIcon,
   History as HistoryIcon,
 } from '@mui/icons-material'
-import { useState } from 'react'
+import {useEffect, useState} from 'react'
 import { useAuth } from '../contexts/AuthContext'
 
 const SIDEBAR_WIDTH = 270
@@ -310,6 +310,11 @@ export default function Layout() {
     </Box>
   )
 
+  // Close drawer on route change (mobile)
+  useEffect(() => {
+    if (isMobile) setMobileOpen(false)
+  }, [location.pathname, isMobile])
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC' }}>
       {/* Mobile hamburger */}
@@ -418,6 +423,7 @@ export default function Layout() {
             flex: 1,
             px: { xs: 2, sm: 3, md: 4 },
             py: 3,
+            pt: isMobile ? '72px' : 3, // account for fixed hamburger on mobile
           }}
           className="page-enter"
         >
