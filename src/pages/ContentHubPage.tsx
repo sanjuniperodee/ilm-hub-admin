@@ -132,6 +132,7 @@ function SortableModuleRow({
           borderRadius: 1.5,
           bgcolor: 'action.hover',
           '&:hover': { bgcolor: 'action.selected' },
+          flexWrap: 'wrap',
         }}
       >
         <Box
@@ -156,28 +157,27 @@ function SortableModuleRow({
           <Chip label={`${moduleLessons.length} уроков`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
         </Stack>
         <Tooltip title="Редактировать модуль">
-          <Button size="small" variant="text" sx={{ minWidth: 0, p: 0.5 }} onClick={() => openModuleEdit(courseId, module.id)}>
+          <IconButton size="small" onClick={() => openModuleEdit(courseId, module.id)} sx={{ minWidth: 44, minHeight: 44 }}>
             <EditIcon sx={{ fontSize: 16 }} />
-          </Button>
+          </IconButton>
         </Tooltip>
         <Tooltip title="Тест модуля">
-          <Button size="small" variant="text" sx={{ minWidth: 0, p: 0.5 }} onClick={() => openModuleTest(courseId, module.id)}>
+          <IconButton size="small" onClick={() => openModuleTest(courseId, module.id)} sx={{ minWidth: 44, minHeight: 44 }}>
             <QuizOutlined sx={{ fontSize: 16 }} />
-          </Button>
+          </IconButton>
         </Tooltip>
         <Tooltip title={`Добавить урок в ${module.titleRu}`}>
-          <Button
+          <IconButton
             size="small"
-            variant="text"
-            sx={{ minWidth: 0, p: 0.5 }}
             onClick={() => {
               setContextCourseId(courseId)
               setContextModuleId(module.id)
               setCreateLessonOpen(true)
             }}
+            sx={{ minWidth: 44, minHeight: 44 }}
           >
             <Add sx={{ fontSize: 16 }} />
-          </Button>
+          </IconButton>
         </Tooltip>
       </Stack>
       {children}
@@ -209,14 +209,15 @@ function SortableLessonRow({
     <Stack
       ref={setNodeRef}
       style={style}
-      direction="row"
-      alignItems="center"
+      direction={{ xs: 'column', sm: 'row' }}
+      alignItems="flex-start"
       spacing={1}
       sx={{
         p: 0.75,
         borderRadius: 1,
         '&:hover': { bgcolor: 'action.hover' },
         opacity: isDragging ? 0.5 : 1,
+        flexWrap: 'wrap',
       }}
     >
       <Box {...attributes} {...listeners} sx={{ cursor: 'grab', display: 'flex', color: 'text.secondary', '&:active': { cursor: 'grabbing' } }}>
@@ -230,30 +231,34 @@ function SortableLessonRow({
       >
         {lesson.orderIndex}. {lesson.titleRu}
       </Typography>
-      <Button
-        size="small"
-        variant="outlined"
-        startIcon={<EditIcon sx={{ fontSize: 14 }} />}
-        onClick={() => navigate(`/content/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`)}
-      >
-        Редактировать
-      </Button>
-      <Tooltip title="Удалить урок">
-        <span>
-          <IconButton
-            size="small"
-            color="error"
-            disabled={isDeleting}
-            onClick={(e) => {
-              e.stopPropagation()
-              onRequestDelete()
-            }}
-            aria-label="Удалить урок"
-          >
-            {isDeleting ? <CircularProgress size={18} color="inherit" /> : <DeleteOutline fontSize="small" />}
-          </IconButton>
-        </span>
-      </Tooltip>
+      <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0, flexWrap: 'wrap' }}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<EditIcon sx={{ fontSize: 14 }} />}
+          onClick={() => navigate(`/content/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`)}
+          sx={{ whiteSpace: 'nowrap' }}
+        >
+          Редакт.
+        </Button>
+        <Tooltip title="Удалить урок">
+          <span>
+            <IconButton
+              size="small"
+              color="error"
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.stopPropagation()
+                onRequestDelete()
+              }}
+              aria-label="Удалить урок"
+              sx={{ minWidth: 44, minHeight: 44 }}
+            >
+              {isDeleting ? <CircularProgress size={18} color="inherit" /> : <DeleteOutline fontSize="small" />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Box>
     </Stack>
   )
 }
@@ -582,7 +587,7 @@ export default function ContentHubPage() {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
     <Box>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4 }}>
             Контент
@@ -591,7 +596,7 @@ export default function ContentHubPage() {
             Курсы → Модули → Уроки. Раскройте и перейдите к редактированию.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ flexWrap: 'wrap', gap: 1 }}>
           <Button variant="outlined" size="small" onClick={() => openOnboardingPlacement('diagnostic')}>
             Онбординг: диагностика
           </Button>
@@ -663,6 +668,8 @@ export default function ContentHubPage() {
                         p: 1.5,
                         borderRadius: 2,
                         '&:hover': { bgcolor: 'action.hover' },
+                        flexWrap: 'wrap',
+                        gap: 1,
                       }}
                     >
                       <Box
@@ -717,7 +724,7 @@ export default function ContentHubPage() {
                     </Stack>
 
                     {courseExpanded && (
-                      <Box sx={{ pl: 6, pr: 2, pb: 2 }}>
+                      <Box sx={{ pl: { xs: 2, sm: 4 }, pr: 2, pb: 2 }}>
                         {levelCode && (
                           <Tooltip title={`Тест уровня ${levelCode} — проверка знаний по всему уровню`}>
                             <Stack
@@ -783,7 +790,7 @@ export default function ContentHubPage() {
                             >
                               {expandedModules.has(m.id) && (
                                 <SortableContext items={moduleLessons.map((l) => l.id)} strategy={verticalListSortingStrategy}>
-                                  <Stack sx={{ pl: 6, mt: 0.5 }} spacing={0.25}>
+                                  <Stack sx={{ pl: { xs: 2, sm: 4 }, mt: 0.5 }} spacing={0.25}>
                                     {moduleLessons.map((l) => (
                                       <SortableLessonRow
                                         key={l.id}

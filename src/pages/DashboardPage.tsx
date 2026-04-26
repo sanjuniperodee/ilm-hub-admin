@@ -423,7 +423,7 @@ export default function DashboardPage() {
                     },
                   }}
                 >
-                  <CardContent sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <CardContent sx={{ p: { xs: 2, sm: 2 }, display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
                     <Box
                       sx={{
                         width: 48,
@@ -438,7 +438,7 @@ export default function DashboardPage() {
                     >
                       {link.icon}
                     </Box>
-                    <Typography fontWeight={600}>{link.text}</Typography>
+                    <Typography fontWeight={600} sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>{link.text}</Typography>
                   </CardContent>
                 </Card>
               </Link>

@@ -1206,7 +1206,7 @@ export default function LessonEditorPage() {
         {lesson.titleRu}
       </Typography>
 
-      <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
+      <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 3, minHeight: 44 }}>
         <Tab value="meta" label="Метаданные" />
         <Tab value="blocks" label="Блоки" />
         <Tab value="test" label="Тест урока" />
@@ -1343,7 +1343,7 @@ export default function LessonEditorPage() {
                       }}
                     >
                       <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
                           <Box sx={{ minWidth: 0, flex: 1 }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }} noWrap>
                               #{b.orderIndex} • {b.type}
@@ -1702,7 +1702,7 @@ export default function LessonEditorPage() {
                     </>
                   )}
                   <Grid item xs={12}>
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                       <Button variant="contained" startIcon={<SaveOutlined />} onClick={saveBlock}>
                         Сохранить блок
                       </Button>
@@ -1756,7 +1756,7 @@ export default function LessonEditorPage() {
             <Stack spacing={3}>
               <Card variant="outlined" sx={{ borderRadius: 3 }}>
                 <CardContent>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                       Настройки теста
                     </Typography>
@@ -1809,7 +1809,7 @@ export default function LessonEditorPage() {
 
               <Card variant="outlined" sx={{ borderRadius: 3 }}>
                 <CardContent>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                       Вопросы и ответы
                     </Typography>
@@ -2004,7 +2004,7 @@ function TestQuestionCard({
             </Accordion>
           </Grid>
           <Grid item xs={12}>
-            <Stack direction="row" spacing={1}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
               <Button variant="contained" size="small" onClick={() => onSave(q)}>Сохранить</Button>
               {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
                 <Button variant="outlined" size="small" onClick={onAddAnswer}>Добавить ответ</Button>
@@ -2069,8 +2069,8 @@ function TestAnswerRow({
               label="Верно"
             />
           </Grid>
-          <Grid item xs={12} md={1.5}>
-            <Stack direction="row" spacing={0.5}>
+          <Grid item xs={12}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.5} sx={{ flexWrap: 'wrap', gap: 1 }}>
               <Button size="small" variant="contained" onClick={() => onSave(a)}>Сохранить</Button>
               <Button size="small" color="error" variant="outlined" onClick={() => onDelete(a.id)}>Удалить</Button>
             </Stack>

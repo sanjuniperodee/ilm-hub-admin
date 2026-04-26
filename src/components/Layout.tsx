@@ -342,7 +342,7 @@ export default function Layout() {
           PaperProps={{
             sx: {
               width: SIDEBAR_WIDTH,
-              background: 'transparent',
+              background: '#0F172A',
               border: 'none',
               boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
             },
