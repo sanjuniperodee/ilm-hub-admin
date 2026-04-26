@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Card,
+  CardContent,
   Checkbox,
   Chip,
   CircularProgress,
@@ -33,6 +34,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import { Add, Delete, Edit, ExpandLess, ExpandMore, Refresh, Search } from '@mui/icons-material'
 import {
@@ -53,6 +56,7 @@ import {
   updateIslamQuranReciter,
   updateIslamSurah,
 } from '../api/adminApi'
+import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 
 interface SurahItem {
   id: string
@@ -158,6 +162,10 @@ export default function IslamQuranPage() {
   const [monitorOpen, setMonitorOpen] = useState(false)
   const [syncJobId, setSyncJobId] = useState('')
   const [syncStatus, setSyncStatus] = useState<any | null>(null)
+  const narrowFormMd = useNarrowDialogProps('md')
+  const narrowFormSm = useNarrowDialogProps('sm')
+  const themeMui = useTheme()
+  const isNarrow = useMediaQuery(themeMui.breakpoints.down('md'))
 
   const filteredEveryAyahReciters = useMemo(() => {
     return everyAyahReciters.filter((item) => {
@@ -403,11 +411,87 @@ export default function IslamQuranPage() {
     }
   }
 
+  const renderSurahAyahs = (s: SurahItem) => {
+    const ayahs = ayahsMap[s.id] || []
+    const header = (
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
+        <Typography variant="subtitle2">Аяты суры {s.nameRu}</Typography>
+        <Button size="small" startIcon={<Add />} onClick={() => openCreateAyah(s.id)}>Добавить аят</Button>
+      </Stack>
+    )
+    if (isNarrow) {
+      return (
+        <Box sx={{ py: 1, px: { xs: 0, sm: 0.5 } }}>
+          {header}
+          <Stack spacing={1}>
+            {ayahs.map((a) => (
+              <Paper key={a.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">#{a.number}</Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'NotoSansArabic, serif', direction: 'rtl' }}>{a.textAr}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{a.translationRu || '—'}</Typography>
+                  </Box>
+                  <Stack direction="row" flexShrink={0}>
+                    <IconButton size="small" onClick={() => openEditAyah(a)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeleteAyah(a)}><Delete fontSize="small" /></IconButton>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+            {ayahs.length === 0 && (
+              <Typography color="text.secondary" py={2} textAlign="center">Нет аятов</Typography>
+            )}
+          </Stack>
+        </Box>
+      )
+    }
+    return (
+      <Box sx={{ py: 2, pl: 4 }}>
+        {header}
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>#</TableCell>
+              <TableCell>Арабский текст</TableCell>
+              <TableCell>Перевод (рус)</TableCell>
+              <TableCell align="right">Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {ayahs.map((a) => (
+              <TableRow key={a.id}>
+                <TableCell>{a.number}</TableCell>
+                <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', direction: 'rtl', maxWidth: 300 }}>
+                  <Typography variant="body2" noWrap>{a.textAr}</Typography>
+                </TableCell>
+                <TableCell sx={{ maxWidth: 300 }}>
+                  <Typography variant="body2" noWrap>{a.translationRu}</Typography>
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEditAyah(a)}><Edit fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={() => handleDeleteAyah(a)}><Delete fontSize="small" /></IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+            {ayahs.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} align="center">
+                  <Typography color="text.secondary" py={2}>Нет аятов</Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </Box>
+    )
+  }
+
   return (
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={2}>
         <Box>
-          <Typography variant="h4">Коран</Typography>
+          <Typography variant="h4" sx={{ fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>Коран</Typography>
           <Typography variant="subtitle1">Суры и one-click синхронизация аудио</Typography>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -515,112 +599,110 @@ export default function IslamQuranPage() {
         </AccordionDetails>
       </Accordion>
 
-      <Card>
-        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell width={40} />
-                <TableCell>#</TableCell>
-                <TableCell>Арабский</TableCell>
-                <TableCell>Русский</TableCell>
-                <TableCell>Транслит</TableCell>
-                <TableCell>Джуз</TableCell>
-                <TableCell>Аяты</TableCell>
-                <TableCell>Тип</TableCell>
-                <TableCell>Статус</TableCell>
-                <TableCell align="right">Действия</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {surahs.map((s) => (
-                <Fragment key={s.id}>
-                  <TableRow hover>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => toggleExpand(s.id)}>
-                        {expandedId === s.id ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
-                      </IconButton>
-                    </TableCell>
-                    <TableCell>{s.number}</TableCell>
-                    <TableCell sx={{ fontFamily: 'NotoSansArabic, serif' }}>{s.nameAr}</TableCell>
-                    <TableCell><strong>{s.nameRu}</strong></TableCell>
-                    <TableCell>{s.transliteration}</TableCell>
-                    <TableCell>{s.juzNumber}</TableCell>
-                    <TableCell>{s.ayahCount}</TableCell>
-                    <TableCell>
+      {isNarrow ? (
+        <Stack spacing={1.5}>
+          {surahs.map((s) => (
+            <Card key={s.id} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Stack direction="row" alignItems="flex-start" spacing={1}>
+                  <IconButton size="small" onClick={() => toggleExpand(s.id)} aria-label="Развернуть">
+                    {expandedId === s.id ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                  </IconButton>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      {s.number}. {s.nameRu}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontFamily: 'NotoSansArabic, serif', mt: 0.25 }}>{s.nameAr}</Typography>
+                    <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center" sx={{ mt: 0.5 }}>
                       <Chip label={s.revelationType === 'meccan' ? 'Мекк.' : 'Медин.'} size="small" color={s.revelationType === 'meccan' ? 'primary' : 'warning'} />
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={s.isActive ? 'Акт.' : 'Скр.'} size="small" color={s.isActive ? 'success' : 'default'} />
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => openEditSurah(s)}><Edit fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteSurah(s.id)}><Delete fontSize="small" /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell colSpan={10} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
-                      <Collapse in={expandedId === s.id} unmountOnExit>
-                        <Box sx={{ py: 2, pl: 4 }}>
-                          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
-                            <Typography variant="subtitle2">Аяты суры {s.nameRu}</Typography>
-                            <Button size="small" startIcon={<Add />} onClick={() => openCreateAyah(s.id)}>Добавить аят</Button>
-                          </Stack>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>#</TableCell>
-                                <TableCell>Арабский текст</TableCell>
-                                <TableCell>Перевод (рус)</TableCell>
-                                <TableCell align="right">Действия</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {(ayahsMap[s.id] || []).map((a) => (
-                                <TableRow key={a.id}>
-                                  <TableCell>{a.number}</TableCell>
-                                  <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', direction: 'rtl', maxWidth: 300 }}>
-                                    <Typography variant="body2" noWrap>{a.textAr}</Typography>
-                                  </TableCell>
-                                  <TableCell sx={{ maxWidth: 300 }}>
-                                    <Typography variant="body2" noWrap>{a.translationRu}</Typography>
-                                  </TableCell>
-                                  <TableCell align="right">
-                                    <IconButton size="small" onClick={() => openEditAyah(a)}><Edit fontSize="small" /></IconButton>
-                                    <IconButton size="small" color="error" onClick={() => handleDeleteAyah(a)}><Delete fontSize="small" /></IconButton>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                              {(ayahsMap[s.id] || []).length === 0 && (
-                                <TableRow>
-                                  <TableCell colSpan={4} align="center">
-                                    <Typography color="text.secondary" py={2}>Нет аятов</Typography>
-                                  </TableCell>
-                                </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                        </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </Fragment>
-              ))}
-              {surahs.length === 0 && !loading && (
+                      <Chip label={s.isActive ? 'Активна' : 'Скрыта'} size="small" color={s.isActive ? 'success' : 'default'} />
+                      <Typography variant="caption" color="text.secondary">Джуз {s.juzNumber} · {s.ayahCount} аят.</Typography>
+                    </Stack>
+                  </Box>
+                  <Stack direction="row" flexShrink={0}>
+                    <IconButton size="small" onClick={() => openEditSurah(s)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeleteSurah(s.id)}><Delete fontSize="small" /></IconButton>
+                  </Stack>
+                </Stack>
+              </CardContent>
+              <Collapse in={expandedId === s.id} unmountOnExit>
+                <Box sx={{ px: 1.5, pb: 1.5, pt: 0, borderTop: 1, borderColor: 'divider' }}>{renderSurahAyahs(s)}</Box>
+              </Collapse>
+            </Card>
+          ))}
+          {surahs.length === 0 && !loading && (
+            <Typography color="text.secondary" py={4} textAlign="center">Нет сур</Typography>
+          )}
+        </Stack>
+      ) : (
+        <Card>
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={10} align="center">
-                    <Typography color="text.secondary" py={4}>Нет сур</Typography>
-                  </TableCell>
+                  <TableCell width={40} />
+                  <TableCell>#</TableCell>
+                  <TableCell>Арабский</TableCell>
+                  <TableCell>Русский</TableCell>
+                  <TableCell>Транслит</TableCell>
+                  <TableCell>Джуз</TableCell>
+                  <TableCell>Аяты</TableCell>
+                  <TableCell>Тип</TableCell>
+                  <TableCell>Статус</TableCell>
+                  <TableCell align="right">Действия</TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+              </TableHead>
+              <TableBody>
+                {surahs.map((s) => (
+                  <Fragment key={s.id}>
+                    <TableRow hover>
+                      <TableCell>
+                        <IconButton size="small" onClick={() => toggleExpand(s.id)}>
+                          {expandedId === s.id ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell>{s.number}</TableCell>
+                      <TableCell sx={{ fontFamily: 'NotoSansArabic, serif' }}>{s.nameAr}</TableCell>
+                      <TableCell><strong>{s.nameRu}</strong></TableCell>
+                      <TableCell>{s.transliteration}</TableCell>
+                      <TableCell>{s.juzNumber}</TableCell>
+                      <TableCell>{s.ayahCount}</TableCell>
+                      <TableCell>
+                        <Chip label={s.revelationType === 'meccan' ? 'Мекк.' : 'Медин.'} size="small" color={s.revelationType === 'meccan' ? 'primary' : 'warning'} />
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={s.isActive ? 'Акт.' : 'Скр.'} size="small" color={s.isActive ? 'success' : 'default'} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" onClick={() => openEditSurah(s)}><Edit fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteSurah(s.id)}><Delete fontSize="small" /></IconButton>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={10} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
+                        <Collapse in={expandedId === s.id} unmountOnExit>
+                          {renderSurahAyahs(s)}
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </Fragment>
+                ))}
+                {surahs.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={10} align="center">
+                      <Typography color="text.secondary" py={4}>Нет сур</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
 
-      <Dialog open={monitorOpen} onClose={() => setMonitorOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={monitorOpen} onClose={() => setMonitorOpen(false)} {...narrowFormMd}>
         <DialogTitle>Мониторинг синхронизации</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           {!syncStatus && (
             <Typography color="text.secondary">Пока нет активной синхронизации.</Typography>
           )}
@@ -664,14 +746,14 @@ export default function IslamQuranPage() {
             </Stack>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setMonitorOpen(false)}>Закрыть</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={surahDialogOpen} onClose={() => setSurahDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={surahDialogOpen} onClose={() => setSurahDialogOpen(false)} {...narrowFormSm}>
         <DialogTitle>{editingSurah ? 'Редактировать суру' : 'Новая сура'}</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} mt={1}>
             <TextField label="Номер" type="number" value={surahForm.number} onChange={(e) => setSurahForm({ ...surahForm, number: +e.target.value })} />
             <TextField label="Арабский" value={surahForm.nameAr} onChange={(e) => setSurahForm({ ...surahForm, nameAr: e.target.value })} />
@@ -687,15 +769,15 @@ export default function IslamQuranPage() {
             <TextField label="Страница" type="number" value={surahForm.pageNumber} onChange={(e) => setSurahForm({ ...surahForm, pageNumber: +e.target.value })} />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setSurahDialogOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={saveSurah}>Сохранить</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={ayahDialogOpen} onClose={() => setAyahDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={ayahDialogOpen} onClose={() => setAyahDialogOpen(false)} {...narrowFormSm}>
         <DialogTitle>{editingAyah ? 'Редактировать аят' : 'Новый аят'}</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} mt={1}>
             <TextField label="Номер аята" type="number" value={ayahForm.number} onChange={(e) => setAyahForm({ ...ayahForm, number: +e.target.value })} />
             <TextField label="Арабский текст" multiline rows={3} value={ayahForm.textAr} onChange={(e) => setAyahForm({ ...ayahForm, textAr: e.target.value })} inputProps={{ dir: 'rtl' }} />
@@ -703,7 +785,7 @@ export default function IslamQuranPage() {
             <TextField label="Перевод (каз)" multiline rows={2} value={ayahForm.translationKz} onChange={(e) => setAyahForm({ ...ayahForm, translationKz: e.target.value })} />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setAyahDialogOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={saveAyah}>Сохранить</Button>
         </DialogActions>

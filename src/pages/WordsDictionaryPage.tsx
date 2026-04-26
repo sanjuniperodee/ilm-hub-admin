@@ -43,6 +43,7 @@ import {
   uploadWordsDictionaryExampleAudio,
   deleteWordsDictionaryEntryAudio,
 } from '../api/adminApi'
+import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -91,6 +92,7 @@ export default function WordsDictionaryPage() {
   const [deleteEntryAudioOpen, setDeleteEntryAudioOpen] = useState(false)
   const [draggingExampleId, setDraggingExampleId] = useState<string | null>(null)
   const pendingExamplesRef = useRef<DictionaryExample[] | null>(null)
+  const narrowFormDialog = useNarrowDialogProps('md')
 
   const load = async () => {
     setLoading(true)
@@ -581,12 +583,11 @@ export default function WordsDictionaryPage() {
           setEditOpen(false)
           setDeleteEntryAudioOpen(false)
         }}
-        fullWidth
-        maxWidth="md"
+        {...narrowFormDialog}
       >
         <DialogTitle>{editingEntry?.id ? 'Редактирование слова' : 'Новое слово'}</DialogTitle>
         {editingEntry && (
-          <DialogContent>
+          <DialogContent dividers sx={{ flex: '1 1 auto' }}>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 <TextField
@@ -769,7 +770,7 @@ export default function WordsDictionaryPage() {
             </Stack>
           </DialogContent>
         )}
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button
             onClick={() => {
               setEditOpen(false)

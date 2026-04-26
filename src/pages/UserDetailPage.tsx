@@ -25,6 +25,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import { ArrowBack, EmojiEvents } from '@mui/icons-material'
 import {
@@ -87,7 +89,7 @@ export default function UserDetailPage() {
       <Button startIcon={<ArrowBack />} onClick={() => navigate('/users')} sx={{ mb: 2 }}>
         К списку пользователей
       </Button>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>
         Профиль пользователя
       </Typography>
 
@@ -135,7 +137,7 @@ export default function UserDetailPage() {
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="subtitle2" color="text.secondary">Роль</Typography>
-                <FormControl size="small" sx={{ minWidth: 140 }} disabled={roleSaving}>
+                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 140 }, width: { xs: '100%', sm: 'auto' } }} disabled={roleSaving}>
                   <InputLabel>Роль</InputLabel>
                   <Select
                     value={user.role || 'user'}
@@ -391,6 +393,8 @@ function UserTestsTab({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [testTypeFilter, setTestTypeFilter] = useState('')
+  const theme = useTheme()
+  const isNarrow = useMediaQuery(theme.breakpoints.down('md'))
 
   useEffect(() => {
     let cancelled = false
@@ -412,7 +416,7 @@ function UserTestsTab({ userId }: { userId: string }) {
 
   return (
     <Box sx={{ mt: 1 }}>
-      <FormControl size="small" sx={{ minWidth: 120, mb: 2 }}>
+      <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 }, width: { xs: '100%', sm: 'auto' }, mb: 2 }}>
         <InputLabel>Тип теста</InputLabel>
         <Select
           value={testTypeFilter}
@@ -425,44 +429,68 @@ function UserTestsTab({ userId }: { userId: string }) {
           <MenuItem value="level">Уровень</MenuItem>
         </Select>
       </FormControl>
-      <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Тест</TableCell>
-              <TableCell>Тип</TableCell>
-              <TableCell>Результат</TableCell>
-              <TableCell>Попытка</TableCell>
-              <TableCell>Дата</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.map((row: any) => (
-              <TableRow key={row.id}>
-                <TableCell>{row.titleRu || row.miniTestId}</TableCell>
-                <TableCell>
+      {isNarrow ? (
+        <Stack spacing={1.5}>
+          {data.map((row: any) => (
+            <Card key={row.id} variant="outlined">
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Typography fontWeight={600} sx={{ wordBreak: 'break-word' }}>{row.titleRu || row.miniTestId}</Typography>
+                <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }} alignItems="center">
                   <Chip size="small" label={row.testType} />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    size="small"
-                    label={`${row.score ?? 0}%`}
-                    color={row.isPassed ? 'success' : 'default'}
-                  />
-                </TableCell>
-                <TableCell>#{row.attemptNumber}</TableCell>
-                <TableCell>
+                  <Chip size="small" label={`${row.score ?? 0}%`} color={row.isPassed ? 'success' : 'default'} />
+                  <Typography variant="caption" color="text.secondary">Попытка #{row.attemptNumber}</Typography>
+                </Stack>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                   {row.completedAt
                     ? format(new Date(row.completedAt), 'dd.MM.yyyy HH:mm')
                     : row.createdAt
-                    ? format(new Date(row.createdAt), 'dd.MM.yyyy HH:mm')
-                    : '—'}
-                </TableCell>
+                      ? format(new Date(row.createdAt), 'dd.MM.yyyy HH:mm')
+                      : '—'}
+                </Typography>
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
+      ) : (
+        <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Тест</TableCell>
+                <TableCell>Тип</TableCell>
+                <TableCell>Результат</TableCell>
+                <TableCell>Попытка</TableCell>
+                <TableCell>Дата</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {data.map((row: any) => (
+                <TableRow key={row.id}>
+                  <TableCell>{row.titleRu || row.miniTestId}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={row.testType} />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={`${row.score ?? 0}%`}
+                      color={row.isPassed ? 'success' : 'default'}
+                    />
+                  </TableCell>
+                  <TableCell>#{row.attemptNumber}</TableCell>
+                  <TableCell>
+                    {row.completedAt
+                      ? format(new Date(row.completedAt), 'dd.MM.yyyy HH:mm')
+                      : row.createdAt
+                        ? format(new Date(row.createdAt), 'dd.MM.yyyy HH:mm')
+                        : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
       {data.length === 0 && (
         <Typography color="text.secondary" sx={{ mt: 2 }}>
           Нет попыток по тестам
@@ -597,6 +625,8 @@ function UserProfileTab({ userId }: { userId: string }) {
   const [studyPlan, setStudyPlan] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const theme = useTheme()
+  const isNarrow = useMediaQuery(theme.breakpoints.down('md'))
 
   useEffect(() => {
     let cancelled = false
@@ -632,30 +662,46 @@ function UserProfileTab({ userId }: { userId: string }) {
             Подписки
           </Typography>
           {subscriptions.length > 0 ? (
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Платформа</TableCell>
-                    <TableCell>Статус</TableCell>
-                    <TableCell>Начало</TableCell>
-                    <TableCell>Окончание</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {subscriptions.map((s: any) => (
-                    <TableRow key={s.id}>
-                      <TableCell>{s.platform}</TableCell>
-                      <TableCell>
-                        <Chip size="small" label={s.status} />
-                      </TableCell>
-                      <TableCell>{s.startedAt ? format(new Date(s.startedAt), 'dd.MM.yyyy') : '—'}</TableCell>
-                      <TableCell>{s.expiresAt ? format(new Date(s.expiresAt), 'dd.MM.yyyy') : '—'}</TableCell>
+            isNarrow ? (
+              <Stack spacing={1}>
+                {subscriptions.map((s: any) => (
+                  <Card key={s.id} variant="outlined" sx={{ borderRadius: 1.5 }}>
+                    <CardContent sx={{ py: 1.25, '&:last-child': { pb: 1.25 } }}>
+                      <Typography fontWeight={600}>{s.platform}</Typography>
+                      <Chip size="small" label={s.status} sx={{ mt: 0.5 }} />
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        {s.startedAt ? format(new Date(s.startedAt), 'dd.MM.yyyy') : '—'} — {s.expiresAt ? format(new Date(s.expiresAt), 'dd.MM.yyyy') : '—'}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Платформа</TableCell>
+                      <TableCell>Статус</TableCell>
+                      <TableCell>Начало</TableCell>
+                      <TableCell>Окончание</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {subscriptions.map((s: any) => (
+                      <TableRow key={s.id}>
+                        <TableCell>{s.platform}</TableCell>
+                        <TableCell>
+                          <Chip size="small" label={s.status} />
+                        </TableCell>
+                        <TableCell>{s.startedAt ? format(new Date(s.startedAt), 'dd.MM.yyyy') : '—'}</TableCell>
+                        <TableCell>{s.expiresAt ? format(new Date(s.expiresAt), 'dd.MM.yyyy') : '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
           ) : (
             <Typography color="text.secondary">Нет подписок</Typography>
           )}
@@ -667,28 +713,42 @@ function UserProfileTab({ userId }: { userId: string }) {
             OAuth провайдеры
           </Typography>
           {oauthProviders.length > 0 ? (
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Провайдер</TableCell>
-                    <TableCell>Provider User ID</TableCell>
-                    <TableCell>Email</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {oauthProviders.map((p: any) => (
-                    <TableRow key={p.id}>
-                      <TableCell>
-                        <Chip size="small" label={p.provider} />
-                      </TableCell>
-                      <TableCell>{p.providerUserId}</TableCell>
-                      <TableCell>{p.email || '—'}</TableCell>
+            isNarrow ? (
+              <Stack spacing={1}>
+                {oauthProviders.map((p: any) => (
+                  <Card key={p.id} variant="outlined" sx={{ borderRadius: 1.5 }}>
+                    <CardContent sx={{ py: 1.25, '&:last-child': { pb: 1.25 } }}>
+                      <Chip size="small" label={p.provider} />
+                      <Typography variant="body2" sx={{ wordBreak: 'break-all', mt: 0.5 }}>ID: {p.providerUserId}</Typography>
+                      <Typography variant="body2" color="text.secondary">{p.email || '—'}</Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Провайдер</TableCell>
+                      <TableCell>Provider User ID</TableCell>
+                      <TableCell>Email</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {oauthProviders.map((p: any) => (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          <Chip size="small" label={p.provider} />
+                        </TableCell>
+                        <TableCell>{p.providerUserId}</TableCell>
+                        <TableCell>{p.email || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
           ) : (
             <Typography color="text.secondary">Нет привязанных провайдеров</Typography>
           )}
@@ -721,6 +781,8 @@ function UserWordsTab({ userId }: { userId: string }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const theme = useTheme()
+  const isNarrow = useMediaQuery(theme.breakpoints.down('md'))
 
   useEffect(() => {
     let cancelled = false
@@ -779,26 +841,39 @@ function UserWordsTab({ userId }: { userId: string }) {
             Прогресс по темам
           </Typography>
           {byTheme.length > 0 ? (
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Тема</TableCell>
-                    <TableCell>Выучено</TableCell>
-                    <TableCell>В процессе</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {byTheme.map((t: any) => (
-                    <TableRow key={t.themeId}>
-                      <TableCell>{t.themeTitle}</TableCell>
-                      <TableCell>{t.learned}</TableCell>
-                      <TableCell>{t.learning}</TableCell>
+            isNarrow ? (
+              <Stack spacing={1}>
+                {byTheme.map((t: any) => (
+                  <Card key={t.themeId} variant="outlined" sx={{ borderRadius: 1.5 }}>
+                    <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                      <Typography fontWeight={600}>{t.themeTitle}</Typography>
+                      <Typography variant="body2" color="text.secondary">Выучено: {t.learned} · В процессе: {t.learning}</Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Тема</TableCell>
+                      <TableCell>Выучено</TableCell>
+                      <TableCell>В процессе</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {byTheme.map((t: any) => (
+                      <TableRow key={t.themeId}>
+                        <TableCell>{t.themeTitle}</TableCell>
+                        <TableCell>{t.learned}</TableCell>
+                        <TableCell>{t.learning}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
           ) : (
             <Typography color="text.secondary">Нет прогресса по карточкам</Typography>
           )}
@@ -810,30 +885,46 @@ function UserWordsTab({ userId }: { userId: string }) {
             Попытки квиза карточек
           </Typography>
           {quizAttempts.length > 0 ? (
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Тема</TableCell>
-                    <TableCell>Вопросов</TableCell>
-                    <TableCell>Правильно</TableCell>
-                    <TableCell>Неправильно</TableCell>
-                    <TableCell>Дата</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {quizAttempts.map((a: any) => (
-                    <TableRow key={a.id}>
-                      <TableCell>{a.themeTitle}</TableCell>
-                      <TableCell>{a.totalQuestions}</TableCell>
-                      <TableCell>{a.correctCount}</TableCell>
-                      <TableCell>{a.incorrectCount}</TableCell>
-                      <TableCell>{a.createdAt ? format(new Date(a.createdAt), 'dd.MM.yyyy HH:mm') : '—'}</TableCell>
+            isNarrow ? (
+              <Stack spacing={1}>
+                {quizAttempts.map((a: any) => (
+                  <Card key={a.id} variant="outlined" sx={{ borderRadius: 1.5 }}>
+                    <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                      <Typography fontWeight={600}>{a.themeTitle}</Typography>
+                      <Typography variant="body2">Вопросов: {a.totalQuestions} · ✓ {a.correctCount} · ✗ {a.incorrectCount}</Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        {a.createdAt ? format(new Date(a.createdAt), 'dd.MM.yyyy HH:mm') : '—'}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Тема</TableCell>
+                      <TableCell>Вопросов</TableCell>
+                      <TableCell>Правильно</TableCell>
+                      <TableCell>Неправильно</TableCell>
+                      <TableCell>Дата</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {quizAttempts.map((a: any) => (
+                      <TableRow key={a.id}>
+                        <TableCell>{a.themeTitle}</TableCell>
+                        <TableCell>{a.totalQuestions}</TableCell>
+                        <TableCell>{a.correctCount}</TableCell>
+                        <TableCell>{a.incorrectCount}</TableCell>
+                        <TableCell>{a.createdAt ? format(new Date(a.createdAt), 'dd.MM.yyyy HH:mm') : '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
           ) : (
             <Typography color="text.secondary">Нет попыток квиза</Typography>
           )}

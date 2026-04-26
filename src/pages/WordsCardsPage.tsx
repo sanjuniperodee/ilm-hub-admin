@@ -44,6 +44,7 @@ import {
   uploadWordCardAudio,
   uploadWordCardImage,
 } from '../api/adminApi'
+import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
 
@@ -91,6 +92,7 @@ export default function WordsCardsPage() {
   const [cardDialogOpen, setCardDialogOpen] = useState(false)
   const [editingCard, setEditingCard] = useState<WordCard | null>(null)
   const [cardForm, setCardForm] = useState({ themeId: '', arabic: '', translit: '', translationRu: '', orderIndex: 0 })
+  const narrowFormSm = useNarrowDialogProps('sm')
 
   const loadThemes = async () => {
     setLoading(true)
@@ -413,9 +415,9 @@ export default function WordsCardsPage() {
       ))}
 
       {/* Theme Dialog */}
-      <Dialog open={themeDialogOpen} onClose={() => setThemeDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={themeDialogOpen} onClose={() => setThemeDialogOpen(false)} {...narrowFormSm}>
         <DialogTitle>{editingTheme ? 'Edit Theme' : 'Create Theme'}</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               label="Emoji"
@@ -445,7 +447,7 @@ export default function WordsCardsPage() {
             />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setThemeDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSaveTheme}>
             Save
@@ -454,9 +456,9 @@ export default function WordsCardsPage() {
       </Dialog>
 
       {/* Card Dialog */}
-      <Dialog open={cardDialogOpen} onClose={() => setCardDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={cardDialogOpen} onClose={() => setCardDialogOpen(false)} {...narrowFormSm}>
         <DialogTitle>{editingCard ? 'Edit Card' : 'Create Card'}</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
               label="Arabic"
@@ -482,7 +484,7 @@ export default function WordsCardsPage() {
             />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setCardDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSaveCard}>
             Save

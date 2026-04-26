@@ -54,6 +54,7 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -66,6 +67,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 
 interface HubCourse {
   id: string
@@ -317,8 +319,10 @@ export default function ContentHubPage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
+  const narrowFormSm = useNarrowDialogProps('sm')
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
@@ -591,7 +595,7 @@ export default function ContentHubPage() {
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4 }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4, fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>
             Контент
           </Typography>
           <Typography color="text.secondary">
@@ -689,15 +693,25 @@ export default function ContentHubPage() {
                         <Chip label={`${mods.length} модулей`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
                         <Chip label={`${les.length} уроков`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
                       </Stack>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0, flexWrap: 'wrap' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: { xs: 'column', sm: 'row' },
+                          gap: 0.5,
+                          flexShrink: 0,
+                          flexWrap: 'wrap',
+                          width: { xs: '100%', sm: 'auto' },
+                          alignSelf: { xs: 'stretch', sm: 'auto' },
+                        }}
+                      >
                         <Button
                           size="small"
                           variant="outlined"
                           startIcon={<EditIcon sx={{ fontSize: 14 }} />}
                           onClick={() => openCourseEdit(c.id)}
-                          sx={{ whiteSpace: 'nowrap' }}
+                          sx={{ whiteSpace: { sm: 'nowrap' }, width: { xs: '100%', sm: 'auto' } }}
                         >
-                          Редакт.
+                          Редактировать
                         </Button>
                         {courseExpanded && (
                           <Tooltip title={`Добавить модуль в ${c.titleRu}`}>
@@ -709,7 +723,7 @@ export default function ContentHubPage() {
                                 setContextCourseId(c.id)
                                 setCreateModuleOpen(true)
                               }}
-                              sx={{ whiteSpace: 'nowrap' }}
+                              sx={{ whiteSpace: { sm: 'nowrap' }, width: { xs: '100%', sm: 'auto' } }}
                             >
                               Модуль
                             </Button>
@@ -907,9 +921,9 @@ export default function ContentHubPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={createCourseOpen} onClose={() => setCreateCourseOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={createCourseOpen} onClose={() => setCreateCourseOpen(false)} {...narrowFormSm}>
         <DialogTitle>Новый курс</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             <TextField label="Code" value={newCourse.code} onChange={(e) => setNewCourse((p) => ({ ...p, code: e.target.value }))} />
             <TextField label="Название (RU)" value={newCourse.titleRu} onChange={(e) => setNewCourse((p) => ({ ...p, titleRu: e.target.value }))} />
@@ -917,30 +931,30 @@ export default function ContentHubPage() {
             <TextField label="Порядок" type="number" value={newCourse.orderIndex} onChange={(e) => setNewCourse((p) => ({ ...p, orderIndex: Number(e.target.value) || 0 }))} />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setCreateCourseOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={createCourseHandler}>Создать</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={createModuleOpen} onClose={() => setCreateModuleOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={createModuleOpen} onClose={() => setCreateModuleOpen(false)} {...narrowFormSm}>
         <DialogTitle>Новый модуль</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             <TextField label="Название (RU)" value={newModule.titleRu} onChange={(e) => setNewModule((p) => ({ ...p, titleRu: e.target.value }))} />
             <TextField label="Описание (RU)" multiline minRows={3} value={newModule.descriptionRu} onChange={(e) => setNewModule((p) => ({ ...p, descriptionRu: e.target.value }))} />
             <TextField label="Порядок" type="number" value={newModule.orderIndex} onChange={(e) => setNewModule((p) => ({ ...p, orderIndex: Number(e.target.value) || 0 }))} />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setCreateModuleOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={createModuleHandler}>Создать</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={createLessonOpen} onClose={() => setCreateLessonOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={createLessonOpen} onClose={() => setCreateLessonOpen(false)} {...narrowFormSm}>
         <DialogTitle>Новый урок</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={1.5} sx={{ mt: 0.5 }}>
             <FormControl fullWidth>
               <InputLabel>Модуль (опционально)</InputLabel>
@@ -957,13 +971,13 @@ export default function ContentHubPage() {
             </FormControl>
             <TextField label="Название (RU)" value={newLesson.titleRu} onChange={(e) => setNewLesson((p) => ({ ...p, titleRu: e.target.value }))} />
             <TextField label="Описание (RU)" multiline minRows={3} value={newLesson.descriptionRu} onChange={(e) => setNewLesson((p) => ({ ...p, descriptionRu: e.target.value }))} />
-            <Stack direction="row" spacing={1.5}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
               <TextField fullWidth label="Порядок" type="number" value={newLesson.orderIndex} onChange={(e) => setNewLesson((p) => ({ ...p, orderIndex: Number(e.target.value) || 0 }))} />
               <TextField fullWidth label="Длительность (мин)" type="number" value={newLesson.estimatedMinutes} onChange={(e) => setNewLesson((p) => ({ ...p, estimatedMinutes: Number(e.target.value) || 10 }))} />
             </Stack>
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setCreateLessonOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={createLessonHandler}>Создать</Button>
         </DialogActions>

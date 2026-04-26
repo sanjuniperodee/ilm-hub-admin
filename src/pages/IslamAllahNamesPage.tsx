@@ -29,6 +29,7 @@ import {
   deleteIslamAllahName,
   uploadIslamAllahNameAudio,
 } from '../api/adminApi'
+import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 
 interface AllahName {
   id: string
@@ -64,6 +65,7 @@ export default function IslamAllahNamesPage() {
     descriptionRu: '',
     descriptionKz: '',
   })
+  const narrowFormSm = useNarrowDialogProps('sm')
 
   const load = async () => {
     setLoading(true)
@@ -229,9 +231,9 @@ export default function IslamAllahNamesPage() {
         </TableContainer>
       </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} {...narrowFormSm}>
         <DialogTitle>{editing ? 'Редактировать имя' : 'Новое имя'}</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} mt={1}>
             <TextField label="Номер" type="number" value={form.number} onChange={(e) => setForm({ ...form, number: +e.target.value })} />
             <TextField label="Арабский" value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} />
@@ -244,7 +246,7 @@ export default function IslamAllahNamesPage() {
             <TextField label="Описание (каз)" multiline rows={3} value={form.descriptionKz} onChange={(e) => setForm({ ...form, descriptionKz: e.target.value })} />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setDialogOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={handleSave}>Сохранить</Button>
         </DialogActions>

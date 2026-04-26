@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Box, Dialog, DialogContent, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 import { Close, PlayCircleFilled, VolumeUp, MusicOff, MenuBook, Star, TrendingUp, PhoneIphone, TabletMac } from '@mui/icons-material'
 import { ILM_RICHTEXT_TABLE_WRAP_CLASS, wrapRichTextTables } from '../utils/wrapRichTextTables'
 
@@ -66,24 +67,41 @@ const BLOCK_LABELS: Record<string, string> = {
 /* ─── Main Component ─── */
 export default function MobilePreview({ open, onClose, block }: MobilePreviewProps) {
   const [modelId, setModelId] = useState<PhoneModelId>('iphone-14')
+  const model = PHONE_MODELS.find((m) => m.id === modelId) || PHONE_MODELS[1]
+  const isTablet = model.w > 500
+  const nd = useNarrowDialogProps(isTablet ? 'md' : 'sm')
+
   if (!block) return null
   const cr = block.contentRu || {}
-  const model = PHONE_MODELS.find((m) => m.id === modelId) || PHONE_MODELS[1]
 
   // Scale phone to fit dialog (max visible height ~80vh)
   const maxFrameH = 600
   const scale = model.h > maxFrameH ? maxFrameH / model.h : 1
-  const isTablet = model.w > 500
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth={isTablet ? 'md' : 'sm'}
-      fullWidth
-      PaperProps={{ sx: { bgcolor: '#f5f5f5', borderRadius: 3, maxHeight: '95vh' } }}
+      {...nd}
+      PaperProps={{
+        sx: {
+          bgcolor: '#f5f5f5',
+          borderRadius: nd.fullScreen ? 0 : 3,
+          maxHeight: nd.fullScreen ? '100%' : '95vh',
+        },
+      }}
     >
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3, pt: 2, overflow: 'auto' }}>
+      <DialogContent
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          p: 3,
+          pt: 2,
+          overflow: 'auto',
+          pb: { xs: 'max(12px, env(safe-area-inset-bottom, 0px))', sm: 2 },
+        }}
+      >
         {/* Header row */}
         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
           <Typography sx={{ ...font(14, 600), color: C.textSecondary }}>

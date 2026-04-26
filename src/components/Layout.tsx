@@ -31,7 +31,7 @@ import {
   Explore as ExploreIcon,
   History as HistoryIcon,
 } from '@mui/icons-material'
-import {useEffect, useState} from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 
 const SIDEBAR_WIDTH = 270
@@ -316,29 +316,16 @@ export default function Layout() {
   }, [location.pathname, isMobile])
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC' }}>
-      {/* Mobile hamburger */}
-      {isMobile && (
-        <IconButton
-          onClick={() => setMobileOpen(true)}
-          sx={{
-            position: 'fixed',
-            top: 16,
-            left: 16,
-            zIndex: 1300,
-            background: '#0F172A',
-            color: '#fff',
-            width: 44,
-            height: 44,
-            borderRadius: '12px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            '&:hover': { background: '#1E293B' },
-          }}
-        >
-          <MenuIcon />
-        </IconButton>
-      )}
-
+    <Box
+      sx={{
+        display: 'flex',
+        minHeight: '100vh',
+        background: '#F8FAFC',
+        pl: { xs: 'max(0px, env(safe-area-inset-left))', md: 0 },
+        pr: { xs: 'max(0px, env(safe-area-inset-right))', md: 0 },
+        pb: { xs: 'max(0px, env(safe-area-inset-bottom))', md: 0 },
+      }}
+    >
       {/* Mobile drawer */}
       {isMobile && (
         <Drawer
@@ -347,9 +334,12 @@ export default function Layout() {
           PaperProps={{
             sx: {
               width: SIDEBAR_WIDTH,
+              maxWidth: '100vw',
               background: '#0F172A',
               border: 'none',
               boxShadow: '0 24px 48px rgba(0,0,0,0.2)',
+              pt: 'env(safe-area-inset-top, 0px)',
+              pb: 'env(safe-area-inset-bottom, 0px)',
             },
           }}
         >
@@ -388,8 +378,9 @@ export default function Layout() {
         {/* Top bar */}
         <Box
           sx={{
-            px: { xs: 3, md: 4 },
+            px: { xs: 2, md: 4 },
             py: 2,
+            pt: { xs: 'max(8px, env(safe-area-inset-top))', md: 2 },
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
@@ -402,7 +393,25 @@ export default function Layout() {
             zIndex: 100,
           }}
         >
-          {isMobile && <Box sx={{ flex: 1 }} />}
+          {isMobile && (
+            <IconButton
+              onClick={() => setMobileOpen(true)}
+              aria-label="Открыть меню"
+              sx={{
+                background: '#0F172A',
+                color: '#fff',
+                width: 44,
+                height: 44,
+                borderRadius: '12px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+                flexShrink: 0,
+                '&:hover': { background: '#1E293B' },
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+          {isMobile && <Box sx={{ flex: 1, minWidth: 0 }} />}
           <Avatar
             sx={{
               width: 34,
@@ -423,7 +432,6 @@ export default function Layout() {
             flex: 1,
             px: { xs: 2, sm: 3, md: 4 },
             py: 3,
-            pt: isMobile ? '72px' : 3, // account for fixed hamburger on mobile
           }}
           className="page-enter"
         >

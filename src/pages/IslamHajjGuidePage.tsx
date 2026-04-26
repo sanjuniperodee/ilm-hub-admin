@@ -40,6 +40,7 @@ import {
   deleteIslamHajjPhrase,
   uploadIslamHajjPhraseAudio,
 } from '../api/adminApi'
+import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 
 interface HajjSection {
   id: string; code: string; titleRu: string; titleKz?: string | null
@@ -78,6 +79,8 @@ export default function IslamHajjGuidePage() {
   const [phraseDialogOpen, setPhraseDialogOpen] = useState(false)
   const [editingPhrase, setEditingPhrase] = useState<HajjPhrase | null>(null)
   const [phraseForm, setPhraseForm] = useState({ textAr: '', transliteration: '', translationRu: '', translationKz: '', orderIndex: 0 })
+  const narrowFormXs = useNarrowDialogProps('xs')
+  const narrowFormSm = useNarrowDialogProps('sm')
 
   const load = async () => {
     setLoading(true); setError('')
@@ -343,9 +346,9 @@ export default function IslamHajjGuidePage() {
       </Card>
 
       {/* Section Dialog */}
-      <Dialog open={sectionDialogOpen} onClose={() => setSectionDialogOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog open={sectionDialogOpen} onClose={() => setSectionDialogOpen(false)} {...narrowFormXs}>
         <DialogTitle>{editingSection ? 'Редактировать секцию' : 'Новая секция'}</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} mt={1}>
             <TextField label="Код (on_road, in_mecca...)" value={sectionForm.code} onChange={(e) => setSectionForm({ ...sectionForm, code: e.target.value })} />
             <TextField label="Название (рус)" value={sectionForm.titleRu} onChange={(e) => setSectionForm({ ...sectionForm, titleRu: e.target.value })} />
@@ -354,16 +357,16 @@ export default function IslamHajjGuidePage() {
             <TextField label="Порядок" type="number" value={sectionForm.orderIndex} onChange={(e) => setSectionForm({ ...sectionForm, orderIndex: +e.target.value })} />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setSectionDialogOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={saveSection}>Сохранить</Button>
         </DialogActions>
       </Dialog>
 
       {/* Instruction Dialog */}
-      <Dialog open={instrDialogOpen} onClose={() => setInstrDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={instrDialogOpen} onClose={() => setInstrDialogOpen(false)} {...narrowFormSm}>
         <DialogTitle>{editingInstr ? 'Редактировать инструкцию' : 'Новая инструкция'}</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} mt={1}>
             <TextField label="Номер шага (0 = заметка)" type="number" value={instrForm.stepNumber} onChange={(e) => setInstrForm({ ...instrForm, stepNumber: +e.target.value })} />
             <TextField label="Заголовок (рус)" value={instrForm.titleRu} onChange={(e) => setInstrForm({ ...instrForm, titleRu: e.target.value })} />
@@ -377,16 +380,16 @@ export default function IslamHajjGuidePage() {
             <TextField label="Порядок" type="number" value={instrForm.orderIndex} onChange={(e) => setInstrForm({ ...instrForm, orderIndex: +e.target.value })} />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setInstrDialogOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={saveInstr}>Сохранить</Button>
         </DialogActions>
       </Dialog>
 
       {/* Phrase Dialog */}
-      <Dialog open={phraseDialogOpen} onClose={() => setPhraseDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={phraseDialogOpen} onClose={() => setPhraseDialogOpen(false)} {...narrowFormSm}>
         <DialogTitle>{editingPhrase ? 'Редактировать фразу' : 'Новая фраза'}</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} mt={1}>
             <TextField label="Арабский текст" multiline rows={2} value={phraseForm.textAr} onChange={(e) => setPhraseForm({ ...phraseForm, textAr: e.target.value })} inputProps={{ dir: 'rtl' }} />
             <TextField label="Транслитерация" value={phraseForm.transliteration} onChange={(e) => setPhraseForm({ ...phraseForm, transliteration: e.target.value })} />
@@ -395,7 +398,7 @@ export default function IslamHajjGuidePage() {
             <TextField label="Порядок" type="number" value={phraseForm.orderIndex} onChange={(e) => setPhraseForm({ ...phraseForm, orderIndex: +e.target.value })} />
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setPhraseDialogOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={savePhrase}>Сохранить</Button>
         </DialogActions>

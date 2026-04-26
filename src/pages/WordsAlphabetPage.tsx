@@ -34,6 +34,7 @@ import {
   deleteWordLetterAudio,
   deleteWordLetter,
 } from '../api/adminApi'
+import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 
 interface LetterForms {
   isolated: string
@@ -137,6 +138,7 @@ export default function WordsAlphabetPage() {
     importantKk: '',
     forms: { isolated: '', initial: '', middle: '', final: '' } as LetterForms,
   })
+  const narrowFormDialog = useNarrowDialogProps('sm')
 
   const load = async () => {
     setLoading(true)
@@ -516,9 +518,9 @@ export default function WordsAlphabetPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} {...narrowFormDialog}>
         <DialogTitle>Новая буква алфавита</DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
               <TextField
@@ -644,7 +646,7 @@ export default function WordsAlphabetPage() {
             </Stack>
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setCreateOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={handleCreateLetter} disabled={loading}>
             Создать
@@ -652,15 +654,10 @@ export default function WordsAlphabetPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog
-        open={!!editLetter}
-        onClose={() => setEditLetter(null)}
-        fullWidth
-        maxWidth="sm"
-      >
+      <Dialog open={!!editLetter} onClose={() => setEditLetter(null)} {...narrowFormDialog}>
         <DialogTitle>Редактировать букву {editLetter?.code}</DialogTitle>
         {editLetter && (
-          <DialogContent>
+          <DialogContent dividers>
             <Stack spacing={2} sx={{ mt: 1 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
                 <Box
@@ -828,7 +825,7 @@ export default function WordsAlphabetPage() {
             </Stack>
           </DialogContent>
         )}
-        <DialogActions>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setEditLetter(null)}>Отмена</Button>
           <Button
             variant="contained"
