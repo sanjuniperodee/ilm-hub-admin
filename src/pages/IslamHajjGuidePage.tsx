@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   Alert,
   Box,
   Button,
   Card,
+  CardContent,
   Chip,
   Collapse,
   Dialog,
@@ -22,6 +23,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
@@ -41,6 +44,7 @@ import {
   uploadIslamHajjPhraseAudio,
 } from '../api/adminApi'
 import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
+import { pageTitleH4Sx } from '../utils/responsivePageSx'
 
 interface HajjSection {
   id: string; code: string; titleRu: string; titleKz?: string | null
@@ -81,6 +85,8 @@ export default function IslamHajjGuidePage() {
   const [phraseForm, setPhraseForm] = useState({ textAr: '', transliteration: '', translationRu: '', translationKz: '', orderIndex: 0 })
   const narrowFormXs = useNarrowDialogProps('xs')
   const narrowFormSm = useNarrowDialogProps('sm')
+  const muiTheme = useTheme()
+  const isNarrow = useMediaQuery(muiTheme.breakpoints.down('md'))
 
   const load = async () => {
     setLoading(true); setError('')
@@ -188,44 +194,218 @@ export default function IslamHajjGuidePage() {
     catch (e: any) { setError(e?.response?.data?.message || 'Upload failed') }
   }
 
+  const renderSectionExpanded = (s: HajjSection) => {
+    const details = detailsMap[s.id]
+    const instr = details?.instructions || []
+    const phr = details?.phrases || []
+    if (isNarrow) {
+      return (
+        <Box sx={{ py: 1, px: { xs: 0, sm: 0.5 } }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
+            <Typography variant="subtitle2">Инструкции</Typography>
+            <Button size="small" startIcon={<Add />} onClick={() => openCreateInstr(s.id)}>Добавить</Button>
+          </Stack>
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            {instr.map((i) => (
+              <Paper key={i.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Stack direction="row" gap={0.5} flexWrap="wrap" alignItems="center" mb={0.5}>
+                      <Typography variant="caption" color="text.secondary">Шаг: {i.stepNumber ?? '—'}</Typography>
+                      {i.isHighlight ? <Chip label="Заметка" size="small" color="warning" /> : <Chip label="Шаг" size="small" />}
+                    </Stack>
+                    <Typography fontWeight={600}>{i.titleRu}</Typography>
+                    {i.descriptionRu ? <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{i.descriptionRu}</Typography> : null}
+                  </Box>
+                  <Stack direction="row" flexShrink={0}>
+                    <IconButton size="small" onClick={() => openEditInstr(i)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeleteInstr(i)}><Delete fontSize="small" /></IconButton>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+          <Divider sx={{ my: 1.5 }} />
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
+            <Typography variant="subtitle2">Фразы</Typography>
+            <Button size="small" startIcon={<Add />} onClick={() => openCreatePhrase(s.id)}>Добавить</Button>
+          </Stack>
+          <Stack spacing={1}>
+            {phr.map((p) => (
+              <Paper key={p.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" sx={{ fontFamily: 'Noto Sans Arabic, NotoSansArabic, serif', direction: 'rtl' }}>{p.textAr}</Typography>
+                    {p.transliteration ? <Typography variant="body2" color="text.secondary">{p.transliteration}</Typography> : null}
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{p.translationRu}</Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      {p.audioUrl ? (
+                        <Chip label="Аудио" color="success" size="small" icon={<Audiotrack />} />
+                      ) : (
+                        <label>
+                          <input type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhraseAudioUpload(p.id, s.id, f) }} />
+                          <Chip label="Загрузить" size="small" clickable variant="outlined" icon={<Audiotrack />} />
+                        </label>
+                      )}
+                    </Box>
+                  </Box>
+                  <Stack direction="row" flexShrink={0}>
+                    <IconButton size="small" onClick={() => openEditPhrase(p)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeletePhrase(p)}><Delete fontSize="small" /></IconButton>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        </Box>
+      )
+    }
+    return (
+      <Box sx={{ py: 2, pl: 4 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
+          <Typography variant="subtitle2">Инструкции</Typography>
+          <Button size="small" startIcon={<Add />} onClick={() => openCreateInstr(s.id)} sx={{ alignSelf: 'flex-start' }}>Добавить</Button>
+        </Stack>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Шаг</TableCell>
+              <TableCell>Заголовок</TableCell>
+              <TableCell>Описание</TableCell>
+              <TableCell>Тип</TableCell>
+              <TableCell align="right">Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {instr.map((i) => (
+              <TableRow key={i.id}>
+                <TableCell>{i.stepNumber ?? '—'}</TableCell>
+                <TableCell><strong>{i.titleRu}</strong></TableCell>
+                <TableCell sx={{ maxWidth: 250 }}><Typography variant="body2" noWrap>{i.descriptionRu}</Typography></TableCell>
+                <TableCell>{i.isHighlight ? <Chip label="Заметка" size="small" color="warning" /> : <Chip label="Шаг" size="small" />}</TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEditInstr(i)}><Edit fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={() => handleDeleteInstr(i)}><Delete fontSize="small" /></IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <Divider sx={{ my: 2 }} />
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
+          <Typography variant="subtitle2">Фразы</Typography>
+          <Button size="small" startIcon={<Add />} onClick={() => openCreatePhrase(s.id)}>Добавить</Button>
+        </Stack>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Арабский</TableCell>
+              <TableCell>Транслит</TableCell>
+              <TableCell>Перевод</TableCell>
+              <TableCell>Аудио</TableCell>
+              <TableCell align="right">Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {phr.map((p) => (
+              <TableRow key={p.id}>
+                <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', direction: 'rtl', maxWidth: 200 }}>
+                  <Typography variant="body2" noWrap>{p.textAr}</Typography>
+                </TableCell>
+                <TableCell sx={{ maxWidth: 150 }}><Typography variant="body2" noWrap>{p.transliteration}</Typography></TableCell>
+                <TableCell sx={{ maxWidth: 200 }}><Typography variant="body2" noWrap>{p.translationRu}</Typography></TableCell>
+                <TableCell>
+                  {p.audioUrl ? (
+                    <Chip label="Есть" color="success" size="small" icon={<Audiotrack />} />
+                  ) : (
+                    <label>
+                      <input type="file" accept="audio/*" hidden onChange={(e) => { const file = e.target.files?.[0]; if (file) handlePhraseAudioUpload(p.id, s.id, file) }} />
+                      <Chip label="Загрузить" size="small" clickable variant="outlined" icon={<Audiotrack />} />
+                    </label>
+                  )}
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEditPhrase(p)}><Edit fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={() => handleDeletePhrase(p)}><Delete fontSize="small" /></IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+    )
+  }
+
   return (
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={3}>
         <Box>
-          <Typography variant="h4">Хадж и Умра</Typography>
-          <Typography variant="subtitle1">Путеводитель: секции, инструкции, фразы</Typography>
+          <Typography variant="h4" sx={pageTitleH4Sx}>Хадж и Умра</Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Путеводитель: секции, инструкции, фразы</Typography>
         </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button startIcon={<Refresh />} onClick={load} disabled={loading}>Обновить</Button>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreateSection}>Добавить секцию</Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignSelf: { xs: 'stretch', sm: 'auto' } }}>
+          <Button startIcon={<Refresh />} onClick={load} disabled={loading} sx={{ width: { xs: '100%', sm: 'auto' } }}>Обновить</Button>
+          <Button variant="contained" startIcon={<Add />} onClick={openCreateSection} sx={{ width: { xs: '100%', sm: 'auto' } }}>Добавить секцию</Button>
         </Stack>
       </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      <Card>
-        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell width={40} />
-                <TableCell>Эмодзи</TableCell>
-                <TableCell>Название</TableCell>
-                <TableCell>Код</TableCell>
-                <TableCell>Инструкции</TableCell>
-                <TableCell>Фразы</TableCell>
-                <TableCell>Порядок</TableCell>
-                <TableCell>Статус</TableCell>
-                <TableCell align="right">Действия</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sections.map((s) => {
-                const details = detailsMap[s.id]
-                return (
-                  <>
-                    <TableRow key={s.id} hover>
+      {isNarrow ? (
+        <Stack spacing={1.5}>
+          {sections.map((s) => (
+            <Card key={s.id} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Stack direction="row" alignItems="flex-start" spacing={1}>
+                  <IconButton size="small" onClick={() => toggleExpand(s.id)} aria-label="Развернуть">
+                    {expandedId === s.id ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
+                  </IconButton>
+                  <Typography sx={{ fontSize: '1.35rem', lineHeight: 1 }}>{s.emoji}</Typography>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography fontWeight={700}>{s.titleRu}</Typography>
+                    <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center" sx={{ mt: 0.5 }}>
+                      <Chip label={s.code} size="small" />
+                      <Typography variant="caption" color="text.secondary">Пор. {s.orderIndex} · {s.instructionsCount} инстр. · {s.phrasesCount} фр.</Typography>
+                    </Stack>
+                    <Chip label={s.isActive ? 'Активна' : 'Скрыта'} size="small" color={s.isActive ? 'success' : 'default'} sx={{ mt: 0.5 }} />
+                  </Box>
+                  <Stack direction="row" flexShrink={0}>
+                    <IconButton size="small" onClick={() => openEditSection(s)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeleteSection(s.id)}><Delete fontSize="small" /></IconButton>
+                  </Stack>
+                </Stack>
+              </CardContent>
+              <Collapse in={expandedId === s.id} unmountOnExit>
+                <Box sx={{ px: 1.5, pb: 1.5, pt: 0, borderTop: 1, borderColor: 'divider' }}>{renderSectionExpanded(s)}</Box>
+              </Collapse>
+            </Card>
+          ))}
+          {sections.length === 0 && !loading && (
+            <Typography color="text.secondary" py={4} textAlign="center">Нет секций</Typography>
+          )}
+        </Stack>
+      ) : (
+        <Card>
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell width={40} />
+                  <TableCell>Эмодзи</TableCell>
+                  <TableCell>Название</TableCell>
+                  <TableCell>Код</TableCell>
+                  <TableCell>Инструкции</TableCell>
+                  <TableCell>Фразы</TableCell>
+                  <TableCell>Порядок</TableCell>
+                  <TableCell>Статус</TableCell>
+                  <TableCell align="right">Действия</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {sections.map((s) => (
+                  <Fragment key={s.id}>
+                    <TableRow hover>
                       <TableCell>
                         <IconButton size="small" onClick={() => toggleExpand(s.id)}>
                           {expandedId === s.id ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
@@ -245,105 +425,27 @@ export default function IslamHajjGuidePage() {
                         <IconButton size="small" color="error" onClick={() => handleDeleteSection(s.id)}><Delete fontSize="small" /></IconButton>
                       </TableCell>
                     </TableRow>
-                    <TableRow key={s.id + '-expand'}>
+                    <TableRow>
                       <TableCell colSpan={9} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
                         <Collapse in={expandedId === s.id} unmountOnExit>
-                          <Box sx={{ py: 2, pl: 4 }}>
-                            {/* Instructions */}
-                            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
-                              <Typography variant="subtitle2">Инструкции</Typography>
-                              <Button size="small" startIcon={<Add />} onClick={() => openCreateInstr(s.id)} sx={{ alignSelf: 'flex-start' }}>Добавить</Button>
-                            </Stack>
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Шаг</TableCell>
-                                  <TableCell>Заголовок</TableCell>
-                                  <TableCell>Описание</TableCell>
-                                  <TableCell>Тип</TableCell>
-                                  <TableCell align="right">Действия</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {(details?.instructions || []).map((i) => (
-                                  <TableRow key={i.id}>
-                                    <TableCell>{i.stepNumber ?? '—'}</TableCell>
-                                    <TableCell><strong>{i.titleRu}</strong></TableCell>
-                                    <TableCell sx={{ maxWidth: 250 }}><Typography variant="body2" noWrap>{i.descriptionRu}</Typography></TableCell>
-                                    <TableCell>{i.isHighlight ? <Chip label="Заметка" size="small" color="warning" /> : <Chip label="Шаг" size="small" />}</TableCell>
-                                    <TableCell align="right">
-                                      <IconButton size="small" onClick={() => openEditInstr(i)}><Edit fontSize="small" /></IconButton>
-                                      <IconButton size="small" color="error" onClick={() => handleDeleteInstr(i)}><Delete fontSize="small" /></IconButton>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-
-                            <Divider sx={{ my: 2 }} />
-
-                            {/* Phrases */}
-                            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
-                              <Typography variant="subtitle2">Фразы</Typography>
-                              <Button size="small" startIcon={<Add />} onClick={() => openCreatePhrase(s.id)}>Добавить</Button>
-                            </Stack>
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Арабский</TableCell>
-                                  <TableCell>Транслит</TableCell>
-                                  <TableCell>Перевод</TableCell>
-                                  <TableCell>Аудио</TableCell>
-                                  <TableCell align="right">Действия</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {(details?.phrases || []).map((p) => (
-                                  <TableRow key={p.id}>
-                                    <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', direction: 'rtl', maxWidth: 200 }}>
-                                      <Typography variant="body2" noWrap>{p.textAr}</Typography>
-                                    </TableCell>
-                                    <TableCell sx={{ maxWidth: 150 }}><Typography variant="body2" noWrap>{p.transliteration}</Typography></TableCell>
-                                    <TableCell sx={{ maxWidth: 200 }}><Typography variant="body2" noWrap>{p.translationRu}</Typography></TableCell>
-                                    <TableCell>
-                                      {p.audioUrl ? (
-                                        <Chip label="Есть" color="success" size="small" icon={<Audiotrack />} />
-                                      ) : (
-                                        <label>
-                                          <input type="file" accept="audio/*" hidden onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) handlePhraseAudioUpload(p.id, s.id, file)
-                                          }} />
-                                          <Chip label="Загрузить" size="small" clickable variant="outlined" icon={<Audiotrack />} />
-                                        </label>
-                                      )}
-                                    </TableCell>
-                                    <TableCell align="right">
-                                      <IconButton size="small" onClick={() => openEditPhrase(p)}><Edit fontSize="small" /></IconButton>
-                                      <IconButton size="small" color="error" onClick={() => handleDeletePhrase(p)}><Delete fontSize="small" /></IconButton>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </Box>
+                          {renderSectionExpanded(s)}
                         </Collapse>
                       </TableCell>
                     </TableRow>
-                  </>
-                )
-              })}
-              {sections.length === 0 && !loading && (
-                <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    <Typography color="text.secondary" py={4}>Нет секций</Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+                  </Fragment>
+                ))}
+                {sections.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center">
+                      <Typography color="text.secondary" py={4}>Нет секций</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
 
       {/* Section Dialog */}
       <Dialog open={sectionDialogOpen} onClose={() => setSectionDialogOpen(false)} {...narrowFormXs}>

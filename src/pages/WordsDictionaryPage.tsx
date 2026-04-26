@@ -44,6 +44,7 @@ import {
   deleteWordsDictionaryEntryAudio,
 } from '../api/adminApi'
 import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
+import { pageTitleH4Sx } from '../utils/responsivePageSx'
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -424,7 +425,7 @@ export default function WordsDictionaryPage() {
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4 }}>
+          <Typography variant="h4" sx={pageTitleH4Sx}>
             Словарь
           </Typography>
           <Typography color="text.secondary">
@@ -496,10 +497,14 @@ export default function WordsDictionaryPage() {
                   }}
                 >
                   <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack direction="row" alignItems="center" spacing={2}>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      alignItems={{ xs: 'stretch', sm: 'center' }}
+                      spacing={2}
+                    >
                       <Box
                         sx={{
-                          width: 56,
+                          width: { xs: '100%', sm: 56 },
                           height: 56,
                           display: 'flex',
                           alignItems: 'center',
@@ -507,6 +512,7 @@ export default function WordsDictionaryPage() {
                           borderRadius: 2,
                           bgcolor: 'action.hover',
                           flexShrink: 0,
+                          alignSelf: { xs: 'center', sm: 'auto' },
                         }}
                       >
                         <Typography variant="h5" sx={{ fontFamily: 'serif' }}>
@@ -533,7 +539,13 @@ export default function WordsDictionaryPage() {
                           </Typography>
                         </Stack>
                       </Stack>
-                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent={{ xs: 'flex-end', sm: 'flex-start' }}
+                        spacing={0.5}
+                        sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
+                      >
                         <Tooltip title={entry.audioUrl ? 'Есть аудио' : 'Нет аудио'}>
                           <Audiotrack
                             sx={{
@@ -574,6 +586,10 @@ export default function WordsDictionaryPage() {
           }}
           rowsPerPageOptions={[25, 50, 100, 200]}
           labelRowsPerPage="Строк на странице:"
+          sx={{
+            flexWrap: 'wrap',
+            '& .MuiTablePagination-toolbar': { flexWrap: 'wrap', gap: 1 },
+          }}
         />
       )}
 

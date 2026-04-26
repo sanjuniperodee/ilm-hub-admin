@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
 import { getModuleById, updateModule } from '../api/adminApi'
+import { pageTitleH3Sx } from '../utils/responsivePageSx'
 
 export default function ModuleEditorPage() {
   const { courseId, moduleId } = useParams<{ courseId: string; moduleId: string }>()
@@ -82,7 +83,7 @@ export default function ModuleEditorPage() {
         >
           К контенту
         </Button>
-        <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+        <Typography variant="h3" sx={pageTitleH3Sx}>
           Редактировать модуль
         </Typography>
       </Stack>

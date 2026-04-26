@@ -30,6 +30,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { getDashboardStats } from '../api/adminApi'
+import { pageTitleH3Sx } from '../utils/responsivePageSx'
 
 interface DashboardStats {
   totalUsers: number
@@ -108,7 +109,7 @@ function StatCard({ title, value, icon, gradient, iconBg }: StatCardProps) {
             </Typography>
             <Typography
               sx={{
-                fontSize: '2rem',
+                fontSize: { xs: '1.5rem', sm: '2rem' },
                 fontWeight: 800,
                 letterSpacing: '-0.02em',
                 color: 'text.primary',
@@ -196,8 +197,7 @@ export default function DashboardPage() {
         <Typography
           variant="h3"
           sx={{
-            fontWeight: 800,
-            letterSpacing: '-0.02em',
+            ...pageTitleH3Sx,
             background: 'linear-gradient(135deg, #0F172A 0%, #334155 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
@@ -297,11 +297,11 @@ export default function DashboardPage() {
       <Grid container spacing={3}>
         <Grid item xs={12} lg={8}>
           <Card>
-            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            <CardContent sx={{ p: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } } }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 Регистрации за 30 дней
               </Typography>
-              <Box sx={{ width: '100%', height: 280 }}>
+              <Box sx={{ width: '100%', height: { xs: 220, sm: 280 } }}>
                 {chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -350,49 +350,72 @@ export default function DashboardPage() {
         </Grid>
         <Grid item xs={12} lg={4}>
           <Card sx={{ height: '100%' }}>
-            <CardContent sx={{ p: 3, '&:last-child': { pb: 3 }, height: '100%' }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            <CardContent sx={{ p: { xs: 2, sm: 3 }, '&:last-child': { pb: { xs: 2, sm: 3 } }, height: '100%' }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 Последняя активность
               </Typography>
-              <List dense disablePadding sx={{ maxHeight: 320, overflow: 'auto' }}>
+              <List dense disablePadding sx={{ maxHeight: { xs: 280, sm: 320 }, overflow: 'auto' }}>
                 {stats.recentActivity.length === 0 ? (
                   <Typography color="text.secondary" variant="body2">
                     Нет активности
                   </Typography>
                 ) : (
                   stats.recentActivity.map((item, idx) => (
-                    <ListItem key={idx} disablePadding sx={{ mb: 1.5 }}>
-                      <ListItemIcon sx={{ minWidth: 36 }}>
-                        {item.type === 'user_signup' ? (
-                          <PersonAddOutlined sx={{ fontSize: 20, color: '#10B981' }} />
-                        ) : (
-                          <QuizOutlined
-                            sx={{
-                              fontSize: 20,
-                              color: item.isPassed ? '#10B981' : '#F59E0B',
-                            }}
-                          />
-                        )}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Link
-                            component={RouterLink}
-                            to={`/users/${item.userId}`}
-                            underline="hover"
-                            sx={{ fontWeight: 500 }}
-                          >
-                            {item.userName || item.userEmail || 'Пользователь'}
-                          </Link>
-                        }
-                        secondary={
-                          <Typography variant="body2" color="text.secondary">
-                            {item.description}
-                          </Typography>
-                        }
-                        secondaryTypographyProps={{ component: 'span' }}
-                      />
-                      <Typography variant="caption" color="text.disabled" sx={{ ml: 1 }}>
+                    <ListItem
+                      key={idx}
+                      disablePadding
+                      alignItems="flex-start"
+                      sx={{
+                        mb: 1.5,
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        flexWrap: 'wrap',
+                        gap: { xs: 0.5, sm: 0 },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', width: { xs: '100%', sm: 'auto' }, minWidth: 0 }}>
+                        <ListItemIcon sx={{ minWidth: 36, mt: 0.25 }}>
+                          {item.type === 'user_signup' ? (
+                            <PersonAddOutlined sx={{ fontSize: 20, color: '#10B981' }} />
+                          ) : (
+                            <QuizOutlined
+                              sx={{
+                                fontSize: 20,
+                                color: item.isPassed ? '#10B981' : '#F59E0B',
+                              }}
+                            />
+                          )}
+                        </ListItemIcon>
+                        <ListItemText
+                          sx={{ minWidth: 0 }}
+                          primary={
+                            <Link
+                              component={RouterLink}
+                              to={`/users/${item.userId}`}
+                              underline="hover"
+                              sx={{ fontWeight: 500 }}
+                            >
+                              {item.userName || item.userEmail || 'Пользователь'}
+                            </Link>
+                          }
+                          secondary={
+                            <Typography variant="body2" color="text.secondary">
+                              {item.description}
+                            </Typography>
+                          }
+                          secondaryTypographyProps={{ component: 'span' }}
+                        />
+                      </Box>
+                      <Typography
+                        variant="caption"
+                        color="text.disabled"
+                        sx={{
+                          width: { xs: '100%', sm: 'auto' },
+                          ml: { xs: 0, sm: 1 },
+                          alignSelf: { xs: 'flex-end', sm: 'auto' },
+                          textAlign: { xs: 'right', sm: 'left' },
+                          flexShrink: 0,
+                        }}
+                      >
                         {format(new Date(item.date), 'd MMM, HH:mm', { locale: ru })}
                       </Typography>
                     </ListItem>

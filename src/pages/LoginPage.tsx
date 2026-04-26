@@ -44,13 +44,17 @@ export default function LoginPage() {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 40%, #312E81 100%)',
         position: 'relative',
         overflow: 'hidden',
+        px: { xs: 'max(16px, env(safe-area-inset-left, 0px))', sm: 2 },
+        pr: { xs: 'max(16px, env(safe-area-inset-right, 0px))', sm: 2 },
+        pt: { xs: 'max(16px, env(safe-area-inset-top, 0px))', sm: 0 },
+        pb: { xs: 'max(20px, env(safe-area-inset-bottom, 0px))', sm: 0 },
       }}
     >
       {/* Background decorative elements */}
@@ -110,7 +114,7 @@ export default function LoginPage() {
             sx={{
               color: '#fff',
               fontWeight: 700,
-              fontSize: '1.75rem',
+              fontSize: { xs: '1.45rem', sm: '1.65rem', md: '1.75rem' },
               letterSpacing: '-0.02em',
             }}
           >
@@ -135,7 +139,7 @@ export default function LoginPage() {
             backdropFilter: 'blur(24px)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: '24px',
-            p: 4,
+            p: { xs: 2.5, sm: 4 },
           }}
         >
           {error && (

@@ -20,6 +20,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import {
   Add,
@@ -47,6 +49,7 @@ import {
 import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
+import { pageTitleH4Sx } from '../utils/responsivePageSx'
 
 interface CardTheme {
   id: string
@@ -93,6 +96,8 @@ export default function WordsCardsPage() {
   const [editingCard, setEditingCard] = useState<WordCard | null>(null)
   const [cardForm, setCardForm] = useState({ themeId: '', arabic: '', translit: '', translationRu: '', orderIndex: 0 })
   const narrowFormSm = useNarrowDialogProps('sm')
+  const themeMui = useTheme()
+  const isNarrowTable = useMediaQuery(themeMui.breakpoints.down('md'))
 
   const loadThemes = async () => {
     setLoading(true)
@@ -268,12 +273,14 @@ export default function WordsCardsPage() {
   return (
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={2}>
-        <Typography variant="h4">Word Cards</Typography>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button startIcon={<Refresh />} onClick={loadThemes} disabled={loading}>
+        <Typography variant="h4" sx={pageTitleH4Sx}>
+          Word Cards
+        </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignSelf: 'stretch' }}>
+          <Button startIcon={<Refresh />} onClick={loadThemes} disabled={loading} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             Refresh
           </Button>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreateTheme}>
+          <Button variant="contained" startIcon={<Add />} onClick={openCreateTheme} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             Add Theme
           </Button>
         </Stack>
@@ -346,69 +353,131 @@ export default function WordsCardsPage() {
                 </Box>
               )}
               <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
-                <Button size="small" startIcon={<Add />} onClick={() => openCreateCard(theme.id)}>
+                <Button
+                  size="small"
+                  startIcon={<Add />}
+                  onClick={() => openCreateCard(theme.id)}
+                  sx={{ width: { xs: '100%', sm: 'auto' } }}
+                >
                   Add Card
                 </Button>
               </Stack>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>#</TableCell>
-                    <TableCell>Arabic</TableCell>
-                    <TableCell>Translit</TableCell>
-                    <TableCell>Translation (RU)</TableCell>
-                    <TableCell>Media</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
+              {isNarrowTable ? (
+                <Stack spacing={1.5}>
                   {(themeCards[theme.id] || []).map((card, idx) => (
-                    <TableRow key={card.id}>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell sx={{ fontFamily: 'serif', fontSize: 18 }}>{card.arabic}</TableCell>
-                      <TableCell>{card.translit || '—'}</TableCell>
-                      <TableCell>{card.translationRu}</TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={0.5}>
-                          <IconButton
-                            size="small"
-                            color={card.audioUrl ? 'primary' : 'default'}
-                            onClick={() => handleUploadAudio(card)}
-                            title="Upload audio"
-                          >
-                            <Audiotrack fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color={card.imageUrl ? 'primary' : 'default'}
-                            onClick={() => handleUploadImage(card)}
-                            title="Upload image"
-                          >
-                            <ImageIcon fontSize="small" />
-                          </IconButton>
+                    <Card key={card.id} variant="outlined" sx={{ borderRadius: 2 }}>
+                      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          alignItems="flex-start"
+                          spacing={1}
+                        >
+                          <Chip label={idx + 1} size="small" variant="outlined" />
+                          <Stack direction="row" spacing={0.5} flexWrap="wrap" justifyContent="flex-end">
+                            <IconButton
+                              size="small"
+                              color={card.audioUrl ? 'primary' : 'default'}
+                              onClick={() => handleUploadAudio(card)}
+                              title="Upload audio"
+                            >
+                              <Audiotrack fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color={card.imageUrl ? 'primary' : 'default'}
+                              onClick={() => handleUploadImage(card)}
+                              title="Upload image"
+                            >
+                              <ImageIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => openEditCard(card)}>
+                              <Edit fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => handleDeleteCard(card)}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Stack>
                         </Stack>
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={() => openEditCard(card)}>
-                          <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteCard(card)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
+                        <Typography sx={{ fontFamily: 'serif', fontSize: 22, mt: 1, textAlign: 'center' }} dir="rtl">
+                          {card.arabic}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" textAlign="center">
+                          {card.translit || '—'}
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          {card.translationRu}
+                        </Typography>
+                      </CardContent>
+                    </Card>
                   ))}
                   {(themeCards[theme.id] || []).length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center">
-                        <Typography variant="body2" color="text.secondary">
-                          No cards yet
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
+                    <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 2 }}>
+                      No cards yet
+                    </Typography>
                   )}
-                </TableBody>
-              </Table>
+                </Stack>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>#</TableCell>
+                      <TableCell>Arabic</TableCell>
+                      <TableCell>Translit</TableCell>
+                      <TableCell>Translation (RU)</TableCell>
+                      <TableCell>Media</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(themeCards[theme.id] || []).map((card, idx) => (
+                      <TableRow key={card.id}>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell sx={{ fontFamily: 'serif', fontSize: 18 }}>{card.arabic}</TableCell>
+                        <TableCell>{card.translit || '—'}</TableCell>
+                        <TableCell>{card.translationRu}</TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.5}>
+                            <IconButton
+                              size="small"
+                              color={card.audioUrl ? 'primary' : 'default'}
+                              onClick={() => handleUploadAudio(card)}
+                              title="Upload audio"
+                            >
+                              <Audiotrack fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color={card.imageUrl ? 'primary' : 'default'}
+                              onClick={() => handleUploadImage(card)}
+                              title="Upload image"
+                            >
+                              <ImageIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right">
+                          <IconButton size="small" onClick={() => openEditCard(card)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleDeleteCard(card)}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {(themeCards[theme.id] || []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center">
+                          <Typography variant="body2" color="text.secondary">
+                            No cards yet
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
             </Box>
           </Collapse>
         </Card>

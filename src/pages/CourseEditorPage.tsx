@@ -15,6 +15,7 @@ import {
 } from '@mui/material'
 import { ArrowBack, Save } from '@mui/icons-material'
 import { getCourseById, updateCourse } from '../api/adminApi'
+import { pageTitleH3Sx } from '../utils/responsivePageSx'
 
 export default function CourseEditorPage() {
   const { courseId } = useParams<{ courseId: string }>()
@@ -94,7 +95,7 @@ export default function CourseEditorPage() {
         >
           К контенту
         </Button>
-        <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+        <Typography variant="h3" sx={pageTitleH3Sx}>
           Редактировать курс
         </Typography>
       </Stack>

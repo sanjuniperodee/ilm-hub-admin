@@ -5,8 +5,6 @@ import {
   Box,
   Breadcrumbs,
   Button,
-  Card,
-  CardContent,
   Chip,
   Dialog,
   DialogActions,
@@ -17,6 +15,7 @@ import {
   LinearProgress,
   Link,
   MenuItem,
+  Paper,
   Select,
   Stack,
   TextField,
@@ -25,6 +24,7 @@ import {
   IconButton,
   CircularProgress,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import {
   Add,
   Edit as EditIcon,
@@ -130,10 +130,15 @@ function SortableModuleRow({
         alignItems={{ xs: 'flex-start', sm: 'center' }}
         spacing={1}
         sx={{
-          p: 1,
-          borderRadius: 1.5,
-          bgcolor: 'action.hover',
-          '&:hover': { bgcolor: 'action.selected' },
+          p: 1.25,
+          borderRadius: 2,
+          bgcolor: (t) => alpha(t.palette.primary.main, 0.04),
+          border: '1px solid',
+          borderColor: 'divider',
+          '&:hover': {
+            bgcolor: (t) => alpha(t.palette.primary.main, 0.07),
+            borderColor: (t) => alpha(t.palette.primary.main, 0.2),
+          },
           flexWrap: 'wrap',
         }}
       >
@@ -217,9 +222,12 @@ function SortableLessonRow({
       alignItems="flex-start"
       spacing={1}
       sx={{
-        p: 0.75,
-        borderRadius: 1,
-        '&:hover': { bgcolor: 'action.hover' },
+        p: 1,
+        borderRadius: 1.5,
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
+        '&:hover': { bgcolor: 'action.hover', borderColor: (t) => alpha(t.palette.primary.main, 0.15) },
         opacity: isDragging ? 0.5 : 1,
         flexWrap: 'wrap',
       }}
@@ -275,6 +283,7 @@ function levelCodeFromCourseCode(code: string | undefined): string | null {
 }
 
 export default function ContentHubPage() {
+  const theme = useTheme()
   const navigate = useNavigate()
   const { courseId: urlCourseId, moduleId: urlModuleId } = useParams<{
     courseId?: string
@@ -592,124 +601,260 @@ export default function ContentHubPage() {
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-    <Box>
-      <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4, fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>
-            Контент
-          </Typography>
-          <Typography color="text.secondary">
-            Курсы → Модули → Уроки. Раскройте и перейдите к редактированию.
-          </Typography>
-        </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ flexWrap: 'wrap', gap: 1 }}>
-          <Button variant="outlined" size="small" onClick={() => openOnboardingPlacement('diagnostic')}>
-            Онбординг: диагностика
-          </Button>
-          <Button variant="contained" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)}>
-            Создать курс
-          </Button>
+    <Box sx={{ maxWidth: 960, mx: 'auto' }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 2.5, sm: 3 },
+          mb: 3,
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider',
+          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.07)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 55%, ${alpha(theme.palette.primary.main, 0.03)} 100%)`,
+          position: 'relative',
+          overflow: 'hidden',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: 4,
+            height: '100%',
+            borderRadius: '4px 0 0 4px',
+            background: `linear-gradient(180deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+          },
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          alignItems={{ xs: 'flex-start', md: 'center' }}
+          justifyContent="space-between"
+          spacing={2}
+          sx={{ pl: { xs: 0.5, sm: 1 } }}
+        >
+          <Stack direction="row" spacing={2} alignItems="flex-start" sx={{ minWidth: 0 }}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: 2,
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: alpha(theme.palette.primary.main, 0.14),
+                color: 'primary.main',
+              }}
+            >
+              <SchoolOutlined sx={{ fontSize: 28 }} />
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: '0.08em', fontWeight: 700, lineHeight: 1.2 }}>
+                Учебные программы
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-0.03em', fontSize: { xs: '1.35rem', sm: '1.6rem' }, mt: 0.25 }}>
+                Контент
+              </Typography>
+              <Typography color="text.secondary" sx={{ mt: 0.5, maxWidth: 520, lineHeight: 1.55 }}>
+                Иерархия: курсы, модули и уроки. Раскройте строку, перетаскивайте для порядка, откройте редактор.
+              </Typography>
+              {!loading && courses.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5, gap: 1 }}>
+                  <Chip size="small" color="primary" variant="outlined" label={`${courses.length} ${courses.length === 1 ? 'курс' : courses.length >= 2 && courses.length <= 4 ? 'курса' : 'курсов'}`} />
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={`${courses.reduce((acc, x) => acc + (lessonsByCourse[x.id]?.length ?? 0), 0)} уроков всего`}
+                    sx={{ borderColor: 'divider' }}
+                  />
+                </Stack>
+              )}
+            </Box>
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ width: { xs: '100%', md: 'auto' }, flexShrink: 0 }}>
+            <Button variant="outlined" size="medium" onClick={() => openOnboardingPlacement('diagnostic')} sx={{ bgcolor: 'background.paper' }}>
+              Онбординг: диагностика
+            </Button>
+            <Button variant="contained" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)}>
+              Создать курс
+            </Button>
+          </Stack>
         </Stack>
-      </Stack>
+      </Paper>
 
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
+      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
       {!!error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {!!success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          component="button"
-          variant="body2"
-          color={urlCourseId ? 'text.secondary' : 'text.primary'}
-          onClick={() => navigate('/content')}
-          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' }, cursor: 'pointer' }}
-        >
-          Контент
-        </Link>
-        {urlCourse && (
+      <Paper
+        elevation={0}
+        variant="outlined"
+        sx={{
+          px: 2,
+          py: 1.25,
+          mb: 2.5,
+          borderRadius: 2,
+          bgcolor: alpha(theme.palette.primary.main, 0.02),
+          borderColor: 'divider',
+        }}
+      >
+        <Breadcrumbs separator="›" sx={{ '& .MuiBreadcrumbs-separator': { mx: 0.75, color: 'text.disabled' } }}>
           <Link
             component="button"
             variant="body2"
-            color={urlModuleId ? 'text.secondary' : 'text.primary'}
-            onClick={() => navigate(`/content/courses/${urlCourse.id}`)}
-            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' }, cursor: 'pointer' }}
+            color={urlCourseId ? 'text.secondary' : 'text.primary'}
+            onClick={() => navigate('/content')}
+            sx={{ fontWeight: urlCourseId ? 400 : 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' }, cursor: 'pointer' }}
           >
-            {urlCourse.code}
+            Контент
           </Link>
-        )}
-        {urlModule && (
-          <Typography variant="body2" color="text.primary">
-            {urlModule.titleRu}
-          </Typography>
-        )}
-      </Breadcrumbs>
+          {urlCourse && (
+            <Link
+              component="button"
+              variant="body2"
+              color={urlModuleId ? 'text.secondary' : 'text.primary'}
+              onClick={() => navigate(`/content/courses/${urlCourse.id}`)}
+              sx={{ fontWeight: urlModuleId ? 400 : 600, textDecoration: 'none', '&:hover': { textDecoration: 'underline' }, cursor: 'pointer' }}
+            >
+              {urlCourse.code}
+            </Link>
+          )}
+          {urlModule && (
+            <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
+              {urlModule.titleRu}
+            </Typography>
+          )}
+        </Breadcrumbs>
+      </Paper>
 
-      <Card sx={{ borderRadius: 4 }}>
-        <CardContent>
-          {courses.length === 0 ? (
-            <Box sx={{ py: 8, textAlign: 'center' }}>
-              <SchoolOutlined sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-              <Typography color="text.secondary" sx={{ mb: 2 }}>
-                Создайте первый курс
+      <Stack spacing={2}>
+          {courses.length === 0 && !loading ? (
+            <Paper
+              elevation={0}
+              variant="outlined"
+              sx={{
+                py: 8,
+                px: 3,
+                textAlign: 'center',
+                borderRadius: 3,
+                borderStyle: 'dashed',
+                bgcolor: alpha(theme.palette.primary.main, 0.02),
+              }}
+            >
+              <Box
+                sx={{
+                  width: 72,
+                  height: 72,
+                  mx: 'auto',
+                  mb: 2,
+                  borderRadius: 3,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  color: 'primary.main',
+                }}
+              >
+                <SchoolOutlined sx={{ fontSize: 40 }} />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+                Пока нет курсов
               </Typography>
-              <Button variant="contained" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)}>
+              <Typography color="text.secondary" sx={{ mb: 3, maxWidth: 360, mx: 'auto' }}>
+                Добавьте первый курс — затем наполните его модулями и уроками.
+              </Typography>
+              <Button variant="contained" size="large" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)}>
                 Создать курс
               </Button>
-            </Box>
+            </Paper>
           ) : (
-            <Stack spacing={0}>
-              {courses.map((c) => {
+            courses.map((c) => {
                 const courseExpanded = expandedCourses.has(c.id)
                 const mods = (modulesByCourse[c.id] || []).sort((a, b) => a.orderIndex - b.orderIndex)
                 const les = (lessonsByCourse[c.id] || []).sort((a, b) => a.orderIndex - b.orderIndex)
                 const levelCode = levelCodeFromCourseCode(c.code)
 
                 return (
-                  <Box key={c.id}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  <Paper
+                    key={c.id}
+                    elevation={0}
+                    variant="outlined"
+                    sx={{
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                      borderColor: courseExpanded ? alpha(theme.palette.primary.main, 0.45) : 'divider',
+                      boxShadow: courseExpanded ? `0 0 0 1px ${alpha(theme.palette.primary.main, 0.12)}` : 'none',
+                      transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                      '&:hover': {
+                        borderColor: courseExpanded ? alpha(theme.palette.primary.main, 0.55) : alpha(theme.palette.divider, 0.14),
+                      },
+                    }}
+                  >
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      alignItems={{ xs: 'flex-start', sm: 'center' }}
+                      spacing={1.5}
+                      sx={{
+                        flexWrap: 'wrap',
+                        gap: 1,
+                        p: { xs: 1.5, sm: 2 },
+                        cursor: 'pointer',
+                        bgcolor: courseExpanded ? alpha(theme.palette.primary.main, 0.03) : 'background.paper',
+                      }}
+                      onClick={() => toggleCourse(c.id)}
+                    >
                       <Box
                         component="span"
-                        sx={{ width: 32, display: 'flex', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
-                        onClick={() => toggleCourse(c.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleCourse(c.id)
+                        }}
+                        sx={{ width: 36, display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}
                       >
                         {courseExpanded ? (
-                          <ExpandLess sx={{ fontSize: 24, color: 'text.secondary' }} />
+                          <ExpandLess sx={{ fontSize: 24, color: 'primary.main' }} />
                         ) : (
                           <ExpandMore sx={{ fontSize: 24, color: 'text.secondary' }} />
                         )}
                       </Box>
-                      <SchoolOutlined sx={{ fontSize: 22, color: 'text.secondary', flexShrink: 0 }} />
+                      <SchoolOutlined sx={{ fontSize: 24, color: courseExpanded ? 'primary.main' : 'text.secondary', flexShrink: 0 }} />
                       <Stack
                         direction={{ xs: 'column', sm: 'row' }}
                         alignItems={{ xs: 'flex-start', sm: 'center' }}
-                        spacing={1.5}
+                        spacing={1}
                         sx={{ flex: 1, minWidth: 0 }}
-                        onClick={() => openCourseEdit(c.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openCourseEdit(c.id)
+                        }}
                       >
-                        <Typography variant="body1" sx={{ fontWeight: 700, cursor: 'pointer' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, cursor: 'pointer', letterSpacing: '-0.01em' }}>
                           {c.orderIndex}. {c.titleRu}
                         </Typography>
-                        <Chip label={c.code} size="small" sx={{ fontSize: '0.7rem' }} />
-                        <Chip label={`${mods.length} модулей`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
-                        <Chip label={`${les.length} уроков`} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+                        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ gap: 0.75 }}>
+                          <Chip label={c.code} size="small" color="primary" variant="outlined" sx={{ fontWeight: 600 }} />
+                          <Chip label={`${mods.length} мод.`} size="small" variant="outlined" />
+                          <Chip label={`${les.length} урок.`} size="small" variant="outlined" />
+                        </Stack>
                       </Stack>
                       <Box
                         sx={{
                           display: 'flex',
                           flexDirection: { xs: 'column', sm: 'row' },
-                          gap: 0.5,
+                          gap: 1,
                           flexShrink: 0,
                           flexWrap: 'wrap',
                           width: { xs: '100%', sm: 'auto' },
                           alignSelf: { xs: 'stretch', sm: 'auto' },
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Button
                           size="small"
                           variant="outlined"
                           startIcon={<EditIcon sx={{ fontSize: 14 }} />}
                           onClick={() => openCourseEdit(c.id)}
-                          sx={{ whiteSpace: { sm: 'nowrap' }, width: { xs: '100%', sm: 'auto' } }}
+                          sx={{ whiteSpace: { sm: 'nowrap' }, width: { xs: '100%', sm: 'auto' }, bgcolor: 'background.paper' }}
                         >
                           Редактировать
                         </Button>
@@ -717,7 +862,8 @@ export default function ContentHubPage() {
                           <Tooltip title={`Добавить модуль в ${c.titleRu}`}>
                             <Button
                               size="small"
-                              variant="outlined"
+                              variant="contained"
+                              color="secondary"
                               startIcon={<Add />}
                               onClick={() => {
                                 setContextCourseId(c.id)
@@ -733,52 +879,70 @@ export default function ContentHubPage() {
                     </Stack>
 
                     {courseExpanded && (
-                      <Box sx={{ pl: { xs: 2, sm: 4 }, pr: 2, pb: 2 }}>
+                      <Box
+                        sx={{
+                          px: { xs: 1.5, sm: 2 },
+                          pb: 2,
+                          pt: 0,
+                          borderTop: '1px solid',
+                          borderColor: 'divider',
+                          bgcolor: alpha(theme.palette.primary.main, 0.02),
+                        }}
+                      >
+                        <Stack spacing={1} sx={{ pt: 2 }}>
                         {levelCode && (
                           <Tooltip title={`Тест уровня ${levelCode} — проверка знаний по всему уровню`}>
-                            <Stack
-                              direction={{ xs: 'column', sm: 'row' }}
-                              alignItems={{ xs: 'flex-start', sm: 'center' }}
-                              spacing={1}
-                              sx={{ mb: 1, pl: { xs: 0, sm: 1 } }}
+                            <Paper
+                              elevation={0}
+                              variant="outlined"
+                              sx={{
+                                px: 1.5,
+                                py: 1,
+                                borderRadius: 2,
+                                display: 'flex',
+                                flexDirection: { xs: 'column', sm: 'row' },
+                                alignItems: { xs: 'flex-start', sm: 'center' },
+                                gap: 1,
+                                bgcolor: 'background.paper',
+                              }}
                             >
-                              <QuizOutlined sx={{ fontSize: 18, color: 'text.secondary' }} />
-                              <Typography variant="body2" sx={{ flex: 1 }}>
+                              <QuizOutlined sx={{ fontSize: 20, color: 'text.secondary' }} />
+                              <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
                                 Тест уровня ({levelCode})
                               </Typography>
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => openLevelTest(levelCode)}
-                              >
+                              <Button size="small" variant="outlined" onClick={() => openLevelTest(levelCode)}>
                                 Открыть
                               </Button>
-                            </Stack>
+                            </Paper>
                           </Tooltip>
                         )}
                         {['mahraj', 'a1', 'a2'].includes(String(c.code || '').toLowerCase()) && (
                           <Tooltip title="Вопросы для ветки онбординга (без Premium)">
-                            <Stack
-                              direction={{ xs: 'column', sm: 'row' }}
-                              alignItems={{ xs: 'flex-start', sm: 'center' }}
-                              spacing={1}
-                              sx={{ mb: 1, pl: { xs: 0, sm: 1 } }}
+                            <Paper
+                              elevation={0}
+                              variant="outlined"
+                              sx={{
+                                px: 1.5,
+                                py: 1,
+                                borderRadius: 2,
+                                display: 'flex',
+                                flexDirection: { xs: 'column', sm: 'row' },
+                                alignItems: { xs: 'flex-start', sm: 'center' },
+                                gap: 1,
+                                borderColor: (t) => alpha(t.palette.primary.main, 0.25),
+                                bgcolor: (t) => alpha(t.palette.primary.main, 0.04),
+                              }}
                             >
-                              <QuizOutlined sx={{ fontSize: 18, color: 'primary.main' }} />
-                              <Typography variant="body2" sx={{ flex: 1 }}>
+                              <QuizOutlined sx={{ fontSize: 20, color: 'primary.main' }} />
+                              <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
                                 Тест онбординга ({c.code})
                               </Typography>
-                              <Button
-                                size="small"
-                                variant="text"
-                                onClick={() => openOnboardingPlacement(String(c.code).toLowerCase())}
-                              >
+                              <Button size="small" variant="contained" onClick={() => openOnboardingPlacement(String(c.code).toLowerCase())}>
                                 Открыть
                               </Button>
-                            </Stack>
+                            </Paper>
                           </Tooltip>
                         )}
-
                         <SortableContext items={mods.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                         {mods.map((m) => {
                           const moduleLessons = les.filter((l) => l.moduleId === m.id)
@@ -820,22 +984,25 @@ export default function ContentHubPage() {
                         </SortableContext>
 
                         {les.filter((l) => !l.moduleId).length > 0 && (
-                          <Box
+                          <Paper
+                            elevation={0}
+                            variant="outlined"
                             sx={{
                               p: 1.5,
-                              borderRadius: 1.5,
-                              border: '1px dashed',
-                              borderColor: 'divider',
-                              mt: 1,
+                              borderRadius: 2,
+                              borderStyle: 'dashed',
+                              borderColor: (t) => alpha(t.palette.warning.main, 0.35),
+                              bgcolor: (t) => alpha(t.palette.warning.main, 0.03),
+                              mt: 0.5,
                             }}
                           >
                             <Typography
                               variant="caption"
-                              sx={{ fontWeight: 600, color: 'text.secondary', display: 'block', mb: 1 }}
+                              sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 1.25, letterSpacing: '0.04em' }}
                             >
                               Уроки без модуля
                             </Typography>
-                            <Stack spacing={0.25}>
+                            <Stack spacing={0.5}>
                               {les
                                 .filter((l) => !l.moduleId)
                                 .sort((a, b) => a.orderIndex - b.orderIndex)
@@ -846,8 +1013,11 @@ export default function ContentHubPage() {
                                     alignItems={{ xs: 'flex-start', sm: 'center' }}
                                     spacing={1}
                                     sx={{
-                                      p: 0.75,
-                                      borderRadius: 1,
+                                      p: 1,
+                                      borderRadius: 1.5,
+                                      bgcolor: 'background.paper',
+                                      border: '1px solid',
+                                      borderColor: 'divider',
                                       '&:hover': { bgcolor: 'action.hover' },
                                       flexWrap: 'wrap',
                                     }}
@@ -892,7 +1062,7 @@ export default function ContentHubPage() {
                                   </Stack>
                                 ))}
                             </Stack>
-                          </Box>
+                          </Paper>
                         )}
 
                         <Stack direction="row" spacing={1} sx={{ mt: 1.5, pl: 1 }}>
@@ -911,15 +1081,14 @@ export default function ContentHubPage() {
                             </Button>
                           </Tooltip>
                         </Stack>
+                        </Stack>
                       </Box>
                     )}
-                  </Box>
+                  </Paper>
                 )
-              })}
-            </Stack>
+              })
           )}
-        </CardContent>
-      </Card>
+      </Stack>
 
       <Dialog open={createCourseOpen} onClose={() => setCreateCourseOpen(false)} {...narrowFormSm}>
         <DialogTitle>Новый курс</DialogTitle>

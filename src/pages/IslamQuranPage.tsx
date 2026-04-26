@@ -544,7 +544,7 @@ export default function IslamQuranPage() {
               onChange={(e) => setEveryAyahSearch(e.target.value)}
               placeholder="Поиск в каталоге EveryAyah"
               startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
-              sx={{ minWidth: 260 }}
+              sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { xs: 0, md: 260 } }}
             />
             <FormControlLabel
               control={<Switch checked={showOnlyNotAdded} onChange={(e) => setShowOnlyNotAdded(e.target.checked)} />}
@@ -563,7 +563,7 @@ export default function IslamQuranPage() {
               size="small"
               value={selectedEveryAyahSlugs}
               onChange={(e) => setSelectedEveryAyahSlugs(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
-              sx={{ minWidth: 260 }}
+              sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { xs: 0, md: 260 } }}
               displayEmpty
               renderValue={(selected) => (Array.isArray(selected) && selected.length > 0 ? `Выбрано: ${selected.length}` : 'Выберите рецитаторов')}
             >

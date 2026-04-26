@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Card,
+  CardContent,
   Chip,
   Dialog,
   DialogActions,
@@ -20,6 +21,8 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import { Add, Audiotrack, Delete, Edit, Refresh } from '@mui/icons-material'
 import {
@@ -30,6 +33,7 @@ import {
   uploadIslamAllahNameAudio,
 } from '../api/adminApi'
 import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
+import { pageTitleH4Sx } from '../utils/responsivePageSx'
 
 interface AllahName {
   id: string
@@ -66,6 +70,8 @@ export default function IslamAllahNamesPage() {
     descriptionKz: '',
   })
   const narrowFormSm = useNarrowDialogProps('sm')
+  const themeMui = useTheme()
+  const isNarrow = useMediaQuery(themeMui.breakpoints.down('md'))
 
   const load = async () => {
     setLoading(true)
@@ -155,81 +161,128 @@ export default function IslamAllahNamesPage() {
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={3}>
         <Box>
-          <Typography variant="h4">99 имён Аллаха</Typography>
-          <Typography variant="subtitle1">Управление именами Всевышнего</Typography>
+          <Typography variant="h4" sx={pageTitleH4Sx}>
+            99 имён Аллаха
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
+            Управление именами Всевышнего
+          </Typography>
         </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button startIcon={<Refresh />} onClick={load} disabled={loading}>Обновить</Button>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreate}>Добавить</Button>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignSelf: { xs: 'stretch', sm: 'auto' } }}>
+          <Button startIcon={<Refresh />} onClick={load} disabled={loading} sx={{ width: { xs: '100%', sm: 'auto' } }}>Обновить</Button>
+          <Button variant="contained" startIcon={<Add />} onClick={openCreate} sx={{ width: { xs: '100%', sm: 'auto' } }}>Добавить</Button>
         </Stack>
       </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
-      <Card>
-        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>#</TableCell>
-                <TableCell>Арабский</TableCell>
-                <TableCell>Русский</TableCell>
-                <TableCell>Транслитерация</TableCell>
-                <TableCell>Значение</TableCell>
-                <TableCell>Аудио</TableCell>
-                <TableCell>Статус</TableCell>
-                <TableCell align="right">Действия</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {names.map((n) => (
-                <TableRow key={n.id}>
-                  <TableCell>{n.number}</TableCell>
-                  <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', fontSize: '1.1rem' }}>{n.nameAr}</TableCell>
-                  <TableCell><strong>{n.nameRu}</strong></TableCell>
-                  <TableCell>{n.transliteration}</TableCell>
-                  <TableCell sx={{ maxWidth: 200 }}>
-                    <Typography variant="body2" noWrap>{n.meaningRu}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    {n.audioUrl ? (
-                      <Chip label="Есть" color="success" size="small" icon={<Audiotrack />} />
-                    ) : (
-                      <label>
-                        <input type="file" accept="audio/*" hidden onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleAudioUpload(n.id, file)
-                        }} />
-                        <Chip label="Загрузить" size="small" clickable variant="outlined" icon={<Audiotrack />} />
-                      </label>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={n.isActive ? 'Активно' : 'Скрыто'}
-                      color={n.isActive ? 'success' : 'default'}
-                      size="small"
-                      onClick={() => handleToggleActive(n)}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
+      {isNarrow ? (
+        <Stack spacing={1.25}>
+          {names.map((n) => (
+            <Card key={n.id} variant="outlined" sx={{ borderRadius: 2 }}>
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">№{n.number}</Typography>
+                    <Typography sx={{ fontFamily: 'NotoSansArabic, serif', fontSize: '1.15rem' }}>{n.nameAr}</Typography>
+                    <Typography fontWeight={700}>{n.nameRu}</Typography>
+                    <Typography variant="body2" color="text.secondary">{n.transliteration}</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{n.meaningRu}</Typography>
+                    <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center" sx={{ mt: 1 }}>
+                      {n.audioUrl ? (
+                        <Chip label="Аудио" color="success" size="small" icon={<Audiotrack />} />
+                      ) : (
+                        <label>
+                          <input type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAudioUpload(n.id, f) }} />
+                          <Chip label="Загрузить аудио" size="small" clickable variant="outlined" icon={<Audiotrack />} />
+                        </label>
+                      )}
+                      <Chip
+                        label={n.isActive ? 'Активно' : 'Скрыто'}
+                        color={n.isActive ? 'success' : 'default'}
+                        size="small"
+                        onClick={() => handleToggleActive(n)}
+                      />
+                    </Stack>
+                  </Box>
+                  <Stack direction="row" flexShrink={0}>
                     <IconButton size="small" onClick={() => openEdit(n)}><Edit fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(n.id)}><Delete fontSize="small" /></IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {names.length === 0 && !loading && (
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+          {names.length === 0 && !loading && (
+            <Typography color="text.secondary" py={4} textAlign="center">Нет имён. Нажмите «Добавить» или запустите seed-скрипт.</Typography>
+          )}
+        </Stack>
+      ) : (
+        <Card>
+          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Typography color="text.secondary" py={4}>Нет имён. Нажмите «Добавить» или запустите seed-скрипт.</Typography>
-                  </TableCell>
+                  <TableCell>#</TableCell>
+                  <TableCell>Арабский</TableCell>
+                  <TableCell>Русский</TableCell>
+                  <TableCell>Транслитерация</TableCell>
+                  <TableCell>Значение</TableCell>
+                  <TableCell>Аудио</TableCell>
+                  <TableCell>Статус</TableCell>
+                  <TableCell align="right">Действия</TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Card>
+              </TableHead>
+              <TableBody>
+                {names.map((n) => (
+                  <TableRow key={n.id}>
+                    <TableCell>{n.number}</TableCell>
+                    <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', fontSize: '1.1rem' }}>{n.nameAr}</TableCell>
+                    <TableCell><strong>{n.nameRu}</strong></TableCell>
+                    <TableCell>{n.transliteration}</TableCell>
+                    <TableCell sx={{ maxWidth: 200 }}>
+                      <Typography variant="body2" noWrap>{n.meaningRu}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      {n.audioUrl ? (
+                        <Chip label="Есть" color="success" size="small" icon={<Audiotrack />} />
+                      ) : (
+                        <label>
+                          <input type="file" accept="audio/*" hidden onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleAudioUpload(n.id, file)
+                          }} />
+                          <Chip label="Загрузить" size="small" clickable variant="outlined" icon={<Audiotrack />} />
+                        </label>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={n.isActive ? 'Активно' : 'Скрыто'}
+                        color={n.isActive ? 'success' : 'default'}
+                        size="small"
+                        onClick={() => handleToggleActive(n)}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <IconButton size="small" onClick={() => openEdit(n)}><Edit fontSize="small" /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(n.id)}><Delete fontSize="small" /></IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {names.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      <Typography color="text.secondary" py={4}>Нет имён. Нажмите «Добавить» или запустите seed-скрипт.</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} {...narrowFormSm}>
         <DialogTitle>{editing ? 'Редактировать имя' : 'Новое имя'}</DialogTitle>

@@ -48,6 +48,7 @@ import {
   ListenAndChooseWordConfigEditor,
   getConfigTemplate,
 } from './QuestionConfigEditors'
+import { pageTitleH4Sx, testEditorMaxWidthSx } from '../utils/responsivePageSx'
 
 type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'audio_multiple_choice' | 'image_word_match' | 'audio_choice' | 'find_letter_in_word' | 'listen_and_choose_word'
 
@@ -294,12 +295,17 @@ export function TestEditorShared({
   }
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto' }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+    <Box sx={testEditorMaxWidthSx}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={1}
+        sx={{ mb: 2 }}
+      >
         <Button startIcon={<ArrowBack />} onClick={onBack} size="small" variant="text">
           Назад
         </Button>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+        <Typography variant="h4" sx={pageTitleH4Sx}>
           {title}
         </Typography>
       </Stack>
@@ -343,11 +349,16 @@ export function TestEditorShared({
         <Stack spacing={3}>
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                spacing={1.5}
+              >
                 <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                   Настройки теста
                 </Typography>
-                <Button color="error" variant="outlined" onClick={removeTest}>
+                <Button color="error" variant="outlined" onClick={removeTest} sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}>
                   Удалить тест
                 </Button>
               </Stack>
@@ -396,11 +407,23 @@ export function TestEditorShared({
 
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent>
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                spacing={1.5}
+                sx={{ mb: 2 }}
+              >
                 <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                   Вопросы
                 </Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}
+                >
                   {QUESTION_TYPES.map((t) => (
                     <Button key={t.value} size="small" variant="outlined" onClick={() => addQuestion(t.value)}>
                       + {t.label}

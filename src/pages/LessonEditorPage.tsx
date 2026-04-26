@@ -94,6 +94,7 @@ import {
 import MobilePreview from '../components/MobilePreview'
 import GridBlockEditor, { newGridItemRow, type GridItemRow } from '../components/GridBlockEditor'
 import { wrapRichTextTables } from '../utils/wrapRichTextTables'
+import { editorMaxWidthSx, pageTitleH4Sx } from '../utils/responsivePageSx'
 
 type BlockType =
   | 'theory'
@@ -1192,12 +1193,17 @@ export default function LessonEditorPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+    <Box sx={editorMaxWidthSx}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={1}
+        sx={{ mb: 1, gap: { xs: 0.5, sm: 0 } }}
+      >
         <Button startIcon={<ArrowBack />} onClick={backToContent} size="small" variant="text">
           К контенту
         </Button>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
           {breadcrumb}
         </Typography>
       </Stack>
@@ -1205,7 +1211,7 @@ export default function LessonEditorPage() {
       {!!error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {!!success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
+      <Typography variant="h4" sx={{ ...pageTitleH4Sx, mb: 2 }}>
         {lesson.titleRu}
       </Typography>
 

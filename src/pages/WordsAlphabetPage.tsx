@@ -35,6 +35,7 @@ import {
   deleteWordLetter,
 } from '../api/adminApi'
 import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
+import { pageTitleH4Sx } from '../utils/responsivePageSx'
 
 interface LetterForms {
   isolated: string
@@ -328,7 +329,7 @@ export default function WordsAlphabetPage() {
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: -0.4 }}>
+          <Typography variant="h4" sx={pageTitleH4Sx}>
             Алфавит
           </Typography>
           <Typography color="text.secondary">
