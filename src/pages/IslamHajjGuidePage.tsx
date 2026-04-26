@@ -12,6 +12,7 @@ import {
   DialogTitle,
   Divider,
   IconButton,
+  Paper,
   Stack,
   Table,
   TableBody,
@@ -186,12 +187,12 @@ export default function IslamHajjGuidePage() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={3}>
         <Box>
           <Typography variant="h4">Хадж и Умра</Typography>
           <Typography variant="subtitle1">Путеводитель: секции, инструкции, фразы</Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button startIcon={<Refresh />} onClick={load} disabled={loading}>Обновить</Button>
           <Button variant="contained" startIcon={<Add />} onClick={openCreateSection}>Добавить секцию</Button>
         </Stack>
@@ -201,7 +202,7 @@ export default function IslamHajjGuidePage() {
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
 
       <Card>
-        <TableContainer>
+        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
           <Table>
             <TableHead>
               <TableRow>

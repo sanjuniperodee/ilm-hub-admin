@@ -79,7 +79,7 @@ export default function UsersPage() {
   return (
     <Box className="animate-fade-in">
       {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'flex-start' }} spacing={2} sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
             Пользователи
@@ -100,11 +100,11 @@ export default function UsersPage() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: 280 }}
+          sx={{ width: { xs: '100%', sm: 280 } }}
         />
       </Stack>
 
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
         <Table>
           <TableHead>
             <TableRow>

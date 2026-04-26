@@ -541,12 +541,12 @@ export default function WordsDictionaryPage() {
                           />
                         </Tooltip>
                         <Tooltip title="Редактировать">
-                          <IconButton size="small" onClick={() => openEditDialog(entry.id)}>
+                          <IconButton size="small" onClick={() => openEditDialog(entry.id)} sx={{ minWidth: 44, minHeight: 44 }}>
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Удалить">
-                          <IconButton size="small" color="error" onClick={() => setDeleteConfirm(entry)}>
+                          <IconButton size="small" color="error" onClick={() => setDeleteConfirm(entry)} sx={{ minWidth: 44, minHeight: 44 }}>
                             <Delete fontSize="small" />
                           </IconButton>
                         </Tooltip>

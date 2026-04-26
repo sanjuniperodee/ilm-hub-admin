@@ -265,9 +265,9 @@ export default function WordsCardsPage() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={2}>
         <Typography variant="h4">Word Cards</Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button startIcon={<Refresh />} onClick={loadThemes} disabled={loading}>
             Refresh
           </Button>
@@ -309,10 +309,10 @@ export default function WordsCardsPage() {
                 color={theme.isActive ? 'success' : 'default'}
                 size="small"
               />
-              <IconButton size="small" onClick={() => openEditTheme(theme)}>
+              <IconButton size="small" onClick={() => openEditTheme(theme)} sx={{ minWidth: 44, minHeight: 44 }}>
                 <Edit fontSize="small" />
               </IconButton>
-              <IconButton size="small" color="error" onClick={() => handleDeleteTheme(theme.id)}>
+              <IconButton size="small" color="error" onClick={() => handleDeleteTheme(theme.id)} sx={{ minWidth: 44, minHeight: 44 }}>
                 <Delete fontSize="small" />
               </IconButton>
               <IconButton onClick={() => toggleExpand(theme.id)}>

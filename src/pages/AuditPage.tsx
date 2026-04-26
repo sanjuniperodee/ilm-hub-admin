@@ -73,7 +73,7 @@ export default function AuditPage() {
 
   return (
     <Box className="animate-fade-in">
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
+      <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} gap={2} sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h3" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
             Аудит лог
@@ -105,7 +105,7 @@ export default function AuditPage() {
         </Box>
       </Box>
 
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
         <Table>
           <TableHead>
             <TableRow>

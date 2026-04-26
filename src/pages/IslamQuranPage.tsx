@@ -21,6 +21,7 @@ import {
   ListItemText,
   MenuItem,
   OutlinedInput,
+  Paper,
   Select,
   Stack,
   Switch,
@@ -404,12 +405,12 @@ export default function IslamQuranPage() {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={2}>
         <Box>
           <Typography variant="h4">Коран</Typography>
           <Typography variant="subtitle1">Суры и one-click синхронизация аудио</Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
           <Button startIcon={<Refresh />} onClick={load} disabled={loading}>
             Обновить
           </Button>
@@ -515,7 +516,7 @@ export default function IslamQuranPage() {
       </Accordion>
 
       <Card>
-        <TableContainer>
+        <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
           <Table>
             <TableHead>
               <TableRow>

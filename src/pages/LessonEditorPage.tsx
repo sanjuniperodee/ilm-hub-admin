@@ -55,8 +55,11 @@ import {
   getTests,
   uploadBlockMedia,
   uploadTestMedia,
+  uploadQuestionMedia,
   getTestMedia,
   deleteTestMedia,
+  getQuestionMedia,
+  deleteQuestionMedia,
   updateLesson,
   updateLessonBlock,
   updateTestAnswer,
@@ -1853,7 +1856,6 @@ export default function LessonEditorPage() {
                       <TestQuestionCard
                         key={q.id}
                         question={q}
-                        mediaFiles={testMediaFiles}
                         onSave={saveQuestion}
                         onDelete={() => removeQuestion(q.id)}
                         onAddAnswer={() => addAnswer(q.id, (q.answers || []).length)}
@@ -1880,7 +1882,6 @@ export default function LessonEditorPage() {
 
 function TestQuestionCard({
   question,
-  mediaFiles,
   onSave,
   onDelete,
   onAddAnswer,
@@ -1888,7 +1889,6 @@ function TestQuestionCard({
   onDeleteAnswer,
 }: {
   question: any
-  mediaFiles: any[]
   onSave: (q: any) => void
   onDelete: () => void
   onAddAnswer: () => void
@@ -1897,6 +1897,13 @@ function TestQuestionCard({
 }) {
   const [q, setQ] = useState<any>(question)
   const [configText, setConfigText] = useState(JSON.stringify(question.config || {}, null, 2))
+  const [questionMediaFiles, setQuestionMediaFiles] = useState<any[]>([])
+
+  const QUESTION_MEDIA_TYPES = [
+    'match_pairs', 'audio_multiple_choice', 'image_word_match',
+    'audio_choice', 'listen_and_choose_word',
+  ]
+  const needsMedia = QUESTION_MEDIA_TYPES.includes(q.type)
 
   useEffect(() => {
     setQ(question)
@@ -1907,16 +1914,45 @@ function TestQuestionCard({
     setConfigText(JSON.stringify(q.config || {}, null, 2))
   }, [q.config])
 
+  useEffect(() => {
+    if (q.id && needsMedia) {
+      loadQuestionMedia(q.id)
+    } else {
+      setQuestionMediaFiles([])
+    }
+  }, [q.id, q.type, needsMedia])
+
+  const loadQuestionMedia = async (questionId: string) => {
+    try {
+      const { data } = await getQuestionMedia(questionId)
+      setQuestionMediaFiles(Array.isArray(data) ? data : [])
+    } catch {
+      setQuestionMediaFiles([])
+    }
+  }
+
+  const handleQuestionMediaUpload = async (file: File, _type: 'image' | 'audio' | 'video', description?: string) => {
+    if (!q.id) return
+    await uploadQuestionMedia(q.id, file, description)
+    await loadQuestionMedia(q.id)
+  }
+
+  const handleQuestionMediaDelete = async (mediaFileId: string) => {
+    if (!q.id) return
+    await deleteQuestionMedia(q.id, mediaFileId)
+    await loadQuestionMedia(q.id)
+  }
+
   const renderConfigEditor = () => {
     const type = q.type || 'multiple_choice'
     if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
+    if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
     if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
-    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
-    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
+    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
+    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
+    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
     if (type === 'find_letter_in_word') return <FindLetterInWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={mediaFiles} />
+    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
     return <MultipleChoiceConfigEditor />
   }
 
@@ -1980,6 +2016,27 @@ function TestQuestionCard({
             <Typography variant="subtitle2" sx={{ mb: 1 }}>Конфиг</Typography>
             {renderConfigEditor()}
           </Grid>
+          {needsMedia && q.id && (
+            <Grid item xs={12}>
+              <Accordion variant="outlined" sx={{ borderRadius: 1 }}>
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="subtitle2">Медиа файлы вопроса</Typography>
+                    <Chip label={questionMediaFiles.length} size="small" />
+                  </Stack>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <MediaUploader
+                    blockId={undefined}
+                    mediaFiles={questionMediaFiles}
+                    onUpload={handleQuestionMediaUpload}
+                    onDelete={handleQuestionMediaDelete}
+                    onRefresh={() => q.id && loadQuestionMedia(q.id)}
+                  />
+                </AccordionDetails>
+              </Accordion>
+            </Grid>
+          )}
           <Grid item xs={12}>
             <Accordion variant="outlined" sx={{ borderRadius: 1 }}>
               <AccordionSummary expandIcon={<ExpandMore />}>Raw JSON</AccordionSummary>

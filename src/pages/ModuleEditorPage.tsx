@@ -73,7 +73,7 @@ export default function ModuleEditorPage() {
 
   return (
     <Box className="animate-fade-in">
-      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 3 }}>
         <Button
           startIcon={<ArrowBack />}
           onClick={() => navigate(`/content/courses/${courseId}/modules/${moduleId}`)}
@@ -131,7 +131,7 @@ export default function ModuleEditorPage() {
           </Grid>
 
           <Divider sx={{ my: 3 }} />
-          <Stack direction="row" justifyContent="flex-end" spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="flex-end" spacing={2}>
             <Button variant="outlined" onClick={() => navigate(`/content/courses/${courseId}/modules/${moduleId}`)}>
               Отмена
             </Button>
