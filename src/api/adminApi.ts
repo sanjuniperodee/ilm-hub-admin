@@ -475,3 +475,32 @@ export const uploadIslamHajjPhraseAudio = (id: string, file: File) => {
   })
 }
 
+// ── Admin Management ─────────────────────────────────────────────────────────
+
+export const getAdmins = (params?: { page?: number; limit?: number }) =>
+  apiClient.get('/admin/admins', { params })
+
+export const getAdminById = (id: string) =>
+  apiClient.get(`/admin/admins/${id}`)
+
+export const inviteAdmin = (data: { email: string; role: string }) =>
+  apiClient.post('/admin/admins/invite', data)
+
+export const updateAdminRole = (id: string, role: string) =>
+  apiClient.patch(`/admin/admins/${id}/role`, { role })
+
+export const updateAdminPermissions = (id: string, permissionIds: string[]) =>
+  apiClient.patch(`/admin/admins/${id}/permissions`, { permissionIds })
+
+export const deactivateAdmin = (id: string) =>
+  apiClient.delete(`/admin/admins/${id}`)
+
+export const getPendingInvitations = () =>
+  apiClient.get('/admin/admins/invitations/pending')
+
+export const cancelInvitation = (id: string) =>
+  apiClient.delete(`/admin/admins/invitations/${id}`)
+
+export const getPermissionGroups = () =>
+  apiClient.get('/admin/admins/permissions/groups')
+

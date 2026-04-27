@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { AuthProvider } from './contexts/AuthContext'
-import { PrivateRoute, RoleRoute } from './components/PrivateRoute'
+import { PrivateRoute } from './components/PrivateRoute'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import UsersPage from './pages/UsersPage'
@@ -15,6 +15,7 @@ import ModuleTestPage from './pages/ModuleTestPage'
 import LevelTestPage from './pages/LevelTestPage'
 import OnboardingPlacementTestPage from './pages/OnboardingPlacementTestPage'
 import Layout from './components/Layout'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import WordsAlphabetPage from './pages/WordsAlphabetPage'
 import WordsDictionaryPage from './pages/WordsDictionaryPage'
 import WordsCardsPage from './pages/WordsCardsPage'
@@ -22,6 +23,7 @@ import IslamAllahNamesPage from './pages/IslamAllahNamesPage'
 import IslamQuranPage from './pages/IslamQuranPage'
 import IslamHajjGuidePage from './pages/IslamHajjGuidePage'
 import AuditPage from './pages/AuditPage'
+import AdminManagementPage from './pages/AdminManagementPage'
 
 const theme = createTheme({
   palette: {
@@ -517,11 +519,19 @@ function App() {
               <Route path="users" element={<UsersPage />} />
               <Route path="users/:id" element={<UserDetailPage />} />
               <Route
+                path="admin-management"
+                element={
+                  <ProtectedRoute requiredRoles={['admin']}>
+                    <AdminManagementPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="audit"
                 element={
-                  <RoleRoute requiredRoles={['admin']}>
+                  <ProtectedRoute requiredRoles={['admin']}>
                     <AuditPage />
-                  </RoleRoute>
+                  </ProtectedRoute>
                 }
               />
               <Route path="words-alphabet" element={<WordsAlphabetPage />} />

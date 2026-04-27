@@ -30,6 +30,7 @@ import {
   ImportContacts as ImportContactsIcon,
   Explore as ExploreIcon,
   History as HistoryIcon,
+  AdminPanelSettings as AdminPanelIcon,
 } from '@mui/icons-material'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -37,47 +38,78 @@ import { useAuth } from '../contexts/AuthContext'
 const SIDEBAR_WIDTH = 270
 const SIDEBAR_COLLAPSED = 72
 
-const navSections = [
-  {
-    label: 'ОБЗОР',
-    items: [
-      { text: 'Панель', icon: <DashboardIcon />, path: '/dashboard' },
-      { text: 'Контент', icon: <SchoolIcon />, path: '/content' },
-    ],
-  },
-  {
-    label: 'УПРАВЛЕНИЕ',
-    items: [
-      { text: 'Пользователи', icon: <PeopleIcon />, path: '/users' },
-      { text: 'Аудит', icon: <HistoryIcon />, path: '/audit' },
-    ],
-  },
-  {
-    label: 'СЛОВАРЬ',
-    items: [
-      { text: 'Алфавит', icon: <ArticleIcon />, path: '/words-alphabet' },
-      { text: 'Словарь', icon: <MenuBookIcon />, path: '/words-dictionary' },
-      { text: 'Карточки', icon: <StyleIcon />, path: '/words-cards' },
-    ],
-  },
-  {
-    label: 'ИСЛАМ',
-    items: [
-      { text: '99 имён', icon: <AutoAwesomeIcon />, path: '/islam-names' },
-      { text: 'Коран', icon: <ImportContactsIcon />, path: '/islam-quran' },
-      { text: 'Хадж и Умра', icon: <ExploreIcon />, path: '/islam-hajj' },
-    ],
-  },
-]
+type NavItem = {
+  text: string
+  icon: React.ReactNode
+  path: string
+  permission?: string
+}
+
+type NavSection = {
+  label: string
+  items: NavItem[]
+}
+
+const getNavSections = (userRole: string | null | undefined): NavSection[] => {
+  const sections: NavSection[] = [
+    {
+      label: 'ОБЗОР',
+      items: [
+        { text: 'Панель', icon: <DashboardIcon />, path: '/dashboard', permission: 'dashboard.view' },
+        { text: 'Контент', icon: <SchoolIcon />, path: '/content', permission: 'content.view' },
+      ],
+    },
+    {
+      label: 'УПРАВЛЕНИЕ',
+      items: [
+        { text: 'Пользователи', icon: <PeopleIcon />, path: '/users', permission: 'users.view' },
+      ],
+    },
+    {
+      label: 'СЛОВАРЬ',
+      items: [
+        { text: 'Алфавит', icon: <ArticleIcon />, path: '/words-alphabet', permission: 'words.view' },
+        { text: 'Словарь', icon: <MenuBookIcon />, path: '/words-dictionary', permission: 'words.view' },
+        { text: 'Карточки', icon: <StyleIcon />, path: '/words-cards', permission: 'words.view' },
+      ],
+    },
+    {
+      label: 'ИСЛАМ',
+      items: [
+        { text: '99 имён', icon: <AutoAwesomeIcon />, path: '/islam-names', permission: 'islam.view' },
+        { text: 'Коран', icon: <ImportContactsIcon />, path: '/islam-quran', permission: 'islam.view' },
+        { text: 'Хадж и Умра', icon: <ExploreIcon />, path: '/islam-hajj', permission: 'islam.view' },
+      ],
+    },
+  ]
+
+  // Admin section - only for admin role
+  if (userRole === 'admin') {
+    sections.push({
+      label: 'АДМИНИСТРАТОРЫ',
+      items: [
+        { text: 'Управление', icon: <AdminPanelIcon />, path: '/admin-management', permission: 'admin.view' },
+        { text: 'Аудит', icon: <HistoryIcon />, path: '/audit', permission: 'audit.view' },
+      ],
+    })
+  }
+
+  return sections
+}
+
+// Admin role always sees everything in UI; backend enforces permissions
+// Support and content_manager see УПРАВЛЕНИЕ section with users
 
 export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const { logout } = useAuth()
+  const { logout, userRole } = useAuth()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+
+  const navSections = getNavSections(userRole)
 
   const handleLogout = () => {
     logout()
