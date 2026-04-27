@@ -31,6 +31,7 @@ import {
   Explore as ExploreIcon,
   History as HistoryIcon,
   AdminPanelSettings as AdminPanelIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -89,6 +90,7 @@ const getNavSections = (userRole: string | null | undefined): NavSection[] => {
       label: 'АДМИНИСТРАТОРЫ',
       items: [
         { text: 'Управление', icon: <AdminPanelIcon />, path: '/admin-management', permission: 'admin.view' },
+        { text: 'Роли и права', icon: <SettingsIcon />, path: '/custom-roles', permission: 'admin.view' },
         { text: 'Аудит', icon: <HistoryIcon />, path: '/audit', permission: 'audit.view' },
       ],
     })

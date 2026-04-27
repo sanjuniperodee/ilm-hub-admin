@@ -52,3 +52,20 @@ export interface PaginatedResponse<T> {
   data: T[];
   total: number;
 }
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  labelRu: string;
+  descriptionRu?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  permissions: CustomRolePermission[];
+}
+
+export interface CustomRolePermission {
+  id: string;
+  permissionId: string;
+  permission?: Permission;
+}

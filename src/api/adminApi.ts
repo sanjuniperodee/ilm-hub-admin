@@ -504,3 +504,37 @@ export const cancelInvitation = (id: string) =>
 export const getPermissionGroups = () =>
   apiClient.get('/admin/admins/permissions/groups')
 
+// ── Custom Roles ──────────────────────────────────────────────────────────────
+
+export const getCustomRoles = (params?: { includeInactive?: boolean }) =>
+  apiClient.get('/admin/roles', { params })
+
+export const getCustomRoleById = (id: string) =>
+  apiClient.get(`/admin/roles/${id}`)
+
+export const createCustomRole = (data: {
+  name: string
+  labelRu: string
+  descriptionRu?: string
+  permissionIds?: string[]
+}) => apiClient.post('/admin/roles', data)
+
+export const updateCustomRole = (
+  id: string,
+  data: {
+    labelRu?: string
+    descriptionRu?: string
+    isActive?: boolean
+    permissionIds?: string[]
+  },
+) => apiClient.patch(`/admin/roles/${id}`, data)
+
+export const deleteCustomRole = (id: string) =>
+  apiClient.delete(`/admin/roles/${id}`)
+
+export const assignCustomRoleToUser = (roleId: string, userId: string) =>
+  apiClient.post(`/admin/roles/${roleId}/users/${userId}`)
+
+export const revokeCustomRoleFromUser = (roleId: string, userId: string) =>
+  apiClient.delete(`/admin/roles/${roleId}/users/${userId}`)
+

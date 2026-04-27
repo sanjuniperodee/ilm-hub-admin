@@ -24,6 +24,7 @@ import IslamQuranPage from './pages/IslamQuranPage'
 import IslamHajjGuidePage from './pages/IslamHajjGuidePage'
 import AuditPage from './pages/AuditPage'
 import AdminManagementPage from './pages/AdminManagementPage'
+import CustomRolesPage from './pages/CustomRolesPage'
 
 const theme = createTheme({
   palette: {
@@ -523,6 +524,14 @@ function App() {
                 element={
                   <ProtectedRoute requiredRoles={['admin']}>
                     <AdminManagementPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="custom-roles"
+                element={
+                  <ProtectedRoute requiredRoles={['admin']}>
+                    <CustomRolesPage />
                   </ProtectedRoute>
                 }
               />
