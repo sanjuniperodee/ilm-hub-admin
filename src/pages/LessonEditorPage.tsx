@@ -205,6 +205,7 @@ function parseGridBlockForDraft(block: StudioBlock): {
     return {
       gridItemRows: (itemsRaw as any[]).map((r, i) => {
         const g = newGridItemRow()
+        if (typeof r?.id === 'string' && r.id.trim()) g.id = r.id
         g.mainRu = (r?.mainText as string) || ''
         g.mainKz = (Array.isArray(kz.items) ? kz.items[i] : null)?.mainText || ''
         g.mainAr = (Array.isArray(ar.items) ? ar.items[i] : null)?.mainText || ''
@@ -225,6 +226,12 @@ function parseGridBlockForDraft(block: StudioBlock): {
     gridShowCaption,
     gridInteractive,
   }
+}
+
+function isGridItemAudioDescription(description: string | undefined, rowId: string) {
+  const desc = (description || '').trim()
+  if (!desc) return false
+  return desc === `grid-${rowId}` || desc === `grid-${rowId.slice(0, 12)}` || desc.startsWith(`grid-${rowId}`)
 }
 
 const EXERCISE_BLOCK_TYPES: BlockType[] = [
@@ -768,7 +775,19 @@ export default function LessonEditorPage() {
     }
   }
 
-  const buildBlockPayload = (includeLessonId: boolean) => {
+  const getGridRowsWithMediaAudio = (rows: GridItemRow[]) => {
+    const audioFiles = mediaFiles.filter((f) => f.type === 'audio' && f.url)
+    const canFallbackByOrder = audioFiles.length >= rows.length
+    return rows.map((row, index) => {
+      if ((row.audioUrl || '').trim()) return row
+      const byDescription = audioFiles.find((file) => isGridItemAudioDescription(file.description, row.id))
+      const byOrder = canFallbackByOrder ? audioFiles[index] : undefined
+      const audioUrl = byDescription?.url || byOrder?.url || ''
+      return audioUrl ? { ...row, audioUrl } : row
+    })
+  }
+
+  const buildBlockPayload = (includeLessonId: boolean, options?: { allowDraftGridWithoutAudio?: boolean }) => {
     if (blockDraft.type === 'lesson_complete') {
       const base = {
         type: 'lesson_complete',
@@ -786,7 +805,9 @@ export default function LessonEditorPage() {
     }
 
     if (blockDraft.type === 'grid') {
-      const rows = (blockDraft.gridItemRows || []).filter((r) => (r.mainRu || '').trim().length > 0)
+      const rows = getGridRowsWithMediaAudio(
+        (blockDraft.gridItemRows || []).filter((r) => (r.mainRu || '').trim().length > 0),
+      )
       const col =
         blockDraft.gridColumnMode === 'auto' ? 'auto' : Number(blockDraft.gridColumnMode)
       const showCaption = blockDraft.gridShowCaption
@@ -803,9 +824,11 @@ export default function LessonEditorPage() {
                 : (r.captionAr || '').trim()
           const audio = (r.audioUrl || '').trim()
           return {
+            id: r.id,
             mainText: main,
             ...(showCaption ? { caption: cap } : {}),
             ...(interactive && audio ? { audioUrl: audio } : {}),
+            ...(options?.allowDraftGridWithoutAudio && audio ? { audioUrl: audio } : {}),
           }
         })
       const base = {
@@ -815,21 +838,21 @@ export default function LessonEditorPage() {
           title: blockDraft.titleRu || '',
           columns: col,
           showCaption,
-          interactive,
+          interactive: options?.allowDraftGridWithoutAudio ? false : interactive,
           items: buildItems('ru'),
         },
         contentKz: {
           title: blockDraft.titleKz || '',
           columns: col,
           showCaption,
-          interactive,
+          interactive: options?.allowDraftGridWithoutAudio ? false : interactive,
           items: buildItems('kz'),
         },
         contentAr: {
           title: blockDraft.titleAr || '',
           columns: col,
           showCaption,
-          interactive,
+          interactive: options?.allowDraftGridWithoutAudio ? false : interactive,
           items: buildItems('ar'),
         },
       }
@@ -880,7 +903,7 @@ export default function LessonEditorPage() {
   const ensureBlockIdForMedia = async (): Promise<string> => {
     let blockId = blockDraft.id
     if (!blockId && lessonId) {
-      const payload = buildBlockPayload(true)
+      const payload = buildBlockPayload(true, { allowDraftGridWithoutAudio: blockDraft.type === 'grid' })
       const createRes = await createLessonBlock(payload)
       blockId = createRes.data?.id
       if (blockId) {
@@ -909,7 +932,9 @@ export default function LessonEditorPage() {
       return
     }
     if (blockDraft.type === 'grid') {
-      const rows = (blockDraft.gridItemRows || []).filter((r) => (r.mainRu || '').trim().length > 0)
+      const rows = getGridRowsWithMediaAudio(
+        (blockDraft.gridItemRows || []).filter((r) => (r.mainRu || '').trim().length > 0),
+      )
       if (rows.length === 0) {
         setError('Сетка: добавьте хотя бы один элемент с основным текстом (RU)')
         return
@@ -921,6 +946,16 @@ export default function LessonEditorPage() {
             return
           }
         }
+      }
+      if (rows.some((row) => row.audioUrl && row.audioUrl !== blockDraft.gridItemRows.find((draftRow) => draftRow.id === row.id)?.audioUrl)) {
+        const resolvedById = new Map(rows.map((row) => [row.id, row.audioUrl]))
+        setBlockDraft((prev) => ({
+          ...prev,
+          gridItemRows: prev.gridItemRows.map((row) => {
+            const audioUrl = resolvedById.get(row.id)
+            return audioUrl && audioUrl !== row.audioUrl ? { ...row, audioUrl } : row
+          }),
+        }))
       }
     }
     const payload = buildBlockPayload(false)
@@ -993,11 +1028,14 @@ export default function LessonEditorPage() {
 
   const handleGridItemAudio = async (rowId: string, file: File) => {
     const blockId = await ensureBlockIdForMedia()
-    const { data } = await uploadBlockMedia(blockId, file, 'audio', `grid-${rowId.slice(0, 12)}`)
+    const { data } = await uploadBlockMedia(blockId, file, 'audio', `grid-${rowId}`)
     await loadBlockMedia(blockId)
     const url = (data as { url?: string })?.url
     if (!url) throw new Error('Нет URL в ответе загрузки')
-    return url
+    setBlockDraft((prev) => ({
+      ...prev,
+      gridItemRows: prev.gridItemRows.map((row) => (row.id === rowId ? { ...row, audioUrl: url } : row)),
+    }))
   }
 
   const removeBlock = async (id: string) => {
@@ -1568,7 +1606,6 @@ export default function LessonEditorPage() {
                   ) : blockDraft.type === 'grid' ? (
                     <Grid item xs={12}>
                       <GridBlockEditor
-                        blockId={blockDraft.id}
                         titleRu={blockDraft.titleRu}
                         titleKz={blockDraft.titleKz}
                         titleAr={blockDraft.titleAr}

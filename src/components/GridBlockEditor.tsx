@@ -74,8 +74,7 @@ type GridBlockEditorProps = {
   onInteractive: (v: boolean) => void
   items: GridItemRow[]
   onItemsChange: (rows: GridItemRow[]) => void
-  blockId: string | undefined
-  onUploadItemAudio: (rowId: string, file: File) => Promise<string>
+  onUploadItemAudio: (rowId: string, file: File) => Promise<void>
 }
 
 function SortableItem({
@@ -86,7 +85,6 @@ function SortableItem({
   onUpdate,
   onRemove,
   onUploadAudioFile,
-  blockId,
 }: {
   item: GridItemRow
   index: number
@@ -95,7 +93,6 @@ function SortableItem({
   onUpdate: (p: Partial<GridItemRow>) => void
   onRemove: () => void
   onUploadAudioFile: (file: File) => Promise<void>
-  blockId: string | undefined
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -194,10 +191,6 @@ function SortableItem({
                   const f = e.target.files?.[0]
                   e.target.value = ''
                   if (!f) return
-                  if (!blockId) {
-                    alert('Сначала сохраните блок, чтобы прикрепить аудио')
-                    return
-                  }
                   try {
                     await onUploadAudioFile(f)
                   } catch (err) {
@@ -209,7 +202,6 @@ function SortableItem({
               <Button
                 size="small"
                 variant="outlined"
-                disabled={!blockId}
                 onClick={() => fileRef.current?.click()}
               >
                 Загрузить аудио
@@ -238,7 +230,6 @@ export default function GridBlockEditor({
   onInteractive,
   items,
   onItemsChange,
-  blockId,
   onUploadItemAudio,
 }: GridBlockEditorProps) {
   const sensors = useSensors(
@@ -314,7 +305,6 @@ export default function GridBlockEditor({
                 index={i}
                 showCaption={showCaption}
                 interactive={interactive}
-                blockId={blockId}
                 onUpdate={(p) => {
                   const next = items.slice()
                   next[i] = { ...row, ...p }
@@ -328,10 +318,7 @@ export default function GridBlockEditor({
                   onItemsChange(items.filter((_, j) => j !== i))
                 }}
                 onUploadAudioFile={async (f) => {
-                  const url = await onUploadItemAudio(row.id, f)
-                  const next = items.slice()
-                  next[i] = { ...row, audioUrl: url }
-                  onItemsChange(next)
+                  await onUploadItemAudio(row.id, f)
                 }}
               />
             ))}
