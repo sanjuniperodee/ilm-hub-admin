@@ -138,6 +138,21 @@ export const deleteBlockMedia = (blockId: string, mediaFileId: string) =>
 export const deleteMediaFile = (mediaFileId: string) =>
   apiClient.delete(`/admin/media/${mediaFileId}`)
 
+export type PushSegment = 'all' | 'free' | 'paid_no_plan' | 'paid_with_plan'
+export type PushTarget = 'segment' | 'users'
+
+export const getPushSegments = () => apiClient.get<Record<PushSegment, { users: number; tokens: number }>>('/admin/push/segments')
+
+export const sendManualPush = (data: {
+  target: PushTarget
+  userIds?: string[]
+  segment?: PushSegment
+  title: string
+  body: string
+  route?: string
+  respectUserSettings?: boolean
+}) => apiClient.post('/admin/push/send', data)
+
 // Mini-test (test) media
 export const uploadTestMedia = (
   miniTestId: string,

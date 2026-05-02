@@ -25,6 +25,7 @@ import IslamHajjGuidePage from './pages/IslamHajjGuidePage'
 import AuditPage from './pages/AuditPage'
 import AdminManagementPage from './pages/AdminManagementPage'
 import CustomRolesPage from './pages/CustomRolesPage'
+import PushNotificationsPage from './pages/PushNotificationsPage'
 
 const theme = createTheme({
   palette: {
@@ -519,6 +520,14 @@ function App() {
               />
               <Route path="users" element={<UsersPage />} />
               <Route path="users/:id" element={<UserDetailPage />} />
+              <Route
+                path="push-notifications"
+                element={
+                  <ProtectedRoute requiredRoles={['admin']}>
+                    <PushNotificationsPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="admin-management"
                 element={

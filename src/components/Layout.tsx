@@ -32,6 +32,7 @@ import {
   History as HistoryIcon,
   AdminPanelSettings as AdminPanelIcon,
   Settings as SettingsIcon,
+  NotificationsActive as NotificationsActiveIcon,
 } from '@mui/icons-material'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
@@ -64,6 +65,7 @@ const getNavSections = (userRole: string | null | undefined): NavSection[] => {
       label: 'УПРАВЛЕНИЕ',
       items: [
         { text: 'Пользователи', icon: <PeopleIcon />, path: '/users', permission: 'users.view' },
+        { text: 'Push', icon: <NotificationsActiveIcon />, path: '/push-notifications', permission: 'admin.view' },
       ],
     },
     {
