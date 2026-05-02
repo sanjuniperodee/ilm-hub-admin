@@ -36,6 +36,7 @@ import {
   ArticleOutlined,
   DragIndicator,
   DeleteOutline,
+  FileDownloadOutlined,
 } from '@mui/icons-material'
 import {
   createCourse,
@@ -47,6 +48,7 @@ import {
   reorderModules,
   reorderLessons,
   deleteLesson,
+  exportCourseContent,
   getLessonDeletionImpact,
 } from '../api/adminApi'
 import {
@@ -463,6 +465,7 @@ export default function ContentHubPage() {
   const [createModuleOpen, setCreateModuleOpen] = useState(false)
   const [createLessonOpen, setCreateLessonOpen] = useState(false)
   const [deletingLessonId, setDeletingLessonId] = useState<string | null>(null)
+  const [exportingCourseId, setExportingCourseId] = useState<string | null>(null)
 
   const [contextCourseId, setContextCourseId] = useState('')
   const [contextModuleId, setContextModuleId] = useState('')
@@ -718,6 +721,35 @@ export default function ContentHubPage() {
 
   const openOnboardingPlacement = (slot: string) => {
     navigate(`/content/onboarding-placement/${slot}`)
+  }
+
+  const downloadCourseContent = async (course: HubCourse) => {
+    setExportingCourseId(course.id)
+    try {
+      const response = await exportCourseContent(course.id)
+      const blob = new Blob([response.data], {
+        type: response.headers['content-type'] || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const disposition = String(response.headers['content-disposition'] || '')
+      const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/)?.[1]
+      const plainFilename = disposition.match(/filename="([^"]+)"/)?.[1]
+      const filename = encodedFilename
+        ? decodeURIComponent(encodedFilename)
+        : plainFilename || `ilmhub-${course.code || 'course'}-content-export.xlsx`
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      notifySuccess(`Экспорт «${course.titleRu}» готов`)
+    } catch (e) {
+      notifyError(e, 'Не удалось выгрузить контент курса')
+    } finally {
+      setExportingCourseId(null)
+    }
   }
 
   const ruUsersWord = (n: number) => {
@@ -1111,6 +1143,29 @@ export default function ContentHubPage() {
                         >
                           Изменить
                         </Button>
+                        <Tooltip title="Выгрузить экраны курса в Excel">
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() => downloadCourseContent(c)}
+                              disabled={exportingCourseId === c.id}
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                color: theme.palette.primary.main,
+                                borderRadius: `${HIG.cornerRadius}px`,
+                                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                              }}
+                              aria-label="Выгрузить Excel"
+                            >
+                              {exportingCourseId === c.id ? (
+                                <CircularProgress size={18} />
+                              ) : (
+                                <FileDownloadOutlined sx={{ fontSize: 21 }} />
+                              )}
+                            </IconButton>
+                          </span>
+                        </Tooltip>
                         {courseExpanded && (
                           <Tooltip title={`Новый модуль в «${c.titleRu}»`}>
                             <Button

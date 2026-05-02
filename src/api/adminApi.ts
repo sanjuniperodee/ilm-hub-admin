@@ -64,6 +64,8 @@ export const getCourseById = (id: string) => apiClient.get(`/admin/courses/${id}
 export const createCourse = (data: any) => apiClient.post('/admin/courses', data)
 export const updateCourse = (id: string, data: any) => apiClient.patch(`/admin/courses/${id}`, data)
 export const deleteCourse = (id: string) => apiClient.delete(`/admin/courses/${id}`)
+export const exportCourseContent = (id: string) =>
+  apiClient.get(`/admin/courses/${id}/export-content`, { responseType: 'blob' })
 
 // Modules
 export const getModules = (courseId?: string) => {
@@ -537,4 +539,3 @@ export const assignCustomRoleToUser = (roleId: string, userId: string) =>
 
 export const revokeCustomRoleFromUser = (roleId: string, userId: string) =>
   apiClient.delete(`/admin/roles/${roleId}/users/${userId}`)
-
