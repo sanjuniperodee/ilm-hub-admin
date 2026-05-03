@@ -7,6 +7,10 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   FormControlLabel,
   Grid,
@@ -539,6 +543,7 @@ export default function LessonEditorPage() {
   const [newTestPassing, setNewTestPassing] = useState(70)
   const [addQuestionMenuAnchor, setAddQuestionMenuAnchor] = useState<null | HTMLElement>(null)
   const [previewBlock, setPreviewBlock] = useState<StudioBlock | null>(null)
+  const [deleteBlockConfirm, setDeleteBlockConfirm] = useState<StudioBlock | null>(null)
 
   const [blockDraft, setBlockDraft] = useState<{
     id?: string
@@ -1044,6 +1049,7 @@ export default function LessonEditorPage() {
       await loadLessonAndContext()
       notifySuccess('Блок удален')
       if (blockDraft.id === id) resetBlockDraft()
+      setDeleteBlockConfirm(null)
     } catch (e) {
       notifyError(e, 'Не удалось удалить блок')
     }
@@ -1412,7 +1418,7 @@ export default function LessonEditorPage() {
                           <IconButton size="small" onClick={() => editBlock(b)} title="Изменить">
                             <EditOutlined fontSize="small" />
                           </IconButton>
-                          <IconButton size="small" color="error" onClick={() => removeBlock(b.id)} title="Удалить">
+                          <IconButton size="small" color="error" onClick={() => setDeleteBlockConfirm(b)} title="Удалить">
                             <DeleteOutline fontSize="small" />
                           </IconButton>
                         </Stack>
@@ -1920,6 +1926,30 @@ export default function LessonEditorPage() {
         onClose={() => setPreviewBlock(null)}
         block={previewBlock}
       />
+
+      <Dialog
+        open={!!deleteBlockConfirm}
+        onClose={() => setDeleteBlockConfirm(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Удалить блок?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Блок #{deleteBlockConfirm?.orderIndex} ({deleteBlockConfirm?.type}) будет удален из урока. Это действие нельзя отменить.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteBlockConfirm(null)}>Отмена</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => deleteBlockConfirm && removeBlock(deleteBlockConfirm.id)}
+          >
+            Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
