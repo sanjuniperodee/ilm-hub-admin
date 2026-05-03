@@ -25,6 +25,7 @@ import {
   Pagination,
   Alert,
   CircularProgress,
+  Stack,
   Tabs,
   Tab,
   Tooltip,
@@ -34,6 +35,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   AdminPanelSettings as AdminIcon,
+  ContentCopy,
 } from '@mui/icons-material'
 import { getAdmins, getAdminById, inviteAdmin, updateAdminRole, updateAdminPermissions, deactivateAdmin, getPermissionGroups, getPendingInvitations, cancelInvitation } from '../api/adminApi'
 import { AdminListItem, PermissionGroup, UserRole } from '../types/admin-permissions';
@@ -68,6 +70,7 @@ export default function AdminManagementPage() {
   const [inviteRole, setInviteRole] = useState<UserRole>('content_manager')
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null)
+  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null)
 
   // Edit permissions dialog
   const [editPermsOpen, setEditPermsOpen] = useState(false)
@@ -114,8 +117,9 @@ export default function AdminManagementPage() {
     setInviteLoading(true)
     setInviteSuccess(null)
     try {
-      await inviteAdmin({ email: inviteEmail.trim(), role: inviteRole })
-      setInviteSuccess('Приглашение отправлено!')
+      const { data } = await inviteAdmin({ email: inviteEmail.trim(), role: inviteRole })
+      setLastInviteUrl(data?.inviteUrl || null)
+      setInviteSuccess('Приглашение создано, письмо поставлено в очередь отправки.')
       setInviteEmail('')
       setInviteOpen(false)
       fetchAdmins()
@@ -205,7 +209,24 @@ export default function AdminManagementPage() {
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-      {inviteSuccess && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setInviteSuccess(null)}>{inviteSuccess}</Alert>}
+      {inviteSuccess && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setInviteSuccess(null)}>
+          <Stack spacing={1}>
+            <span>{inviteSuccess}</span>
+            {lastInviteUrl && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<ContentCopy />}
+                onClick={() => navigator.clipboard?.writeText(lastInviteUrl)}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Скопировать ссылку приглашения
+              </Button>
+            )}
+          </Stack>
+        </Alert>
+      )}
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label="Администраторы" />
@@ -426,7 +447,19 @@ function PendingInvitationsTab() {
               <TableCell><RoleChip role={inv.role} /></TableCell>
               <TableCell>{new Date(inv.createdAt).toLocaleDateString('ru-RU')}</TableCell>
               <TableCell>
-                <Button size="small" color="error" onClick={() => handleCancel(inv.id)}>Отменить</Button>
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  {inv.inviteUrl && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<ContentCopy />}
+                      onClick={() => navigator.clipboard?.writeText(inv.inviteUrl)}
+                    >
+                      Ссылка
+                    </Button>
+                  )}
+                  <Button size="small" color="error" onClick={() => handleCancel(inv.id)}>Отменить</Button>
+                </Stack>
               </TableCell>
             </TableRow>
           ))}

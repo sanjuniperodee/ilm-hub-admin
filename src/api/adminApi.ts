@@ -503,6 +503,9 @@ export const getAdminById = (id: string) =>
 export const inviteAdmin = (data: { email: string; role: string }) =>
   apiClient.post('/admin/admins/invite', data)
 
+export const acceptAdminInvitation = (token: string) =>
+  apiClient.post('/admin/invitations/accept', { token })
+
 export const updateAdminRole = (id: string, role: string) =>
   apiClient.patch(`/admin/admins/${id}/role`, { role })
 

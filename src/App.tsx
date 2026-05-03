@@ -26,6 +26,7 @@ import AuditPage from './pages/AuditPage'
 import AdminManagementPage from './pages/AdminManagementPage'
 import CustomRolesPage from './pages/CustomRolesPage'
 import PushNotificationsPage from './pages/PushNotificationsPage'
+import AcceptInvitationPage from './pages/AcceptInvitationPage'
 
 const theme = createTheme({
   palette: {
@@ -495,6 +496,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
             <Route
               path="/"
               element={
