@@ -107,7 +107,7 @@ function buildAudioHtml(options: { url: string; mediaId?: string; compact: boole
   const style = compact
     ? 'max-width:min(220px,100%);min-width:120px;height:40px;vertical-align:middle;display:inline-block;border-radius:8px;'
     : 'width:100%;max-width:100%;min-height:40px;vertical-align:middle;border-radius:10px;'
-  return `<audio class="${cls}"${idAttr} controls="" preload="metadata" style="${style}"><source src="${url}" /></audio>`
+  return `<audio class="${cls}"${idAttr} controls="" preload="metadata" style="${style}"><source${idAttr} src="${url}" /></audio>`
 }
 
 interface RichTextEditorProps {
@@ -801,4 +801,3 @@ export default function RichTextEditor({
     </Paper>
   )
 }
-
