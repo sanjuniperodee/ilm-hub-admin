@@ -58,7 +58,7 @@ const ILM_RICHTEXT_AUDIO_COMPACT_CLASS = 'ilm-richtext-audio--compact'
 const ILM_RICHTEXT_AUDIO_TD_CLASS = 'ilm-richtext-td-audio'
 
 /** Compact chip player only in the dedicated «аудио» column (see insertTextAndAudioTable). */
-function useCompactAudioForInsertion(root: HTMLElement, range: Range | null): boolean {
+function shouldUseCompactAudioForInsertion(root: HTMLElement, range: Range | null): boolean {
   if (!range) return false
   if (!isRangeInsideTableCell(range, root)) return false
   const cell = findTableCellInEditor(range.commonAncestorContainer, root)
@@ -397,7 +397,7 @@ export default function RichTextEditor({
         const inTableCell = !!(
           insertRangeRef.current && isRangeInsideTableCell(insertRangeRef.current, root)
         )
-        const audioCompact = useCompactAudioForInsertion(root, insertRangeRef.current)
+        const audioCompact = shouldUseCompactAudioForInsertion(root, insertRangeRef.current)
         if (uploaded.type === 'audio') {
           insertHtmlAtCursor(
             buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: audioCompact }),
@@ -612,7 +612,7 @@ export default function RichTextEditor({
               const s = window.getSelection()
               const compact =
                 s && s.rangeCount > 0 && editorRef.current
-                  ? useCompactAudioForInsertion(editorRef.current, s.getRangeAt(0))
+                  ? shouldUseCompactAudioForInsertion(editorRef.current, s.getRangeAt(0))
                   : false
               const url = askForUrl('Вставьте URL аудио (mp3/ogg/m4a и т.д.)')
               if (!url) return
