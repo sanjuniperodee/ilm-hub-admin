@@ -93,8 +93,18 @@ function findMediaInComposedPath(event: { composedPath: () => EventTarget[] }, r
     if (tag === 'AUDIO' || tag === 'VIDEO' || tag === 'IMG') {
       if (root.contains(n)) return n
     }
+    if (tag === 'SOURCE') {
+      const media = n.parentElement
+      if (media && (media.tagName === 'AUDIO' || media.tagName === 'VIDEO') && root.contains(media)) {
+        return media
+      }
+    }
   }
   return null
+}
+
+function mediaIdForElement(el: HTMLElement): string | null {
+  return el.getAttribute('data-media-id') || el.querySelector('source[data-media-id]')?.getAttribute('data-media-id') || null
 }
 
 function buildAudioHtml(options: { url: string; mediaId?: string; compact: boolean }): string {
@@ -137,8 +147,14 @@ export default function RichTextEditor({
   const insertRangeRef = useRef<Range | null>(null)
   /** Last media clicked in the editor (native <audio> controls do not set document selection). */
   const lastMediaInEditorRef = useRef<HTMLElement | null>(null)
+  const currentHtmlRef = useRef(value || '')
   const [currentFontFamily, setCurrentFontFamily] = useState('')
   const [currentFontSize, setCurrentFontSize] = useState('')
+
+  const emitChange = (html: string) => {
+    currentHtmlRef.current = html
+    onChange(html)
+  }
 
   const rememberSelection = () => {
     const selection = window.getSelection()
@@ -168,15 +184,18 @@ export default function RichTextEditor({
       const a = sel.anchorNode
       if (a) {
         const p = a instanceof Element ? a : a.parentElement
-        const m = p?.closest('audio,img,video') as HTMLElement | null
+        const m = p?.closest('audio,img,video,source') as HTMLElement | null
         if (m && root.contains(m)) {
-          return { el: m, mediaId: m.getAttribute('data-media-id') }
+          const media = m.tagName === 'SOURCE' ? m.parentElement : m
+          if (media && (media.tagName === 'AUDIO' || media.tagName === 'VIDEO' || media.tagName === 'IMG')) {
+            return { el: media, mediaId: mediaIdForElement(media) }
+          }
         }
       }
     }
     const last = lastMediaInEditorRef.current
     if (last && root.contains(last)) {
-      return { el: last, mediaId: last.getAttribute('data-media-id') }
+      return { el: last, mediaId: mediaIdForElement(last) }
     }
     return null
   }
@@ -230,7 +249,7 @@ export default function RichTextEditor({
       const frag = document.createDocumentFragment()
       while (wrap.firstChild) frag.appendChild(wrap.firstChild)
       root.appendChild(frag)
-      onChange(root.innerHTML)
+      emitChange(root.innerHTML)
       return
     }
 
@@ -261,7 +280,7 @@ export default function RichTextEditor({
     if (sel.rangeCount > 0) {
       selectionRef.current = sel.getRangeAt(0).cloneRange()
     }
-    onChange(root.innerHTML)
+    emitChange(root.innerHTML)
   }
 
   const askForUrl = (title: string): string | null => {
@@ -433,7 +452,8 @@ export default function RichTextEditor({
     }
     lastMediaInEditorRef.current = null
     mediaEl.remove()
-    onChange(root.innerHTML)
+    const nextHtml = root.innerHTML
+    emitChange(nextHtml)
     if (mediaId && onRemoveMedia) {
       try {
         await onRemoveMedia(mediaId)
@@ -465,15 +485,17 @@ export default function RichTextEditor({
     mediaEl.setAttribute('data-width-pct', String(next))
 
     if (editorRef.current) {
-      onChange(editorRef.current.innerHTML)
+      emitChange(editorRef.current.innerHTML)
     }
   }
 
   useEffect(() => {
     const el = editorRef.current
     if (!el) return
-    if (el.innerHTML !== value) {
-      el.innerHTML = value || ''
+    const nextValue = value || ''
+    if (nextValue !== currentHtmlRef.current && el.innerHTML !== nextValue) {
+      el.innerHTML = nextValue
+      currentHtmlRef.current = nextValue
     }
     wrapBareTablesInContainer(el)
   }, [value])
@@ -712,7 +734,7 @@ export default function RichTextEditor({
                 })
               }
             }
-            if (editorRef.current) onChange(editorRef.current.innerHTML)
+            if (editorRef.current) emitChange(editorRef.current.innerHTML)
           }}
           sx={{ height: 32, minWidth: 170, fontSize: 13 }}
         >
@@ -738,7 +760,7 @@ export default function RichTextEditor({
               toolbarAction('styleWithCSS', 'true')
               toolbarAction('fontSize', sz)
             }
-            if (editorRef.current) onChange(editorRef.current.innerHTML)
+            if (editorRef.current) emitChange(editorRef.current.innerHTML)
           }}
           sx={{ height: 32, width: 90, fontSize: 13 }}
         >
@@ -756,7 +778,7 @@ export default function RichTextEditor({
         suppressContentEditableWarning
         onPointerUp={handleEditorPointerUp}
         onKeyUp={rememberSelection}
-        onInput={(e) => onChange((e.target as HTMLDivElement).innerHTML)}
+        onInput={(e) => emitChange((e.target as HTMLDivElement).innerHTML)}
         sx={{
           p: 2,
           minHeight,
