@@ -262,7 +262,7 @@ function inferMatchItemType(item: MatchItem): MatchItemType {
     return 'text'
 }
 
-function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItems: MatchItem[]; correctPairs: CorrectPair[]; instructionRu: string } {
+function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItems: MatchItem[]; correctPairs: CorrectPair[]; instructionRu: string; instructionKz: string } {
     // Old format: { pairs: [{left:{ru,kz,ar}, right:{ru,kz,ar}, leftImageUrl, rightImageUrl}] }
     if (Array.isArray(value?.pairs) && value.pairs.length > 0 && value.pairs[0]?.left) {
         const leftItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
@@ -276,7 +276,7 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
             imageUrl: p.rightImageUrl ?? '',
         }))
         const correctPairs: CorrectPair[] = value.pairs.map((_: any, i: number) => ({ leftId: `l${i + 1}`, rightId: `r${i + 1}` }))
-        return { leftItems, rightItems, correctPairs, instructionRu: value.instructionRu ?? '' }
+        return { leftItems, rightItems, correctPairs, instructionRu: value.instructionRu ?? '', instructionKz: value.instructionKz ?? '' }
     }
     // New format: { leftItems, rightItems, correctPairs }
     if (Array.isArray(value?.leftItems)) {
@@ -304,9 +304,10 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
             rightItems: (value.rightItems ?? []).map(mapRow),
             correctPairs: value.correctPairs ?? [],
             instructionRu: value.instructionRu ?? '',
+            instructionKz: value.instructionKz ?? '',
         }
     }
-    return { leftItems: [], rightItems: [], correctPairs: [], instructionRu: '' }
+    return { leftItems: [], rightItems: [], correctPairs: [], instructionRu: '', instructionKz: '' }
 }
 
 interface MatchPairsEditorProps extends EditorProps {
@@ -322,13 +323,13 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
     const valueRef = useRef(value)
     valueRef.current = value
 
-    const { leftItems, rightItems, correctPairs, instructionRu } = migrateMatchPairsValue(value)
+    const { leftItems, rightItems, correctPairs, instructionRu, instructionKz } = migrateMatchPairsValue(value)
 
     const images = mediaFiles.filter((f) => f.type === 'image')
     const audios = mediaFiles.filter((f) => f.type === 'audio')
 
-    const emit = (li: MatchItem[], ri: MatchItem[], cp: CorrectPair[], instr?: string) => {
-        onChange({ leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr ?? instructionRu })
+    const emit = (li: MatchItem[], ri: MatchItem[], cp: CorrectPair[], instr?: string, instrKz?: string) => {
+        onChange({ leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr ?? instructionRu, instructionKz: instrKz ?? instructionKz })
     }
 
     const resolveAudioMediaId = (item: MatchItem): string | undefined => {
@@ -613,12 +614,17 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
                 <Tab label="Арабский" />
             </Tabs>
 
+            const currentInstruction = currentLang === 'kz' ? (instructionKz || instructionRu) : (currentLang === 'ar' ? instructionRu : instructionRu)
+            const setInstruction = (text: string) => {
+                if (currentLang === 'kz') emit(leftItems, rightItems, correctPairs, instructionRu, text)
+                else emit(leftItems, rightItems, correctPairs, text, instructionKz)
+            }
             <TextField
                 fullWidth
                 size="small"
                 label="Инструкция"
-                value={instructionRu}
-                onChange={(e) => emit(leftItems, rightItems, correctPairs, e.target.value)}
+                value={currentInstruction}
+                onChange={(e) => setInstruction(e.target.value)}
                 sx={{ mb: 2 }}
             />
 
@@ -855,7 +861,7 @@ interface ImageWordMatchEditorProps extends EditorProps {
 }
 
 export const ImageWordMatchEditor = ({ value, onChange, mediaFiles = [] }: ImageWordMatchEditorProps) => {
-    const content = value || { instruction: '', pairs: [] }
+    const content = value || { instructionRu: '', instructionKz: '', pairs: [] }
 
     const pairs: Array<{ id: string; word: string; imageMediaId?: string }> =
         content.pairs ?? []
@@ -908,10 +914,17 @@ export const ImageWordMatchEditor = ({ value, onChange, mediaFiles = [] }: Image
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
                 fullWidth
-                label="Инструкция"
-                value={content.instruction ?? ''}
-                onChange={(e) => onChange({ ...content, instruction: e.target.value })}
+                label="Инструкция (RU)"
+                value={content.instructionRu ?? ''}
+                onChange={(e) => onChange({ ...content, instructionRu: e.target.value })}
                 placeholder="Соедините картинки и слова"
+            />
+            <TextField
+                fullWidth
+                label="Инструкция (KZ)"
+                value={content.instructionKz ?? ''}
+                onChange={(e) => onChange({ ...content, instructionKz: e.target.value })}
+                placeholder="Суреттер мен сөздерді сәйкестендіріңіз"
             />
 
             {images.length === 0 && (
@@ -1162,6 +1175,7 @@ function splitArabicWord(word: string): string[] {
 export const FindLetterInWordEditor = ({ value, onChange }: EditorProps) => {
     const content = value || {
         instructionRu: 'Найдите букву в слове',
+        instructionKz: 'Сөздегі әріпті табыңыз',
         word: '',
         targetLetter: '',
     }
@@ -1177,8 +1191,18 @@ export const FindLetterInWordEditor = ({ value, onChange }: EditorProps) => {
                 onChange={(e) => onChange({ ...content, instructionRu: e.target.value })}
                 multiline
                 rows={2}
-                sx={{ mb: 3 }}
+                sx={{ mb: 1 }}
                 placeholder="Найдите букву ح в слове"
+            />
+            <TextField
+                fullWidth
+                label="Инструкция (KZ)"
+                value={content.instructionKz || ''}
+                onChange={(e) => onChange({ ...content, instructionKz: e.target.value })}
+                multiline
+                rows={2}
+                sx={{ mb: 3 }}
+                placeholder="Сөздегі әріпті табыңыз"
             />
 
             <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
@@ -1241,11 +1265,13 @@ export const FindLetterInWordEditor = ({ value, onChange }: EditorProps) => {
 export const ListenAndChooseWordEditor = ({ value, onChange }: EditorProps) => {
     const content = value || {
         instructionRu: 'Послушайте и выберите слово',
+        instructionKz: 'Тыңдап, сөзді таңдаңыз',
         audioUrl: '',
         options: [{ id: crypto.randomUUID(), text: '', isCorrect: false }],
     }
 
-    const updateInstruction = (text: string) => onChange({ ...content, instructionRu: text })
+    const updateInstructionRu = (text: string) => onChange({ ...content, instructionRu: text })
+    const updateInstructionKz = (text: string) => onChange({ ...content, instructionKz: text })
 
     const addOption = () => {
         const newOptions = [...(content.options || []), { id: crypto.randomUUID(), text: '', isCorrect: false }]
@@ -1278,7 +1304,16 @@ export const ListenAndChooseWordEditor = ({ value, onChange }: EditorProps) => {
                 fullWidth
                 label="Инструкция (RU)"
                 value={content.instructionRu || ''}
-                onChange={(e) => updateInstruction(e.target.value)}
+                onChange={(e) => updateInstructionRu(e.target.value)}
+                multiline
+                rows={2}
+                sx={{ mb: 1 }}
+            />
+            <TextField
+                fullWidth
+                label="Инструкция (KZ)"
+                value={content.instructionKz || ''}
+                onChange={(e) => updateInstructionKz(e.target.value)}
                 multiline
                 rows={2}
                 sx={{ mb: 3 }}
