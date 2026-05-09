@@ -1045,11 +1045,13 @@ export const ImageWordMatchEditor = ({ value, onChange, mediaFiles = [] }: Image
 export const AudioChoiceEditor = ({ value, onChange }: EditorProps) => {
     const content = value || {
         instructionRu: 'Послушайте звук и выберите правильную букву',
+        instructionKz: 'Дыбысты тыңдап, дұрыс әріпті таңдаңыз',
         audioUrl: '',
         options: [{ id: crypto.randomUUID(), text: '', isCorrect: false }],
     }
 
-    const updateInstruction = (text: string) => onChange({ ...content, instructionRu: text })
+    const updateInstructionRu = (text: string) => onChange({ ...content, instructionRu: text })
+    const updateInstructionKz = (text: string) => onChange({ ...content, instructionKz: text })
 
     const addOption = () => {
         const newOptions = [...(content.options || []), { id: crypto.randomUUID(), text: '', isCorrect: false }]
@@ -1082,7 +1084,16 @@ export const AudioChoiceEditor = ({ value, onChange }: EditorProps) => {
                 fullWidth
                 label="Инструкция (RU)"
                 value={content.instructionRu || ''}
-                onChange={(e) => updateInstruction(e.target.value)}
+                onChange={(e) => updateInstructionRu(e.target.value)}
+                multiline
+                rows={2}
+                sx={{ mb: 1 }}
+            />
+            <TextField
+                fullWidth
+                label="Инструкция (KZ)"
+                value={content.instructionKz || ''}
+                onChange={(e) => updateInstructionKz(e.target.value)}
                 multiline
                 rows={2}
                 sx={{ mb: 3 }}

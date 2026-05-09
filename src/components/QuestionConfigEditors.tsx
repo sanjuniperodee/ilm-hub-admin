@@ -590,6 +590,13 @@ export function AudioMultipleChoiceConfigEditor({ value, onChange, mediaFiles = 
         onChange={(url, mediaId) => onChange({ ...value, audioUrl: url, audioMediaId: mediaId || undefined })}
         label="Аудио файл"
       />
+      <TextField
+        fullWidth
+        size="small"
+        label="instructionKz (опционально)"
+        value={(value?.instructionKz as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionKz: e.target.value })}
+      />
       <Typography variant="subtitle2">Варианты ответов (отметьте правильный)</Typography>
       {options.map((opt) => (
         <Box key={opt.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

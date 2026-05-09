@@ -422,6 +422,7 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
       if (Array.isArray(config.leftItems)) {
         return {
           instructionRu: config.instructionRu ?? '',
+          instructionKz: config.instructionKz ?? '',
           leftItems: config.leftItems.map((item: any) => ({
             id: item.id,
             text: item.text?.[lang] ?? '',
@@ -458,27 +459,33 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
     if (type === 'listen_repeat') {
       return {
         instructionRu: config.instructionRu,
+        instructionKz: config.instructionKz,
         audioUrl: config.audioUrl,
       }
     }
     if (type === 'fill_blank') {
       return {
         instructionRu: config.instructionRu,
+        instructionKz: config.instructionKz,
         sentenceTemplateRu: config.sentenceTemplateRu,
+        sentenceTemplateKz: config.sentenceTemplateKz,
         options: config.options,
         correctAnswerId: config.correctAnswerId,
         explanationRu: config.explanationRu,
+        explanationKz: config.explanationKz,
       }
     }
     if (type === 'image_word_match') {
       return {
-        instruction: config.instruction,
+        instructionRu: config.instructionRu,
+        instructionKz: config.instructionKz,
         pairs: config.pairs,
       }
     }
     if (type === 'audio_choice') {
       return {
         instructionRu: config.instructionRu,
+        instructionKz: config.instructionKz,
         audioUrl: config.audioUrl ?? '',
         options: config.options?.map((o: any, i: number) => ({
           id: o.id || `opt_${i + 1}`,
@@ -490,6 +497,7 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
     if (type === 'find_letter_in_word') {
       return {
         instructionRu: config.instructionRu,
+        instructionKz: config.instructionKz,
         word: config.word ?? '',
         targetLetter: config.targetLetter ?? '',
       }
@@ -497,6 +505,7 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
     if (type === 'listen_and_choose_word') {
       return {
         instructionRu: config.instructionRu,
+        instructionKz: config.instructionKz,
         audioUrl: config.audioUrl ?? '',
         options: config.options?.map((o: any, i: number) => ({
           id: o.id || `opt_${i + 1}`,
@@ -558,11 +567,16 @@ export default function LessonEditorPage() {
     arabicWord: string
     transcription: string
     translationRu: string
+    translationKz: string
     exerciseConfig?: any
     messageRu?: string
+    messageKz?: string
     summaryRu?: string
+    summaryKz?: string
     nextActionRu?: string
+    nextActionKz?: string
     nextActionButtonRu?: string
+    nextActionButtonKz?: string
     gridItemRows: GridItemRow[]
     gridColumnMode: '2' | '3' | '4' | 'auto'
     gridShowCaption: boolean
@@ -579,6 +593,7 @@ export default function LessonEditorPage() {
     arabicWord: '',
     transcription: '',
     translationRu: '',
+    translationKz: '',
     gridItemRows: [newGridItemRow()],
     gridColumnMode: '3',
     gridShowCaption: false,
@@ -723,11 +738,16 @@ export default function LessonEditorPage() {
       arabicWord: '',
       transcription: '',
       translationRu: '',
+      translationKz: '',
       exerciseConfig: undefined,
       messageRu: undefined,
+      messageKz: undefined,
       summaryRu: undefined,
+      summaryKz: undefined,
       nextActionRu: undefined,
+      nextActionKz: undefined,
       nextActionButtonRu: undefined,
+      nextActionButtonKz: undefined,
       gridItemRows: [newGridItemRow()],
       gridColumnMode: '3',
       gridShowCaption: false,
@@ -754,11 +774,16 @@ export default function LessonEditorPage() {
       arabicWord: (block.contentRu?.arabicWord as string) || '',
       transcription: (block.contentRu?.transcription as string) || '',
       translationRu: (block.contentRu?.translation as string) || (block.contentRu?.translationRu as string) || '',
+      translationKz: (block.contentKz?.translation as string) || (block.contentKz?.translationKz as string) || '',
       exerciseConfig: isExercise ? buildExerciseConfigFromBlock(block) : undefined,
       messageRu: isLessonComplete ? (block.contentRu?.messageRu as string) || '' : undefined,
+      messageKz: isLessonComplete ? (block.contentKz?.messageKz as string) || '' : undefined,
       summaryRu: isLessonComplete ? (block.contentRu?.summaryRu as string) || '' : undefined,
+      summaryKz: isLessonComplete ? (block.contentKz?.summaryKz as string) || '' : undefined,
       nextActionRu: isLessonComplete ? (block.contentRu?.nextActionRu as string) || '' : undefined,
+      nextActionKz: isLessonComplete ? (block.contentKz?.nextActionKz as string) || '' : undefined,
       nextActionButtonRu: isLessonComplete ? (block.contentRu?.nextActionButtonRu as string) || '' : undefined,
+      nextActionButtonKz: isLessonComplete ? (block.contentKz?.nextActionButtonKz as string) || '' : undefined,
       gridItemRows: gridDraft?.gridItemRows || [newGridItemRow()],
       gridColumnMode: gridDraft?.gridColumnMode || '3',
       gridShowCaption: gridDraft?.gridShowCaption ?? false,
@@ -803,7 +828,12 @@ export default function LessonEditorPage() {
           nextActionRu: blockDraft.nextActionRu || '',
           nextActionButtonRu: blockDraft.nextActionButtonRu || 'Перейти к мини-тесту',
         },
-        contentKz: {},
+        contentKz: {
+          messageKz: blockDraft.messageKz || '',
+          summaryKz: blockDraft.summaryKz || '',
+          nextActionKz: blockDraft.nextActionKz || '',
+          nextActionButtonKz: blockDraft.nextActionButtonKz || '',
+        },
         contentAr: {},
       }
       return includeLessonId && lessonId ? { lessonId, ...base } : base
@@ -894,12 +924,17 @@ export default function LessonEditorPage() {
           // (idempotent; matches RichTextEditor + MobilePreview [wrapRichTextTables]).
           html: wrapRichTextTables(blockDraft.textRuHtml),
         }
+    const contentKz = isIllustration
+      ? {
+          translation: blockDraft.translationKz || '',
+        }
+      : { title: blockDraft.titleKz, text: blockDraft.textKz }
 
     const basePayload = {
       type: blockDraft.type,
       orderIndex: Number(blockDraft.orderIndex) || 0,
       contentRu,
-      contentKz: { title: blockDraft.titleKz, text: blockDraft.textKz },
+      contentKz,
       contentAr: { title: blockDraft.titleAr, text: blockDraft.textAr },
     }
     return includeLessonId && lessonId ? { lessonId, ...basePayload } : basePayload
