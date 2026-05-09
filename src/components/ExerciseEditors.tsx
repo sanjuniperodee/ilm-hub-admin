@@ -164,11 +164,16 @@ export const AudioMultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
 export const ListenRepeatEditor = ({ value, onChange }: EditorProps) => {
     const content = value || {
         instructionRu: 'Слушай и повторяй',
+        instructionKz: 'Тыңда және қайтала',
         audioUrl: '',
     }
 
-    const updateInstruction = (text: string) => {
+    const updateInstructionRu = (text: string) => {
         onChange({ ...content, instructionRu: text })
+    }
+
+    const updateInstructionKz = (text: string) => {
+        onChange({ ...content, instructionKz: text })
     }
 
     return (
@@ -177,11 +182,21 @@ export const ListenRepeatEditor = ({ value, onChange }: EditorProps) => {
                 fullWidth
                 label="Инструкция (RU)"
                 value={content.instructionRu || 'Слушай и повторяй'}
-                onChange={(e) => updateInstruction(e.target.value)}
+                onChange={(e) => updateInstructionRu(e.target.value)}
                 multiline
                 rows={2}
                 sx={{ mb: 2 }}
                 placeholder="Слушай и повторяй"
+            />
+            <TextField
+                fullWidth
+                label="Инструкция (KZ)"
+                value={content.instructionKz || 'Тыңда және қайтала'}
+                onChange={(e) => updateInstructionKz(e.target.value)}
+                multiline
+                rows={2}
+                sx={{ mb: 2 }}
+                placeholder="Тыңда және қайтала"
             />
             <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
                 Загрузите аудио через «Медиа файлы» после сохранения блока.

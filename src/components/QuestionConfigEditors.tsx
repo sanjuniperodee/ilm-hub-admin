@@ -98,11 +98,27 @@ export function FillBlankConfigEditor({ value, onChange }: EditorProps) {
       <TextField
         fullWidth
         size="small"
+        label="instructionKz"
+        value={(value?.instructionKz as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionKz: e.target.value })}
+        placeholder="Бос орынды толтырыңыз"
+      />
+      <TextField
+        fullWidth
+        size="small"
         label="sentenceTemplateRu"
         value={(value?.sentenceTemplateRu as string) || ''}
         onChange={(e) => onChange({ ...value, sentenceTemplateRu: e.target.value })}
         placeholder="Используйте ________ для пропуска"
         helperText="Используйте ________ для обозначения пропуска"
+      />
+      <TextField
+        fullWidth
+        size="small"
+        label="sentenceTemplateKz"
+        value={(value?.sentenceTemplateKz as string) || ''}
+        onChange={(e) => onChange({ ...value, sentenceTemplateKz: e.target.value })}
+        placeholder="________ белгіленген бос орынды пайдаланыңыз"
       />
       <Typography variant="subtitle2">Варианты ответов (выберите правильный)</Typography>
       {options.map((opt, i) => (
@@ -133,6 +149,13 @@ export function FillBlankConfigEditor({ value, onChange }: EditorProps) {
         label="explanationRu (опционально)"
         value={(value?.explanationRu as string) || ''}
         onChange={(e) => onChange({ ...value, explanationRu: e.target.value })}
+      />
+      <TextField
+        fullWidth
+        size="small"
+        label="explanationKz (опционально)"
+        value={(value?.explanationKz as string) || ''}
+        onChange={(e) => onChange({ ...value, explanationKz: e.target.value })}
       />
     </Stack>
   )
@@ -367,6 +390,14 @@ export function MatchPairsConfigEditor({ value, onChange, mediaFiles = [] }: Edi
         onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Сопоставь пары"
       />
+      <TextField
+        fullWidth
+        size="small"
+        label="instructionKz"
+        value={(value?.instructionKz as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionKz: e.target.value })}
+        placeholder="Жұптарды сәйкестендіріңіз"
+      />
 
       {/* Left column */}
       <Typography variant="subtitle2">Левые элементы (вопросы)</Typography>
@@ -455,6 +486,14 @@ export function ManualInputConfigEditor({ value, onChange }: EditorProps) {
       <TextField
         fullWidth
         size="small"
+        label="instructionKz"
+        value={(value?.instructionKz as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionKz: e.target.value })}
+        placeholder="Жауапты енгізіңіз"
+      />
+      <TextField
+        fullWidth
+        size="small"
         label="correctAnswer (обязательно)"
         value={(value?.correctAnswer as string) || ''}
         onChange={(e) => onChange({ ...value, correctAnswer: e.target.value })}
@@ -467,6 +506,13 @@ export function ManualInputConfigEditor({ value, onChange }: EditorProps) {
         label="hintRu (опционально)"
         value={(value?.hintRu as string) || ''}
         onChange={(e) => onChange({ ...value, hintRu: e.target.value })}
+      />
+      <TextField
+        fullWidth
+        size="small"
+        label="hintKz (опционально)"
+        value={(value?.hintKz as string) || ''}
+        onChange={(e) => onChange({ ...value, hintKz: e.target.value })}
       />
     </Stack>
   )
@@ -577,6 +623,13 @@ export function AudioMultipleChoiceConfigEditor({ value, onChange, mediaFiles = 
         value={(value?.explanationRu as string) || ''}
         onChange={(e) => onChange({ ...value, explanationRu: e.target.value })}
       />
+      <TextField
+        fullWidth
+        size="small"
+        label="explanationKz (опционально)"
+        value={(value?.explanationKz as string) || ''}
+        onChange={(e) => onChange({ ...value, explanationKz: e.target.value })}
+      />
     </Stack>
   )
 }
@@ -623,10 +676,18 @@ export function ImageWordMatchConfigEditor({ value, onChange, mediaFiles = [] }:
       <TextField
         fullWidth
         size="small"
-        label="Инструкция"
-        value={(value?.instruction as string) || ''}
-        onChange={(e) => onChange({ ...value, instruction: e.target.value })}
+        label="Инструкция (RU)"
+        value={(value?.instructionRu as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Соедини картинку и слово"
+      />
+      <TextField
+        fullWidth
+        size="small"
+        label="Инструкция (KZ)"
+        value={(value?.instructionKz as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionKz: e.target.value })}
+        placeholder="Сурет пен сөзді қосыңыз"
       />
       <Alert severity="info" sx={{ fontSize: 13 }}>
         Загрузите изображения через «Медиа файлы теста», затем выберите их ниже.
@@ -753,6 +814,14 @@ export function AudioChoiceConfigEditor({ value, onChange, mediaFiles = [] }: Ed
         onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Какая это буква?"
       />
+      <TextField
+        fullWidth
+        size="small"
+        label="Инструкция (KZ)"
+        value={(value?.instructionKz as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionKz: e.target.value })}
+        placeholder="Бұл қандай әріп?"
+      />
       <AudioMediaPicker
         mediaFiles={mediaFiles}
         audioUrl={value?.audioUrl as string}
@@ -787,6 +856,13 @@ export function AudioChoiceConfigEditor({ value, onChange, mediaFiles = [] }: Ed
         value={(value?.explanationRu as string) || ''}
         onChange={(e) => onChange({ ...value, explanationRu: e.target.value })}
       />
+      <TextField
+        fullWidth
+        size="small"
+        label="explanationKz (опционально)"
+        value={(value?.explanationKz as string) || ''}
+        onChange={(e) => onChange({ ...value, explanationKz: e.target.value })}
+      />
     </Stack>
   )
 }
@@ -812,6 +888,14 @@ export function FindLetterInWordConfigEditor({ value, onChange }: EditorProps) {
         value={(value?.instructionRu as string) || ''}
         onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Найдите букву ح в слове"
+      />
+      <TextField
+        fullWidth
+        size="small"
+        label="Инструкция (KZ)"
+        value={(value?.instructionKz as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionKz: e.target.value })}
+        placeholder="Сөздегі әріпті табыңыз"
       />
       <Box sx={{ display: 'flex', gap: 2 }}>
         <TextField
@@ -935,6 +1019,14 @@ export function ListenAndChooseWordConfigEditor({ value, onChange, mediaFiles = 
         onChange={(e) => onChange({ ...value, instructionRu: e.target.value })}
         placeholder="Послушайте и выберите слово"
       />
+      <TextField
+        fullWidth
+        size="small"
+        label="Инструкция (KZ)"
+        value={(value?.instructionKz as string) || ''}
+        onChange={(e) => onChange({ ...value, instructionKz: e.target.value })}
+        placeholder="Тыңдап, сөзді таңдаңыз"
+      />
       <AudioMediaPicker
         mediaFiles={mediaFiles}
         audioUrl={value?.audioUrl as string}
@@ -968,6 +1060,13 @@ export function ListenAndChooseWordConfigEditor({ value, onChange, mediaFiles = 
         label="explanationRu (опционально)"
         value={(value?.explanationRu as string) || ''}
         onChange={(e) => onChange({ ...value, explanationRu: e.target.value })}
+      />
+      <TextField
+        fullWidth
+        size="small"
+        label="explanationKz (опционально)"
+        value={(value?.explanationKz as string) || ''}
+        onChange={(e) => onChange({ ...value, explanationKz: e.target.value })}
       />
     </Stack>
   )

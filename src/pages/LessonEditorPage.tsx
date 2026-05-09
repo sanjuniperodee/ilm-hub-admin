@@ -1577,6 +1577,16 @@ export default function LessonEditorPage() {
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
+                          size="small"
+                          label="Заголовок (messageKz)"
+                          value={blockDraft.messageKz || ''}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, messageKz: e.target.value }))}
+                          placeholder="Сіз сабақты аяқтадыңыз!"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
                           multiline
                           minRows={2}
                           size="small"
@@ -1584,6 +1594,18 @@ export default function LessonEditorPage() {
                           value={blockDraft.summaryRu || ''}
                           onChange={(e) => setBlockDraft((p) => ({ ...p, summaryRu: e.target.value }))}
                           placeholder="Что изучено в этом уроке"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          multiline
+                          minRows={2}
+                          size="small"
+                          label="Краткий итог урока (summaryKz)"
+                          value={blockDraft.summaryKz || ''}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, summaryKz: e.target.value }))}
+                          placeholder="Бұл сабақта не үйрендіңіз"
                         />
                       </Grid>
                       <Grid item xs={12}>
@@ -1601,11 +1623,33 @@ export default function LessonEditorPage() {
                       <Grid item xs={12}>
                         <TextField
                           fullWidth
+                          multiline
+                          minRows={2}
+                          size="small"
+                          label="Следующее действие (nextActionKz)"
+                          value={blockDraft.nextActionKz || ''}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, nextActionKz: e.target.value }))}
+                          placeholder="Енді сіз қаншалықты меңгергеніңізді тексереміз"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
                           size="small"
                           label="Текст кнопки (nextActionButtonRu)"
                           value={blockDraft.nextActionButtonRu || ''}
                           onChange={(e) => setBlockDraft((p) => ({ ...p, nextActionButtonRu: e.target.value }))}
                           placeholder="Перейти к мини-тесту"
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Текст кнопки (nextActionButtonKz)"
+                          value={blockDraft.nextActionButtonKz || ''}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, nextActionButtonKz: e.target.value }))}
+                          placeholder="Мини-тестке өту"
                         />
                       </Grid>
                     </>
@@ -1663,6 +1707,16 @@ export default function LessonEditorPage() {
                           value={blockDraft.translationRu}
                           onChange={(e) => setBlockDraft((p) => ({ ...p, translationRu: e.target.value }))}
                           placeholder="Яблоко"
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Перевод (KZ)"
+                          value={blockDraft.translationKz}
+                          onChange={(e) => setBlockDraft((p) => ({ ...p, translationKz: e.target.value }))}
+                          placeholder="Алма"
                         />
                       </Grid>
                       {blockDraft.id ? (
