@@ -1087,15 +1087,19 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
   if (type === 'fill_blank') {
     return {
       instructionRu: 'Заполни пропуск',
+      instructionKz: 'Бос орынды толтырыңыз',
       sentenceTemplateRu: 'Это ________ пример',
+      sentenceTemplateKz: 'Бұл ________ мысал',
       options: [{ id: 'opt_1', text: 'правильный' }, { id: 'opt_2', text: 'неверный' }],
       correctAnswerId: 'opt_1',
       explanationRu: '',
+      explanationKz: '',
     }
   }
   if (type === 'match_pairs') {
     return {
       instructionRu: 'Сопоставь пары',
+      instructionKz: 'Жұптарды сәйкестендіріңіз',
       leftItems: [{ id: 'l1', text: 'Слово 1' }, { id: 'l2', text: 'Слово 2' }],
       rightItems: [{ id: 'r1', text: 'Перевод 1' }, { id: 'r2', text: 'Перевод 2' }],
       correctPairs: [{ leftId: 'l1', rightId: 'r1' }, { leftId: 'l2', rightId: 'r2' }],
@@ -1104,8 +1108,10 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
   if (type === 'manual_input') {
     return {
       instructionRu: 'Введи ответ',
+      instructionKz: 'Жауап енгізіңіз',
       correctAnswer: '',
       hintRu: '',
+      hintKz: '',
     }
   }
   if (type === 'audio_multiple_choice') {
@@ -1167,5 +1173,5 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
       explanationKz: '',
     }
   }
-  return { instructionRu: 'Выберите правильный вариант', explanationRu: '' }
+  return { instructionRu: 'Выберите правильный вариант', instructionKz: 'Дұрыс нұсқаны таңдаңыз', explanationRu: '', explanationKz: '' }
 }

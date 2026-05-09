@@ -614,17 +614,15 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
                 <Tab label="Арабский" />
             </Tabs>
 
-            const currentInstruction = currentLang === 'kz' ? (instructionKz || instructionRu) : (currentLang === 'ar' ? instructionRu : instructionRu)
-            const setInstruction = (text: string) => {
-                if (currentLang === 'kz') emit(leftItems, rightItems, correctPairs, instructionRu, text)
-                else emit(leftItems, rightItems, correctPairs, text, instructionKz)
-            }
             <TextField
                 fullWidth
                 size="small"
                 label="Инструкция"
-                value={currentInstruction}
-                onChange={(e) => setInstruction(e.target.value)}
+                value={currentLang === 'kz' ? (instructionKz || instructionRu) : instructionRu}
+                onChange={(e) => {
+                    if (currentLang === 'kz') emit(leftItems, rightItems, correctPairs, instructionRu, e.target.value)
+                    else emit(leftItems, rightItems, correctPairs, e.target.value, instructionKz)
+                }}
                 sx={{ mb: 2 }}
             />
 
