@@ -1118,11 +1118,13 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
         { id: 'opt_4', text: 'Вариант 4', isCorrect: false },
       ],
       explanationRu: '',
+      explanationKz: '',
     }
   }
   if (type === 'image_word_match') {
     return {
-      instruction: 'Соедини картинку и слово',
+      instructionRu: 'Соедини картинку и слово',
+      instructionKz: 'Суретті сөзбен сәйкестендір',
       pairs: [
         { id: crypto.randomUUID(), word: '', imageUrl: '' },
         { id: crypto.randomUUID(), word: '', imageUrl: '' },
@@ -1132,6 +1134,7 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
   if (type === 'audio_choice') {
     return {
       instructionRu: 'Какая это буква?',
+      instructionKz: 'Бұл қандай әріп?',
       audioUrl: '',
       options: [
         { id: 'opt_1', text: '', isCorrect: true },
@@ -1139,11 +1142,13 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
         { id: 'opt_3', text: '', isCorrect: false },
       ],
       explanationRu: '',
+      explanationKz: '',
     }
   }
   if (type === 'find_letter_in_word') {
     return {
       instructionRu: 'Найдите букву в слове',
+      instructionKz: 'Сөздегі әріпті табыңыз',
       word: '',
       targetLetter: '',
     }
@@ -1151,6 +1156,7 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
   if (type === 'listen_and_choose_word') {
     return {
       instructionRu: 'Послушайте и выберите слово',
+      instructionKz: 'Тыңдап, сөзді таңдаңыз',
       audioUrl: '',
       options: [
         { id: 'opt_1', text: '', isCorrect: true },
@@ -1158,6 +1164,7 @@ export function getConfigTemplate(type: ConfigEditorType): Record<string, any> {
         { id: 'opt_3', text: '', isCorrect: false },
       ],
       explanationRu: '',
+      explanationKz: '',
     }
   }
   return { instructionRu: 'Выберите правильный вариант', explanationRu: '' }
