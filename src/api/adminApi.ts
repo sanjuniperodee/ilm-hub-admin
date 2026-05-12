@@ -492,6 +492,15 @@ export const uploadIslamHajjPhraseAudio = (id: string, file: File) => {
   })
 }
 
+export const createIslamHajjChecklist = (sectionId: string, data: any) =>
+  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/checklists`, data)
+
+export const updateIslamHajjChecklist = (id: string, data: any) =>
+  apiClient.patch(`/admin/islam/hajj-checklists/${id}`, data)
+
+export const deleteIslamHajjChecklist = (id: string) =>
+  apiClient.delete(`/admin/islam/hajj-checklists/${id}`)
+
 // ── Admin Management ─────────────────────────────────────────────────────────
 
 export const getAdmins = (params?: { page?: number; limit?: number }) =>

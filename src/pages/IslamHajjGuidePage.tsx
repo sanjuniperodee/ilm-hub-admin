@@ -28,7 +28,7 @@ import {
 } from '@mui/material'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
-import { Add, Audiotrack, Delete, Edit, ExpandLess, ExpandMore, Refresh } from '@mui/icons-material'
+import { Add, Audiotrack, Checklist, Delete, Edit, ExpandLess, ExpandMore, Refresh } from '@mui/icons-material'
 import {
   getIslamHajjSections,
   createIslamHajjSection,
@@ -42,6 +42,9 @@ import {
   updateIslamHajjPhrase,
   deleteIslamHajjPhrase,
   uploadIslamHajjPhraseAudio,
+  createIslamHajjChecklist,
+  updateIslamHajjChecklist,
+  deleteIslamHajjChecklist,
 } from '../api/adminApi'
 import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 import { pageTitleH4Sx } from '../utils/responsivePageSx'
@@ -49,19 +52,56 @@ import { pageTitleH4Sx } from '../utils/responsivePageSx'
 interface HajjSection {
   id: string; code: string; titleRu: string; titleKz?: string | null
   emoji: string; orderIndex: number; isActive: boolean
-  instructionsCount: number; phrasesCount: number
+  instructionsCount: number; phrasesCount: number; checklistsCount?: number
+}
+interface HajjChecklistItem {
+  titleRu: string; titleKz?: string | null; isCheckedByDefault?: boolean
 }
 interface HajjInstruction {
   id: string; sectionId: string; stepNumber?: number | null
   titleRu: string; titleKz?: string | null
   descriptionRu?: string | null; descriptionKz?: string | null
   isHighlight: boolean; orderIndex: number
+  items?: HajjChecklistItem[]
+  badgeRu?: string | null; badgeKz?: string | null
+  warningTitleRu?: string | null; warningTitleKz?: string | null
+  warningItemsRu?: string[]; warningItemsKz?: string[]
 }
 interface HajjPhrase {
-  id: string; sectionId: string; textAr: string
+  id: string; sectionId: string; titleRu?: string | null; titleKz?: string | null; textAr: string
   transliteration?: string | null; translationRu: string
   translationKz?: string | null; audioUrl?: string | null; orderIndex: number
 }
+interface HajjChecklist {
+  id: string; sectionId: string; titleRu: string; titleKz?: string | null
+  emoji?: string | null; items: HajjChecklistItem[]; orderIndex: number; isActive: boolean
+}
+
+const formatItems = (items: HajjChecklistItem[] = []) =>
+  items.map((item) => `${item.isCheckedByDefault ? '[x] ' : ''}${item.titleRu || ''}`).join('\n')
+
+const formatItemTranslations = (items: HajjChecklistItem[] = []) =>
+  items.map((item) => item.titleKz || '').join('\n')
+
+const parseItems = (ruText: string, kzText = ''): HajjChecklistItem[] => {
+  const kzLines = kzText.split('\n')
+  return ruText
+    .split('\n')
+    .map((line, index) => {
+      const trimmed = line.trim()
+      if (!trimmed) return null
+      const isCheckedByDefault = /^\[(x|х|v|✓)\]\s*/i.test(trimmed)
+      return {
+        titleRu: trimmed.replace(/^\[(x|х|v|✓)\]\s*/i, ''),
+        titleKz: kzLines[index]?.trim() || null,
+        isCheckedByDefault,
+      }
+    })
+    .filter(Boolean) as HajjChecklistItem[]
+}
+
+const formatLines = (items: string[] = []) => items.join('\n')
+const parseLines = (text: string) => text.split('\n').map((line) => line.trim()).filter(Boolean)
 
 export default function IslamHajjGuidePage() {
   const [loading, setLoading] = useState(false)
@@ -69,7 +109,7 @@ export default function IslamHajjGuidePage() {
   const [success, setSuccess] = useState('')
   const [sections, setSections] = useState<HajjSection[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [detailsMap, setDetailsMap] = useState<Record<string, { instructions: HajjInstruction[]; phrases: HajjPhrase[] }>>({})
+  const [detailsMap, setDetailsMap] = useState<Record<string, { instructions: HajjInstruction[]; phrases: HajjPhrase[]; checklists: HajjChecklist[] }>>({})
 
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false)
   const [editingSection, setEditingSection] = useState<HajjSection | null>(null)
@@ -77,12 +117,32 @@ export default function IslamHajjGuidePage() {
 
   const [instrDialogOpen, setInstrDialogOpen] = useState(false)
   const [editingInstr, setEditingInstr] = useState<HajjInstruction | null>(null)
-  const [instrForm, setInstrForm] = useState({ stepNumber: 0, titleRu: '', titleKz: '', descriptionRu: '', descriptionKz: '', isHighlight: false, orderIndex: 0 })
+  const [instrForm, setInstrForm] = useState({
+    stepNumber: 0,
+    titleRu: '',
+    titleKz: '',
+    descriptionRu: '',
+    descriptionKz: '',
+    isHighlight: false,
+    itemsRu: '',
+    itemsKz: '',
+    badgeRu: '',
+    badgeKz: '',
+    warningTitleRu: '',
+    warningTitleKz: '',
+    warningItemsRu: '',
+    warningItemsKz: '',
+    orderIndex: 0,
+  })
   const [currentSectionId, setCurrentSectionId] = useState('')
 
   const [phraseDialogOpen, setPhraseDialogOpen] = useState(false)
   const [editingPhrase, setEditingPhrase] = useState<HajjPhrase | null>(null)
-  const [phraseForm, setPhraseForm] = useState({ textAr: '', transliteration: '', translationRu: '', translationKz: '', orderIndex: 0 })
+  const [phraseForm, setPhraseForm] = useState({ titleRu: '', titleKz: '', textAr: '', transliteration: '', translationRu: '', translationKz: '', orderIndex: 0 })
+
+  const [checklistDialogOpen, setChecklistDialogOpen] = useState(false)
+  const [editingChecklist, setEditingChecklist] = useState<HajjChecklist | null>(null)
+  const [checklistForm, setChecklistForm] = useState({ titleRu: '', titleKz: '', emoji: '', itemsRu: '', itemsKz: '', orderIndex: 0, isActive: true })
   const narrowFormXs = useNarrowDialogProps('xs')
   const narrowFormSm = useNarrowDialogProps('sm')
   const muiTheme = useTheme()
@@ -102,7 +162,14 @@ export default function IslamHajjGuidePage() {
   const loadDetails = async (id: string) => {
     try {
       const { data } = await getIslamHajjSectionDetails(id)
-      setDetailsMap((prev) => ({ ...prev, [id]: { instructions: data.instructions || [], phrases: data.phrases || [] } }))
+      setDetailsMap((prev) => ({
+        ...prev,
+        [id]: {
+          instructions: data.instructions || [],
+          phrases: data.phrases || [],
+          checklists: data.checklists || [],
+        },
+      }))
     } catch (e: any) { setError(e?.response?.data?.message || 'Failed to load details') }
   }
 
@@ -141,26 +208,73 @@ export default function IslamHajjGuidePage() {
   const openCreateInstr = (sectionId: string) => {
     setCurrentSectionId(sectionId); setEditingInstr(null)
     const existing = detailsMap[sectionId]?.instructions || []
-    setInstrForm({ stepNumber: existing.length + 1, titleRu: '', titleKz: '', descriptionRu: '', descriptionKz: '', isHighlight: false, orderIndex: existing.length })
+    setInstrForm({
+      stepNumber: existing.length + 1,
+      titleRu: '',
+      titleKz: '',
+      descriptionRu: '',
+      descriptionKz: '',
+      isHighlight: false,
+      itemsRu: '',
+      itemsKz: '',
+      badgeRu: '',
+      badgeKz: '',
+      warningTitleRu: '',
+      warningTitleKz: '',
+      warningItemsRu: '',
+      warningItemsKz: '',
+      orderIndex: existing.length,
+    })
     setInstrDialogOpen(true)
   }
   const openEditInstr = (i: HajjInstruction) => {
     setCurrentSectionId(i.sectionId); setEditingInstr(i)
-    setInstrForm({ stepNumber: i.stepNumber || 0, titleRu: i.titleRu, titleKz: i.titleKz || '', descriptionRu: i.descriptionRu || '', descriptionKz: i.descriptionKz || '', isHighlight: i.isHighlight, orderIndex: i.orderIndex })
+    setInstrForm({
+      stepNumber: i.stepNumber || 0,
+      titleRu: i.titleRu,
+      titleKz: i.titleKz || '',
+      descriptionRu: i.descriptionRu || '',
+      descriptionKz: i.descriptionKz || '',
+      isHighlight: i.isHighlight,
+      itemsRu: formatItems(i.items),
+      itemsKz: formatItemTranslations(i.items),
+      badgeRu: i.badgeRu || '',
+      badgeKz: i.badgeKz || '',
+      warningTitleRu: i.warningTitleRu || '',
+      warningTitleKz: i.warningTitleKz || '',
+      warningItemsRu: formatLines(i.warningItemsRu),
+      warningItemsKz: formatLines(i.warningItemsKz),
+      orderIndex: i.orderIndex,
+    })
     setInstrDialogOpen(true)
   }
   const saveInstr = async () => {
     setError('')
     try {
-      const payload = { ...instrForm, stepNumber: instrForm.stepNumber || null }
+      const payload = {
+        stepNumber: instrForm.stepNumber || null,
+        titleRu: instrForm.titleRu,
+        titleKz: instrForm.titleKz || null,
+        descriptionRu: instrForm.descriptionRu || null,
+        descriptionKz: instrForm.descriptionKz || null,
+        isHighlight: instrForm.isHighlight,
+        items: parseItems(instrForm.itemsRu, instrForm.itemsKz),
+        badgeRu: instrForm.badgeRu || null,
+        badgeKz: instrForm.badgeKz || null,
+        warningTitleRu: instrForm.warningTitleRu || null,
+        warningTitleKz: instrForm.warningTitleKz || null,
+        warningItemsRu: parseLines(instrForm.warningItemsRu),
+        warningItemsKz: parseLines(instrForm.warningItemsKz),
+        orderIndex: instrForm.orderIndex,
+      }
       if (editingInstr) { await updateIslamHajjInstruction(editingInstr.id, payload); setSuccess('Инструкция обновлена') }
       else { await createIslamHajjInstruction(currentSectionId, payload); setSuccess('Инструкция создана') }
-      setInstrDialogOpen(false); await loadDetails(currentSectionId)
+      setInstrDialogOpen(false); await loadDetails(currentSectionId); load()
     } catch (e: any) { setError(e?.response?.data?.message || 'Save failed') }
   }
   const handleDeleteInstr = async (i: HajjInstruction) => {
     if (!confirm('Удалить инструкцию?')) return
-    try { await deleteIslamHajjInstruction(i.id); setSuccess('Инструкция удалена'); await loadDetails(i.sectionId) }
+    try { await deleteIslamHajjInstruction(i.id); setSuccess('Инструкция удалена'); await loadDetails(i.sectionId); load() }
     catch (e: any) { setError(e?.response?.data?.message || 'Delete failed') }
   }
 
@@ -168,12 +282,12 @@ export default function IslamHajjGuidePage() {
   const openCreatePhrase = (sectionId: string) => {
     setCurrentSectionId(sectionId); setEditingPhrase(null)
     const existing = detailsMap[sectionId]?.phrases || []
-    setPhraseForm({ textAr: '', transliteration: '', translationRu: '', translationKz: '', orderIndex: existing.length })
+    setPhraseForm({ titleRu: '', titleKz: '', textAr: '', transliteration: '', translationRu: '', translationKz: '', orderIndex: existing.length })
     setPhraseDialogOpen(true)
   }
   const openEditPhrase = (p: HajjPhrase) => {
     setCurrentSectionId(p.sectionId); setEditingPhrase(p)
-    setPhraseForm({ textAr: p.textAr, transliteration: p.transliteration || '', translationRu: p.translationRu, translationKz: p.translationKz || '', orderIndex: p.orderIndex })
+    setPhraseForm({ titleRu: p.titleRu || '', titleKz: p.titleKz || '', textAr: p.textAr, transliteration: p.transliteration || '', translationRu: p.translationRu, translationKz: p.translationKz || '', orderIndex: p.orderIndex })
     setPhraseDialogOpen(true)
   }
   const savePhrase = async () => {
@@ -181,12 +295,12 @@ export default function IslamHajjGuidePage() {
     try {
       if (editingPhrase) { await updateIslamHajjPhrase(editingPhrase.id, phraseForm); setSuccess('Фраза обновлена') }
       else { await createIslamHajjPhrase(currentSectionId, phraseForm); setSuccess('Фраза создана') }
-      setPhraseDialogOpen(false); await loadDetails(currentSectionId)
+      setPhraseDialogOpen(false); await loadDetails(currentSectionId); load()
     } catch (e: any) { setError(e?.response?.data?.message || 'Save failed') }
   }
   const handleDeletePhrase = async (p: HajjPhrase) => {
     if (!confirm('Удалить фразу?')) return
-    try { await deleteIslamHajjPhrase(p.id); setSuccess('Фраза удалена'); await loadDetails(p.sectionId) }
+    try { await deleteIslamHajjPhrase(p.id); setSuccess('Фраза удалена'); await loadDetails(p.sectionId); load() }
     catch (e: any) { setError(e?.response?.data?.message || 'Delete failed') }
   }
   const handlePhraseAudioUpload = async (id: string, sectionId: string, file: File) => {
@@ -194,10 +308,53 @@ export default function IslamHajjGuidePage() {
     catch (e: any) { setError(e?.response?.data?.message || 'Upload failed') }
   }
 
+  // Checklist CRUD
+  const openCreateChecklist = (sectionId: string) => {
+    setCurrentSectionId(sectionId); setEditingChecklist(null)
+    const existing = detailsMap[sectionId]?.checklists || []
+    setChecklistForm({ titleRu: '', titleKz: '', emoji: '', itemsRu: '', itemsKz: '', orderIndex: existing.length, isActive: true })
+    setChecklistDialogOpen(true)
+  }
+  const openEditChecklist = (c: HajjChecklist) => {
+    setCurrentSectionId(c.sectionId); setEditingChecklist(c)
+    setChecklistForm({
+      titleRu: c.titleRu,
+      titleKz: c.titleKz || '',
+      emoji: c.emoji || '',
+      itemsRu: formatItems(c.items),
+      itemsKz: formatItemTranslations(c.items),
+      orderIndex: c.orderIndex,
+      isActive: c.isActive,
+    })
+    setChecklistDialogOpen(true)
+  }
+  const saveChecklist = async () => {
+    setError('')
+    try {
+      const payload = {
+        titleRu: checklistForm.titleRu,
+        titleKz: checklistForm.titleKz || null,
+        emoji: checklistForm.emoji || null,
+        items: parseItems(checklistForm.itemsRu, checklistForm.itemsKz),
+        orderIndex: checklistForm.orderIndex,
+        isActive: checklistForm.isActive,
+      }
+      if (editingChecklist) { await updateIslamHajjChecklist(editingChecklist.id, payload); setSuccess('Чек-лист обновлён') }
+      else { await createIslamHajjChecklist(currentSectionId, payload); setSuccess('Чек-лист создан') }
+      setChecklistDialogOpen(false); await loadDetails(currentSectionId); load()
+    } catch (e: any) { setError(e?.response?.data?.message || 'Save failed') }
+  }
+  const handleDeleteChecklist = async (c: HajjChecklist) => {
+    if (!confirm('Удалить чек-лист?')) return
+    try { await deleteIslamHajjChecklist(c.id); setSuccess('Чек-лист удалён'); await loadDetails(c.sectionId); load() }
+    catch (e: any) { setError(e?.response?.data?.message || 'Delete failed') }
+  }
+
   const renderSectionExpanded = (s: HajjSection) => {
     const details = detailsMap[s.id]
     const instr = details?.instructions || []
     const phr = details?.phrases || []
+    const checklists = details?.checklists || []
     if (isNarrow) {
       return (
         <Box sx={{ py: 1, px: { xs: 0, sm: 0.5 } }}>
@@ -257,6 +414,30 @@ export default function IslamHajjGuidePage() {
               </Paper>
             ))}
           </Stack>
+          <Divider sx={{ my: 1.5 }} />
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
+            <Typography variant="subtitle2">Чек-листы</Typography>
+            <Button size="small" startIcon={<Add />} onClick={() => openCreateChecklist(s.id)}>Добавить</Button>
+          </Stack>
+          <Stack spacing={1}>
+            {checklists.map((c) => (
+              <Paper key={c.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Stack direction="row" gap={1} alignItems="center">
+                      {c.emoji ? <Typography>{c.emoji}</Typography> : <Checklist fontSize="small" color="action" />}
+                      <Typography fontWeight={600}>{c.titleRu}</Typography>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">{c.items?.length || 0} пунктов</Typography>
+                  </Box>
+                  <Stack direction="row" flexShrink={0}>
+                    <IconButton size="small" onClick={() => openEditChecklist(c)}><Edit fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeleteChecklist(c)}><Delete fontSize="small" /></IconButton>
+                  </Stack>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
         </Box>
       )
     }
@@ -299,6 +480,7 @@ export default function IslamHajjGuidePage() {
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell>Название</TableCell>
               <TableCell>Арабский</TableCell>
               <TableCell>Транслит</TableCell>
               <TableCell>Перевод</TableCell>
@@ -309,6 +491,7 @@ export default function IslamHajjGuidePage() {
           <TableBody>
             {phr.map((p) => (
               <TableRow key={p.id}>
+                <TableCell sx={{ maxWidth: 180 }}><Typography variant="body2" noWrap>{p.titleRu || '—'}</Typography></TableCell>
                 <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', direction: 'rtl', maxWidth: 200 }}>
                   <Typography variant="body2" noWrap>{p.textAr}</Typography>
                 </TableCell>
@@ -332,6 +515,38 @@ export default function IslamHajjGuidePage() {
             ))}
           </TableBody>
         </Table>
+        <Divider sx={{ my: 2 }} />
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
+          <Typography variant="subtitle2">Чек-листы</Typography>
+          <Button size="small" startIcon={<Add />} onClick={() => openCreateChecklist(s.id)}>Добавить</Button>
+        </Stack>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Название</TableCell>
+              <TableCell>Эмодзи</TableCell>
+              <TableCell>Пункты</TableCell>
+              <TableCell>Порядок</TableCell>
+              <TableCell>Статус</TableCell>
+              <TableCell align="right">Действия</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {checklists.map((c) => (
+              <TableRow key={c.id}>
+                <TableCell><strong>{c.titleRu}</strong></TableCell>
+                <TableCell>{c.emoji || '—'}</TableCell>
+                <TableCell>{c.items?.length || 0}</TableCell>
+                <TableCell>{c.orderIndex}</TableCell>
+                <TableCell><Chip label={c.isActive ? 'Акт.' : 'Скр.'} size="small" color={c.isActive ? 'success' : 'default'} /></TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => openEditChecklist(c)}><Edit fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={() => handleDeleteChecklist(c)}><Delete fontSize="small" /></IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </Box>
     )
   }
@@ -341,7 +556,7 @@ export default function IslamHajjGuidePage() {
       <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={3}>
         <Box>
           <Typography variant="h4" sx={pageTitleH4Sx}>Хадж и Умра</Typography>
-          <Typography variant="subtitle1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Путеводитель: секции, инструкции, фразы</Typography>
+          <Typography variant="subtitle1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>Путеводитель: секции, инструкции, фразы, чек-листы</Typography>
         </Box>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignSelf: { xs: 'stretch', sm: 'auto' } }}>
           <Button startIcon={<Refresh />} onClick={load} disabled={loading} sx={{ width: { xs: '100%', sm: 'auto' } }}>Обновить</Button>
@@ -366,7 +581,7 @@ export default function IslamHajjGuidePage() {
                     <Typography fontWeight={700}>{s.titleRu}</Typography>
                     <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center" sx={{ mt: 0.5 }}>
                       <Chip label={s.code} size="small" />
-                      <Typography variant="caption" color="text.secondary">Пор. {s.orderIndex} · {s.instructionsCount} инстр. · {s.phrasesCount} фр.</Typography>
+                      <Typography variant="caption" color="text.secondary">Пор. {s.orderIndex} · {s.instructionsCount} инстр. · {s.phrasesCount} фр. · {s.checklistsCount || 0} чек.</Typography>
                     </Stack>
                     <Chip label={s.isActive ? 'Активна' : 'Скрыта'} size="small" color={s.isActive ? 'success' : 'default'} sx={{ mt: 0.5 }} />
                   </Box>
@@ -397,6 +612,7 @@ export default function IslamHajjGuidePage() {
                   <TableCell>Код</TableCell>
                   <TableCell>Инструкции</TableCell>
                   <TableCell>Фразы</TableCell>
+                  <TableCell>Чек-листы</TableCell>
                   <TableCell>Порядок</TableCell>
                   <TableCell>Статус</TableCell>
                   <TableCell align="right">Действия</TableCell>
@@ -416,6 +632,7 @@ export default function IslamHajjGuidePage() {
                       <TableCell><Chip label={s.code} size="small" /></TableCell>
                       <TableCell>{s.instructionsCount}</TableCell>
                       <TableCell>{s.phrasesCount}</TableCell>
+                      <TableCell>{s.checklistsCount || 0}</TableCell>
                       <TableCell>{s.orderIndex}</TableCell>
                       <TableCell>
                         <Chip label={s.isActive ? 'Акт.' : 'Скр.'} size="small" color={s.isActive ? 'success' : 'default'} />
@@ -426,7 +643,7 @@ export default function IslamHajjGuidePage() {
                       </TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell colSpan={9} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
+                      <TableCell colSpan={10} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
                         <Collapse in={expandedId === s.id} unmountOnExit>
                           {renderSectionExpanded(s)}
                         </Collapse>
@@ -436,7 +653,7 @@ export default function IslamHajjGuidePage() {
                 ))}
                 {sections.length === 0 && !loading && (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">
+                    <TableCell colSpan={10} align="center">
                       <Typography color="text.secondary" py={4}>Нет секций</Typography>
                     </TableCell>
                   </TableRow>
@@ -475,6 +692,14 @@ export default function IslamHajjGuidePage() {
             <TextField label="Заголовок (каз)" value={instrForm.titleKz} onChange={(e) => setInstrForm({ ...instrForm, titleKz: e.target.value })} />
             <TextField label="Описание (рус)" multiline rows={3} value={instrForm.descriptionRu} onChange={(e) => setInstrForm({ ...instrForm, descriptionRu: e.target.value })} />
             <TextField label="Описание (каз)" multiline rows={3} value={instrForm.descriptionKz} onChange={(e) => setInstrForm({ ...instrForm, descriptionKz: e.target.value })} />
+            <TextField label="Пункты инструкции (рус), по строке; [x] = отмечено" multiline rows={4} value={instrForm.itemsRu} onChange={(e) => setInstrForm({ ...instrForm, itemsRu: e.target.value })} />
+            <TextField label="Пункты инструкции (каз), по строке" multiline rows={4} value={instrForm.itemsKz} onChange={(e) => setInstrForm({ ...instrForm, itemsKz: e.target.value })} />
+            <TextField label="Бейдж (рус), например Новое" value={instrForm.badgeRu} onChange={(e) => setInstrForm({ ...instrForm, badgeRu: e.target.value })} />
+            <TextField label="Бейдж (каз)" value={instrForm.badgeKz} onChange={(e) => setInstrForm({ ...instrForm, badgeKz: e.target.value })} />
+            <TextField label="Заголовок предупреждения (рус)" value={instrForm.warningTitleRu} onChange={(e) => setInstrForm({ ...instrForm, warningTitleRu: e.target.value })} />
+            <TextField label="Заголовок предупреждения (каз)" value={instrForm.warningTitleKz} onChange={(e) => setInstrForm({ ...instrForm, warningTitleKz: e.target.value })} />
+            <TextField label="Пункты предупреждения (рус), по строке" multiline rows={3} value={instrForm.warningItemsRu} onChange={(e) => setInstrForm({ ...instrForm, warningItemsRu: e.target.value })} />
+            <TextField label="Пункты предупреждения (каз), по строке" multiline rows={3} value={instrForm.warningItemsKz} onChange={(e) => setInstrForm({ ...instrForm, warningItemsKz: e.target.value })} />
             <FormControlLabel
               control={<Switch checked={instrForm.isHighlight} onChange={(e) => setInstrForm({ ...instrForm, isHighlight: e.target.checked })} />}
               label="Выделенная заметка"
@@ -493,6 +718,8 @@ export default function IslamHajjGuidePage() {
         <DialogTitle>{editingPhrase ? 'Редактировать фразу' : 'Новая фраза'}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} mt={1}>
+            <TextField label="Название (рус)" value={phraseForm.titleRu} onChange={(e) => setPhraseForm({ ...phraseForm, titleRu: e.target.value })} />
+            <TextField label="Название (каз)" value={phraseForm.titleKz} onChange={(e) => setPhraseForm({ ...phraseForm, titleKz: e.target.value })} />
             <TextField label="Арабский текст" multiline rows={2} value={phraseForm.textAr} onChange={(e) => setPhraseForm({ ...phraseForm, textAr: e.target.value })} inputProps={{ dir: 'rtl' }} />
             <TextField label="Транслитерация" value={phraseForm.transliteration} onChange={(e) => setPhraseForm({ ...phraseForm, transliteration: e.target.value })} />
             <TextField label="Перевод (рус)" value={phraseForm.translationRu} onChange={(e) => setPhraseForm({ ...phraseForm, translationRu: e.target.value })} />
@@ -503,6 +730,29 @@ export default function IslamHajjGuidePage() {
         <DialogActions sx={dialogActionsSafeAreaSx}>
           <Button onClick={() => setPhraseDialogOpen(false)}>Отмена</Button>
           <Button variant="contained" onClick={savePhrase}>Сохранить</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Checklist Dialog */}
+      <Dialog open={checklistDialogOpen} onClose={() => setChecklistDialogOpen(false)} {...narrowFormSm}>
+        <DialogTitle>{editingChecklist ? 'Редактировать чек-лист' : 'Новый чек-лист'}</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} mt={1}>
+            <TextField label="Название (рус)" value={checklistForm.titleRu} onChange={(e) => setChecklistForm({ ...checklistForm, titleRu: e.target.value })} />
+            <TextField label="Название (каз)" value={checklistForm.titleKz} onChange={(e) => setChecklistForm({ ...checklistForm, titleKz: e.target.value })} />
+            <TextField label="Эмодзи" value={checklistForm.emoji} onChange={(e) => setChecklistForm({ ...checklistForm, emoji: e.target.value })} />
+            <TextField label="Пункты (рус), по строке; [x] = отмечено" multiline rows={6} value={checklistForm.itemsRu} onChange={(e) => setChecklistForm({ ...checklistForm, itemsRu: e.target.value })} />
+            <TextField label="Пункты (каз), по строке" multiline rows={6} value={checklistForm.itemsKz} onChange={(e) => setChecklistForm({ ...checklistForm, itemsKz: e.target.value })} />
+            <TextField label="Порядок" type="number" value={checklistForm.orderIndex} onChange={(e) => setChecklistForm({ ...checklistForm, orderIndex: +e.target.value })} />
+            <FormControlLabel
+              control={<Switch checked={checklistForm.isActive} onChange={(e) => setChecklistForm({ ...checklistForm, isActive: e.target.checked })} />}
+              label="Активен"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={dialogActionsSafeAreaSx}>
+          <Button onClick={() => setChecklistDialogOpen(false)}>Отмена</Button>
+          <Button variant="contained" onClick={saveChecklist}>Сохранить</Button>
         </DialogActions>
       </Dialog>
     </Box>
