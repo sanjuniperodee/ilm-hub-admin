@@ -148,7 +148,6 @@ interface StudioBlock {
   orderIndex: number
   contentRu?: Record<string, any>
   contentKz?: Record<string, any>
-  contentAr?: Record<string, any>
 }
 
 interface MediaFile {
@@ -176,7 +175,6 @@ function parseGridBlockForDraft(block: StudioBlock): {
 } {
   const cr = (block.contentRu || {}) as Record<string, any>
   const kz = (block.contentKz || {}) as Record<string, any>
-  const ar = (block.contentAr || {}) as Record<string, any>
   const colRaw = cr.columns
   let gridColumnMode: '2' | '3' | '4' | 'auto' = '3'
   if (colRaw === 'auto' || colRaw === 'Auto') {
@@ -197,7 +195,6 @@ function parseGridBlockForDraft(block: StudioBlock): {
               const g = newGridItemRow()
               g.mainRu = s
               g.mainKz = s
-              g.mainAr = s
               return g
             })
           : [newGridItemRow()],
@@ -212,10 +209,8 @@ function parseGridBlockForDraft(block: StudioBlock): {
         if (typeof r?.id === 'string' && r.id.trim()) g.id = r.id
         g.mainRu = (r?.mainText as string) || ''
         g.mainKz = (Array.isArray(kz.items) ? kz.items[i] : null)?.mainText || ''
-        g.mainAr = (Array.isArray(ar.items) ? ar.items[i] : null)?.mainText || ''
         g.captionRu = (r?.caption as string) || ''
         g.captionKz = (Array.isArray(kz.items) ? kz.items[i] : null)?.caption || ''
-        g.captionAr = (Array.isArray(ar.items) ? ar.items[i] : null)?.caption || ''
         g.audioUrl = (r?.audioUrl as string) || ''
         return g
       }),
@@ -263,17 +258,15 @@ const AUDIO_MEDIA_BLOCK_TYPES: BlockType[] = [
 function buildExerciseConfigFromBlock(block: StudioBlock): any {
   const ru = block.contentRu || {}
   const kz = block.contentKz || {}
-  const ar = block.contentAr || {}
   const type = block.type
 
   if (type === 'multiple_choice' || type === 'single_choice') {
     return {
-      question: { ru: ru.question, kz: kz.question, ar: ar.question },
+      question: { ru: ru.question, kz: kz.question },
       options: (ru.options || []).map((opt: any, i: number) => ({
         text: {
           ru: opt.text,
           kz: kz.options?.[i]?.text,
-          ar: ar.options?.[i]?.text,
         },
         isCorrect: opt.isCorrect,
       })),
@@ -281,11 +274,10 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
   }
   if (type === 'manual_input') {
     return {
-      question: { ru: ru.question, kz: kz.question, ar: ar.question },
+      question: { ru: ru.question, kz: kz.question },
       correctAnswers: {
         ru: ru.correctAnswers || [],
         kz: kz.correctAnswers || [],
-        ar: ar.correctAnswers || [],
       },
     }
   }
@@ -300,12 +292,11 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
     }
     const mapMatchItem = (item: any, i: number, side: 'left' | 'right') => {
       const kzArr = side === 'left' ? kz.leftItems : kz.rightItems
-      const arArr = side === 'left' ? ar.leftItems : ar.rightItems
       const textRu = item.text
       const text =
         typeof textRu === 'string'
-          ? { ru: textRu, kz: kzArr?.[i]?.text ?? '', ar: arArr?.[i]?.text ?? '' }
-          : { ru: textRu?.ru ?? '', kz: textRu?.kz ?? kzArr?.[i]?.text ?? '', ar: textRu?.ar ?? arArr?.[i]?.text ?? '' }
+          ? { ru: textRu, kz: kzArr?.[i]?.text ?? '' }
+          : { ru: textRu?.ru ?? '', kz: textRu?.kz ?? kzArr?.[i]?.text ?? '' }
       return {
         id: item.id,
         text,
@@ -329,8 +320,8 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
     // Legacy pairs format (backward compat)
     return {
       pairs: (ru.pairs || []).map((p: any, i: number) => ({
-        left: { ru: p.left, kz: kz.pairs?.[i]?.left, ar: ar.pairs?.[i]?.left },
-        right: { ru: p.right, kz: kz.pairs?.[i]?.right, ar: ar.pairs?.[i]?.right },
+        left: { ru: p.left, kz: kz.pairs?.[i]?.left },
+        right: { ru: p.right, kz: kz.pairs?.[i]?.right },
         leftImageUrl: p.leftImageUrl,
         rightImageUrl: p.rightImageUrl,
       })),
@@ -338,12 +329,11 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
   }
   if (type === 'audio_multiple_choice') {
     return {
-      question: { ru: ru.question, kz: kz.question, ar: ar.question },
+      question: { ru: ru.question, kz: kz.question },
       options: (ru.options || []).map((opt: any, i: number) => ({
         text: {
           ru: opt.text,
           kz: kz.options?.[i]?.text,
-          ar: ar.options?.[i]?.text,
         },
         isCorrect: opt.isCorrect,
       })),
@@ -403,8 +393,8 @@ function buildExerciseConfigFromBlock(block: StudioBlock): any {
   return {}
 }
 
-function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: any; contentKz: any; contentAr: any } {
-  if (!config) return { contentRu: {}, contentKz: {}, contentAr: {} }
+function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: any; contentKz: any } {
+  if (!config) return { contentRu: {}, contentKz: {} }
   const mapContent = (lang: string) => {
     if (type === 'multiple_choice' || type === 'single_choice' || type === 'audio_multiple_choice' || type === 'manual_input') {
       return {
@@ -519,7 +509,6 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
   return {
     contentRu: mapContent('ru'),
     contentKz: mapContent('kz'),
-    contentAr: mapContent('ar'),
   }
 }
 
@@ -553,6 +542,7 @@ export default function LessonEditorPage() {
   const [addQuestionMenuAnchor, setAddQuestionMenuAnchor] = useState<null | HTMLElement>(null)
   const [previewBlock, setPreviewBlock] = useState<StudioBlock | null>(null)
   const [deleteBlockConfirm, setDeleteBlockConfirm] = useState<StudioBlock | null>(null)
+  const [confirmLeaveBlockEditor, setConfirmLeaveBlockEditor] = useState(false)
 
   const [blockDraft, setBlockDraft] = useState<{
     id?: string
@@ -562,8 +552,6 @@ export default function LessonEditorPage() {
     textRuHtml: string
     titleKz: string
     textKz: string
-    titleAr: string
-    textAr: string
     arabicWord: string
     transcription: string
     translationRu: string
@@ -588,8 +576,6 @@ export default function LessonEditorPage() {
     textRuHtml: '',
     titleKz: '',
     textKz: '',
-    titleAr: '',
-    textAr: '',
     arabicWord: '',
     transcription: '',
     translationRu: '',
@@ -599,6 +585,14 @@ export default function LessonEditorPage() {
     gridShowCaption: false,
     gridInteractive: false,
   })
+  const [blockDraftBaseline, setBlockDraftBaseline] = useState('')
+
+  const snapshotBlockDraft = (draft: typeof blockDraft) => JSON.stringify(draft)
+
+  const hasUnsavedBlockChanges = useMemo(() => {
+    if (!blockDraftBaseline) return false
+    return snapshotBlockDraft(blockDraft) !== blockDraftBaseline
+  }, [blockDraft, blockDraftBaseline])
 
   const breadcrumb = useMemo(() => {
     const parts: string[] = []
@@ -679,7 +673,6 @@ export default function LessonEditorPage() {
         orderIndex: b.orderIndex ?? 0,
         contentRu: b.contentRu,
         contentKz: b.contentKz,
-        contentAr: b.contentAr,
       }))
       setBlocks(mapped.sort((a: StudioBlock, b: StudioBlock) => a.orderIndex - b.orderIndex))
 
@@ -700,6 +693,12 @@ export default function LessonEditorPage() {
     loadLessonAndContext()
   }, [lessonId])
 
+  useEffect(() => {
+    if (!blockDraftBaseline) {
+      setBlockDraftBaseline(snapshotBlockDraft(blockDraft))
+    }
+  }, [blockDraft, blockDraftBaseline])
+
   const saveLessonMeta = async () => {
     if (!lessonDraft?.id) return
     try {
@@ -708,10 +707,8 @@ export default function LessonEditorPage() {
         moduleId: lessonDraft.moduleId || undefined,
         titleRu: lessonDraft.titleRu,
         titleKz: lessonDraft.titleKz,
-        titleAr: lessonDraft.titleAr,
         descriptionRu: lessonDraft.descriptionRu,
         descriptionKz: lessonDraft.descriptionKz,
-        descriptionAr: lessonDraft.descriptionAr,
         estimatedMinutes: Number(lessonDraft.estimatedMinutes) || 10,
         isPremium: !!lessonDraft.isPremium,
         isTest: !!lessonDraft.isTest,
@@ -726,15 +723,13 @@ export default function LessonEditorPage() {
 
   const resetBlockDraft = () => {
     const nextOrder = (blocks[blocks.length - 1]?.orderIndex || 0) + 1
-    setBlockDraft({
+    const nextDraft: typeof blockDraft = {
       type: 'theory',
       orderIndex: nextOrder,
       titleRu: '',
       textRuHtml: '',
       titleKz: '',
       textKz: '',
-      titleAr: '',
-      textAr: '',
       arabicWord: '',
       transcription: '',
       translationRu: '',
@@ -752,7 +747,9 @@ export default function LessonEditorPage() {
       gridColumnMode: '3',
       gridShowCaption: false,
       gridInteractive: false,
-    })
+    }
+    setBlockDraft(nextDraft)
+    setBlockDraftBaseline(snapshotBlockDraft(nextDraft))
     setMediaFiles([])
   }
 
@@ -761,7 +758,7 @@ export default function LessonEditorPage() {
     const isLessonComplete = block.type === 'lesson_complete'
     const isGridLike = block.type === 'grid' || block.type === 'element_grid'
     const gridDraft = isGridLike ? parseGridBlockForDraft(block) : null
-    setBlockDraft({
+    const nextDraft: typeof blockDraft = {
       id: block.id,
       type: (isGridLike ? 'grid' : block.type) as BlockType,
       orderIndex: block.orderIndex,
@@ -769,8 +766,6 @@ export default function LessonEditorPage() {
       textRuHtml: (block.contentRu?.html as string) || (block.contentRu?.text as string) || '',
       titleKz: (block.contentKz?.title as string) || '',
       textKz: (block.contentKz?.text as string) || '',
-      titleAr: (block.contentAr?.title as string) || '',
-      textAr: (block.contentAr?.text as string) || '',
       arabicWord: (block.contentRu?.arabicWord as string) || '',
       transcription: (block.contentRu?.transcription as string) || '',
       translationRu: (block.contentRu?.translation as string) || (block.contentRu?.translationRu as string) || '',
@@ -788,7 +783,9 @@ export default function LessonEditorPage() {
       gridColumnMode: gridDraft?.gridColumnMode || '3',
       gridShowCaption: gridDraft?.gridShowCaption ?? false,
       gridInteractive: gridDraft?.gridInteractive ?? false,
-    })
+    }
+    setBlockDraft(nextDraft)
+    setBlockDraftBaseline(snapshotBlockDraft(nextDraft))
     if (
       block.type === 'illustration' ||
       block.type === 'audio_multiple_choice' ||
@@ -803,6 +800,14 @@ export default function LessonEditorPage() {
     } else {
       setMediaFiles([])
     }
+  }
+
+  const handleBackFromBlockEditor = () => {
+    if (hasUnsavedBlockChanges) {
+      setConfirmLeaveBlockEditor(true)
+      return
+    }
+    resetBlockDraft()
   }
 
   const getGridRowsWithMediaAudio = (rows: GridItemRow[]) => {
@@ -834,7 +839,6 @@ export default function LessonEditorPage() {
           nextActionKz: blockDraft.nextActionKz || '',
           nextActionButtonKz: blockDraft.nextActionButtonKz || '',
         },
-        contentAr: {},
       }
       return includeLessonId && lessonId ? { lessonId, ...base } : base
     }
@@ -847,16 +851,11 @@ export default function LessonEditorPage() {
         blockDraft.gridColumnMode === 'auto' ? 'auto' : Number(blockDraft.gridColumnMode)
       const showCaption = blockDraft.gridShowCaption
       const interactive = blockDraft.gridInteractive
-      const buildItems = (locale: 'ru' | 'kz' | 'ar') =>
+      const buildItems = (locale: 'ru' | 'kz') =>
         rows.map((r) => {
           const main =
-            locale === 'ru' ? r.mainRu.trim() : locale === 'kz' ? (r.mainKz || r.mainRu).trim() : (r.mainAr || r.mainRu).trim()
-          const cap =
-            locale === 'ru'
-              ? (r.captionRu || '').trim()
-              : locale === 'kz'
-                ? (r.captionKz || '').trim()
-                : (r.captionAr || '').trim()
+            locale === 'ru' ? r.mainRu.trim() : (r.mainKz || r.mainRu).trim()
+          const cap = locale === 'ru' ? (r.captionRu || '').trim() : (r.captionKz || '').trim()
           const audio = (r.audioUrl || '').trim()
           return {
             id: r.id,
@@ -883,20 +882,13 @@ export default function LessonEditorPage() {
           interactive: options?.allowDraftGridWithoutAudio ? false : interactive,
           items: buildItems('kz'),
         },
-        contentAr: {
-          title: blockDraft.titleAr || '',
-          columns: col,
-          showCaption,
-          interactive: options?.allowDraftGridWithoutAudio ? false : interactive,
-          items: buildItems('ar'),
-        },
       }
       return includeLessonId && lessonId ? { lessonId, ...base } : base
     }
 
     const isExercise = EXERCISE_BLOCK_TYPES.includes(blockDraft.type)
     if (isExercise && blockDraft.exerciseConfig) {
-      const { contentRu, contentKz, contentAr } = mapExerciseConfigToContent(
+      const { contentRu, contentKz } = mapExerciseConfigToContent(
         blockDraft.exerciseConfig,
         blockDraft.type,
       )
@@ -905,7 +897,6 @@ export default function LessonEditorPage() {
         orderIndex: Number(blockDraft.orderIndex) || 0,
         contentRu: contentRu || {},
         contentKz: contentKz || {},
-        contentAr: contentAr || {},
       }
       return includeLessonId && lessonId ? { lessonId, ...base } : base
     }
@@ -935,7 +926,6 @@ export default function LessonEditorPage() {
       orderIndex: Number(blockDraft.orderIndex) || 0,
       contentRu,
       contentKz,
-      contentAr: { title: blockDraft.titleAr, text: blockDraft.textAr },
     }
     return includeLessonId && lessonId ? { lessonId, ...basePayload } : basePayload
   }
@@ -1472,9 +1462,20 @@ export default function LessonEditorPage() {
 
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
               <CardContent>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-                  {blockDraft.id ? 'Редактировать блок' : 'Создать блок'}
-                </Typography>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  spacing={1}
+                  sx={{ mb: 2 }}
+                >
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    {blockDraft.id ? 'Редактировать блок' : 'Создать блок'}
+                  </Typography>
+                  <Button size="small" startIcon={<ArrowBack />} onClick={handleBackFromBlockEditor}>
+                    Назад
+                  </Button>
+                </Stack>
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <FormControl fullWidth size="small">
@@ -1693,7 +1694,6 @@ export default function LessonEditorPage() {
                       <GridBlockEditor
                         titleRu={blockDraft.titleRu}
                         titleKz={blockDraft.titleKz}
-                        titleAr={blockDraft.titleAr}
                         onTitleChange={(field, v) => setBlockDraft((p) => ({ ...p, [field]: v }))}
                         columnMode={blockDraft.gridColumnMode}
                         onColumnMode={(m) => setBlockDraft((p) => ({ ...p, gridColumnMode: m }))}
@@ -1811,16 +1811,7 @@ export default function LessonEditorPage() {
                           onChange={(e) => setBlockDraft((p) => ({ ...p, titleKz: e.target.value }))}
                         />
                       </Grid>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Заголовок (AR)"
-                          value={blockDraft.titleAr}
-                          onChange={(e) => setBlockDraft((p) => ({ ...p, titleAr: e.target.value }))}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12}>
                         <TextField
                           fullWidth
                           multiline
@@ -1829,17 +1820,6 @@ export default function LessonEditorPage() {
                           label="Текст (KZ)"
                           value={blockDraft.textKz}
                           onChange={(e) => setBlockDraft((p) => ({ ...p, textKz: e.target.value }))}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          minRows={2}
-                          size="small"
-                          label="Текст (AR)"
-                          value={blockDraft.textAr}
-                          onChange={(e) => setBlockDraft((p) => ({ ...p, textAr: e.target.value }))}
                         />
                       </Grid>
                     </>
@@ -2036,6 +2016,28 @@ export default function LessonEditorPage() {
             onClick={() => deleteBlockConfirm && removeBlock(deleteBlockConfirm.id)}
           >
             Удалить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmLeaveBlockEditor} onClose={() => setConfirmLeaveBlockEditor(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Несохранённые изменения</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Несохранённые изменения будут потеряны. Продолжить?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmLeaveBlockEditor(false)}>Отмена</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              setConfirmLeaveBlockEditor(false)
+              resetBlockDraft()
+            }}
+          >
+            Выйти без сохранения
           </Button>
         </DialogActions>
       </Dialog>

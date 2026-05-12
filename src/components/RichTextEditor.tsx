@@ -107,6 +107,13 @@ function mediaIdForElement(el: HTMLElement): string | null {
   return el.getAttribute('data-media-id') || el.querySelector('source[data-media-id]')?.getAttribute('data-media-id') || null
 }
 
+function cssEscapeAttr(value: string): string {
+  if (typeof (window as any).CSS !== 'undefined' && typeof (window as any).CSS.escape === 'function') {
+    return (window as any).CSS.escape(value)
+  }
+  return value.replace(/["\\]/g, '\\$&')
+}
+
 function buildAudioHtml(options: { url: string; mediaId?: string; compact: boolean }): string {
   const { url, mediaId, compact } = options
   const idAttr = mediaId ? ` data-media-id="${mediaId}"` : ''
@@ -451,7 +458,27 @@ export default function RichTextEditor({
       if (!window.confirm('Удалить это изображение из текста?')) return
     }
     lastMediaInEditorRef.current = null
-    mediaEl.remove()
+    let removedAny = false
+    if (mediaId) {
+      const escaped = cssEscapeAttr(mediaId)
+      const linked = Array.from(root.querySelectorAll(`[data-media-id="${escaped}"]`)) as HTMLElement[]
+      for (const node of linked) {
+        const candidate =
+          node.tagName === 'SOURCE'
+            ? (node.parentElement as HTMLElement | null)
+            : node
+        if (candidate && (candidate.tagName === 'AUDIO' || candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG')) {
+          candidate.remove()
+          removedAny = true
+        } else {
+          node.remove()
+          removedAny = true
+        }
+      }
+    }
+    if (!removedAny) {
+      mediaEl.remove()
+    }
     const nextHtml = root.innerHTML
     emitChange(nextHtml)
     if (mediaId && onRemoveMedia) {

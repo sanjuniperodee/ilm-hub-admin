@@ -25,10 +25,8 @@ export default function CourseEditorPage() {
     code: '',
     titleRu: '',
     titleKz: '',
-    titleAr: '',
     descriptionRu: '',
     descriptionKz: '',
-    descriptionAr: '',
     level: '',
     orderIndex: 0,
     isPremium: false,
@@ -48,10 +46,8 @@ export default function CourseEditorPage() {
         code: data.code || '',
         titleRu: data.titleRu || '',
         titleKz: data.titleKz || '',
-        titleAr: data.titleAr || '',
         descriptionRu: data.descriptionRu || '',
         descriptionKz: data.descriptionKz || '',
-        descriptionAr: data.descriptionAr || '',
         level: data.level || '',
         orderIndex: data.orderIndex ?? 0,
         isPremium: !!data.isPremium,
@@ -141,9 +137,6 @@ export default function CourseEditorPage() {
             <Grid item xs={12} md={4}>
               <TextField fullWidth label="Название (KZ)" value={form.titleKz} onChange={(e) => setForm((p) => ({ ...p, titleKz: e.target.value }))} />
             </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Название (AR)" value={form.titleAr} onChange={(e) => setForm((p) => ({ ...p, titleAr: e.target.value }))} />
-            </Grid>
           </Grid>
 
           <Divider sx={{ my: 3 }} />
@@ -154,9 +147,6 @@ export default function CourseEditorPage() {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField fullWidth multiline rows={3} label="Описание (KZ)" value={form.descriptionKz} onChange={(e) => setForm((p) => ({ ...p, descriptionKz: e.target.value }))} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth multiline rows={3} label="Описание (AR)" value={form.descriptionAr} onChange={(e) => setForm((p) => ({ ...p, descriptionAr: e.target.value }))} />
             </Grid>
           </Grid>
 

@@ -34,10 +34,8 @@ export type GridItemRow = {
   id: string
   mainRu: string
   mainKz: string
-  mainAr: string
   captionRu: string
   captionKz: string
-  captionAr: string
   /** Same URL in all locale payloads; one audio for all. */
   audioUrl: string
 }
@@ -51,10 +49,8 @@ export function newGridItemRow(): GridItemRow {
     id,
     mainRu: '',
     mainKz: '',
-    mainAr: '',
     captionRu: '',
     captionKz: '',
-    captionAr: '',
     audioUrl: '',
   }
 }
@@ -64,8 +60,7 @@ type ColumnMode = '2' | '3' | '4' | 'auto'
 type GridBlockEditorProps = {
   titleRu: string
   titleKz: string
-  titleAr: string
-  onTitleChange: (field: 'titleRu' | 'titleKz' | 'titleAr', v: string) => void
+  onTitleChange: (field: 'titleRu' | 'titleKz', v: string) => void
   columnMode: ColumnMode
   onColumnMode: (m: ColumnMode) => void
   showCaption: boolean
@@ -139,13 +134,6 @@ function SortableItem({
               value={item.mainKz}
               onChange={(e) => onUpdate({ mainKz: e.target.value })}
             />
-            <TextField
-              size="small"
-              fullWidth
-              label="Основной текст (AR)"
-              value={item.mainAr}
-              onChange={(e) => onUpdate({ mainAr: e.target.value })}
-            />
           </Stack>
           {showCaption && (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -162,13 +150,6 @@ function SortableItem({
                 label="Подпись (KZ)"
                 value={item.captionKz}
                 onChange={(e) => onUpdate({ captionKz: e.target.value })}
-              />
-              <TextField
-                size="small"
-                fullWidth
-                label="Подпись (AR)"
-                value={item.captionAr}
-                onChange={(e) => onUpdate({ captionAr: e.target.value })}
               />
             </Stack>
           )}
@@ -220,7 +201,6 @@ function SortableItem({
 export default function GridBlockEditor({
   titleRu,
   titleKz,
-  titleAr,
   onTitleChange,
   columnMode,
   onColumnMode,
@@ -265,13 +245,6 @@ export default function GridBlockEditor({
           label="Заголовок (KZ)"
           value={titleKz}
           onChange={(e) => onTitleChange('titleKz', e.target.value)}
-        />
-        <TextField
-          size="small"
-          fullWidth
-          label="Заголовок (AR)"
-          value={titleAr}
-          onChange={(e) => onTitleChange('titleAr', e.target.value)}
         />
       </Stack>
       <FormControl size="small" sx={{ minWidth: 200 }}>

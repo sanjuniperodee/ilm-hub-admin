@@ -31,8 +31,8 @@ interface EditorProps {
 export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
     const [activeTab, setActiveTab] = useState(0)
     const content = value || {
-        question: { ru: '', kz: '', ar: '' },
-        options: [{ text: { ru: '', kz: '', ar: '' }, isCorrect: false }],
+        question: { ru: '', kz: '' },
+        options: [{ text: { ru: '', kz: '' }, isCorrect: false }],
     }
 
     // Helper getters/setters with fallbacks
@@ -68,7 +68,7 @@ export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
     const addOption = () => {
         const newContent = { ...content }
         if (!newContent.options) newContent.options = []
-        newContent.options.push({ text: { ru: '', kz: '', ar: '' }, isCorrect: false })
+        newContent.options.push({ text: { ru: '', kz: '' }, isCorrect: false })
         onChange(newContent)
     }
 
@@ -79,8 +79,8 @@ export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
         onChange(newContent)
     }
 
-    const langMap = ['ru', 'kz', 'ar']
-    const langLabel = ['Русский', 'Казахский', 'Арабский']
+    const langMap = ['ru', 'kz']
+    const langLabel = ['Русский', 'Казахский']
     const currentLang = langMap[activeTab]
 
     return (
@@ -88,7 +88,6 @@ export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
             <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
                 <Tab label="Русский" />
                 <Tab label="Казахский" />
-                <Tab label="Арабский" />
             </Tabs>
 
             <TextField
@@ -99,7 +98,7 @@ export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
                 multiline
                 rows={2}
                 sx={{ mb: 3 }}
-                inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                inputProps={{ dir: 'ltr' }}
             />
 
             <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>
@@ -118,7 +117,7 @@ export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
                         label={`Вариант ${index + 1}`}
                         value={getOptionText(index, currentLang)}
                         onChange={(e) => updateOptionText(index, e.target.value, currentLang)}
-                        inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                        inputProps={{ dir: 'ltr' }}
                     />
                     <IconButton onClick={() => removeOption(index)} color="error" disabled={content.options.length <= 2}>
                         <Delete />
@@ -139,8 +138,8 @@ export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
 
 export const AudioMultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
     const content = value || {
-        question: { ru: '', kz: '', ar: '' },
-        options: [{ text: { ru: '', kz: '', ar: '' }, isCorrect: false }],
+        question: { ru: '', kz: '' },
+        options: [{ text: { ru: '', kz: '' }, isCorrect: false }],
         audioUrl: '',
     }
 
@@ -234,7 +233,7 @@ type MatchItemType = 'text' | 'audio' | 'image'
 
 type MatchItem = {
     id: string
-    text: { ru: string; kz: string; ar: string }
+    text: { ru: string; kz: string }
     imageUrl: string
     imageMediaId?: string
     itemType?: MatchItemType
@@ -267,12 +266,12 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
     if (Array.isArray(value?.pairs) && value.pairs.length > 0 && value.pairs[0]?.left) {
         const leftItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
             id: `l${i + 1}`,
-            text: { ru: p.left?.ru ?? '', kz: p.left?.kz ?? '', ar: p.left?.ar ?? '' },
+            text: { ru: p.left?.ru ?? '', kz: p.left?.kz ?? '' },
             imageUrl: p.leftImageUrl ?? '',
         }))
         const rightItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
             id: `r${i + 1}`,
-            text: { ru: p.right?.ru ?? '', kz: p.right?.kz ?? '', ar: p.right?.ar ?? '' },
+            text: { ru: p.right?.ru ?? '', kz: p.right?.kz ?? '' },
             imageUrl: p.rightImageUrl ?? '',
         }))
         const correctPairs: CorrectPair[] = value.pairs.map((_: any, i: number) => ({ leftId: `l${i + 1}`, rightId: `r${i + 1}` }))
@@ -284,8 +283,8 @@ function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItem
             const rawText = item.text
             const text =
                 typeof rawText === 'string'
-                    ? { ru: rawText, kz: '', ar: '' }
-                    : { ru: rawText?.ru ?? '', kz: rawText?.kz ?? '', ar: rawText?.ar ?? '' }
+                    ? { ru: rawText, kz: '' }
+                    : { ru: rawText?.ru ?? '', kz: rawText?.kz ?? '' }
             const base: MatchItem = {
                 id: item.id,
                 text,
@@ -318,7 +317,7 @@ interface MatchPairsEditorProps extends EditorProps {
 
 export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: MatchPairsEditorProps) => {
     const [activeTab, setActiveTab] = useState(0)
-    const langMap = ['ru', 'kz', 'ar'] as const
+    const langMap = ['ru', 'kz'] as const
     const currentLang = langMap[activeTab]
     const valueRef = useRef(value)
     valueRef.current = value
@@ -379,8 +378,8 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
         const { leftItems: li } = migrateMatchPairsValue(value)
         const legacyPairs = Array.isArray(value?.pairs) ? value.pairs : []
         if (li.length === 0 && legacyPairs.length === 0) {
-            const newLi: MatchItem[] = [{ id: 'l1', text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '', audioLabel: '' }]
-            const newRi: MatchItem[] = [{ id: 'r1', text: { ru: '', kz: '', ar: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '', audioLabel: '' }]
+            const newLi: MatchItem[] = [{ id: 'l1', text: { ru: '', kz: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '', audioLabel: '' }]
+            const newRi: MatchItem[] = [{ id: 'r1', text: { ru: '', kz: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '', audioLabel: '' }]
             emit(newLi, newRi, [{ leftId: 'l1', rightId: 'r1' }])
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -391,8 +390,8 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
         const lId = `l${n}`
         const rId = `r${n}`
         emit(
-            [...leftItems, { id: lId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }],
-            [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }],
+            [...leftItems, { id: lId, text: { ru: '', kz: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }],
+            [...rightItems, { id: rId, text: { ru: '', kz: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }],
             [...correctPairs, { leftId: lId, rightId: rId }],
         )
     }
@@ -400,7 +399,7 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
     const addDistractor = () => {
         const n = rightItems.length + 1
         const rId = `d${n}`
-        emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '', ar: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }], correctPairs)
+        emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }], correctPairs)
     }
 
     const updateLeftItemType = (id: string, itemType: MatchItemType) => {
@@ -611,7 +610,6 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
             <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
                 <Tab label="Русский" />
                 <Tab label="Казахский" />
-                <Tab label="Арабский" />
             </Tabs>
 
             <TextField
@@ -654,7 +652,7 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
                                 label={`Левая часть ${i + 1}`}
                                 value={item.text[currentLang] || ''}
                                 onChange={(e) => updateLeftText(item.id, e.target.value, currentLang)}
-                                inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                                inputProps={{ dir: 'ltr' }}
                             />
                         ) : (item.itemType ?? 'text') === 'audio' ? (
                             <Box sx={{ flex: 1 }}>
@@ -746,7 +744,7 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
                                     value={item.text[currentLang] || ''}
                                     onChange={(e) => updateRightText(item.id, e.target.value, currentLang)}
                                     placeholder="Текст правой части"
-                                    inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                                    inputProps={{ dir: 'ltr' }}
                                 />
                             ) : (item.itemType ?? 'text') === 'audio' ? (
                                 <Box sx={{ flex: 1 }}>
@@ -798,10 +796,10 @@ export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: 
 
 export const FillBlankEditor = ({ value, onChange }: EditorProps) => {
     const [activeTab, setActiveTab] = useState(0)
-    const content = value || { text: { ru: '', kz: '', ar: '' } }
+    const content = value || { text: { ru: '', kz: '' } }
 
-    const langMap = ['ru', 'kz', 'ar']
-    const langLabel = ['Русский', 'Казахский', 'Арабский']
+    const langMap = ['ru', 'kz']
+    const langLabel = ['Русский', 'Казахский']
     const currentLang = langMap[activeTab]
 
     const updateText = (text: string, lang: string) => {
@@ -816,7 +814,6 @@ export const FillBlankEditor = ({ value, onChange }: EditorProps) => {
             <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
                 <Tab label="Русский" />
                 <Tab label="Казахский" />
-                <Tab label="Арабский" />
             </Tabs>
 
             <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
@@ -832,7 +829,7 @@ export const FillBlankEditor = ({ value, onChange }: EditorProps) => {
                 label={`Текст с пропусками (${langLabel[activeTab]})`}
                 value={content.text?.[currentLang] || ''}
                 onChange={(e) => updateText(e.target.value, currentLang)}
-                inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                inputProps={{ dir: 'ltr' }}
             />
         </Box>
     )
@@ -1355,12 +1352,12 @@ export const ListenAndChooseWordEditor = ({ value, onChange }: EditorProps) => {
 export const ManualInputEditor = ({ value, onChange }: EditorProps) => {
     const [activeTab, setActiveTab] = useState(0)
     const content = value || {
-        question: { ru: '', kz: '', ar: '' },
-        correctAnswers: { ru: [], kz: [], ar: [] } // Array of strings due to possible multiple correct answers
+        question: { ru: '', kz: '' },
+        correctAnswers: { ru: [], kz: [] } // Array of strings due to possible multiple correct answers
     }
 
-    const langMap = ['ru', 'kz', 'ar']
-    const langLabel = ['Русский', 'Казахский', 'Арабский']
+    const langMap = ['ru', 'kz']
+    const langLabel = ['Русский', 'Казахский']
     const currentLang = langMap[activeTab]
 
     const updateQuestion = (text: string, lang: string) => {
@@ -1383,7 +1380,6 @@ export const ManualInputEditor = ({ value, onChange }: EditorProps) => {
             <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
                 <Tab label="Русский" />
                 <Tab label="Казахский" />
-                <Tab label="Арабский" />
             </Tabs>
 
             <TextField
@@ -1394,7 +1390,7 @@ export const ManualInputEditor = ({ value, onChange }: EditorProps) => {
                 value={content.question?.[currentLang] || ''}
                 onChange={(e) => updateQuestion(e.target.value, currentLang)}
                 sx={{ mb: 3 }}
-                inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                inputProps={{ dir: 'ltr' }}
             />
 
             <TextField
@@ -1405,7 +1401,7 @@ export const ManualInputEditor = ({ value, onChange }: EditorProps) => {
                 helperText="Введите варианты правильных ответов через запятую или с новой строки"
                 value={content.correctAnswers?.[currentLang]?.join('\n') || ''}
                 onChange={(e) => updateAnswers(e.target.value, currentLang)}
-                inputProps={{ dir: currentLang === 'ar' ? 'rtl' : 'ltr' }}
+                inputProps={{ dir: 'ltr' }}
             />
         </Box>
     )

@@ -22,10 +22,8 @@ export default function ModuleEditorPage() {
   const [form, setForm] = useState({
     titleRu: '',
     titleKz: '',
-    titleAr: '',
     descriptionRu: '',
     descriptionKz: '',
-    descriptionAr: '',
     orderIndex: 0,
   })
 
@@ -40,10 +38,8 @@ export default function ModuleEditorPage() {
       setForm({
         titleRu: data.titleRu || '',
         titleKz: data.titleKz || '',
-        titleAr: data.titleAr || '',
         descriptionRu: data.descriptionRu || '',
         descriptionKz: data.descriptionKz || '',
-        descriptionAr: data.descriptionAr || '',
         orderIndex: data.orderIndex ?? 0,
       })
     } catch (error) {
@@ -112,9 +108,6 @@ export default function ModuleEditorPage() {
             <Grid item xs={12} md={4}>
               <TextField fullWidth label="Название (KZ)" value={form.titleKz} onChange={(e) => setForm((p) => ({ ...p, titleKz: e.target.value }))} />
             </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Название (AR)" value={form.titleAr} onChange={(e) => setForm((p) => ({ ...p, titleAr: e.target.value }))} />
-            </Grid>
           </Grid>
 
           <Divider sx={{ my: 3 }} />
@@ -125,9 +118,6 @@ export default function ModuleEditorPage() {
             </Grid>
             <Grid item xs={12} md={6}>
               <TextField fullWidth multiline rows={3} label="Описание (KZ)" value={form.descriptionKz} onChange={(e) => setForm((p) => ({ ...p, descriptionKz: e.target.value }))} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth multiline rows={3} label="Описание (AR)" value={form.descriptionAr} onChange={(e) => setForm((p) => ({ ...p, descriptionAr: e.target.value }))} />
             </Grid>
           </Grid>
 
