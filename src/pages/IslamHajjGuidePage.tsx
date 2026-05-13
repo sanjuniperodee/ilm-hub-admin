@@ -66,6 +66,8 @@ interface HajjInstruction {
   badgeRu?: string | null; badgeKz?: string | null
   warningTitleRu?: string | null; warningTitleKz?: string | null
   warningItemsRu?: string[]; warningItemsKz?: string[]
+  successTitleRu?: string | null; successTitleKz?: string | null
+  successItemsRu?: string[]; successItemsKz?: string[]
 }
 interface HajjPhrase {
   id: string; sectionId: string; titleRu?: string | null; titleKz?: string | null; textAr: string
@@ -132,6 +134,10 @@ export default function IslamHajjGuidePage() {
     warningTitleKz: '',
     warningItemsRu: '',
     warningItemsKz: '',
+    successTitleRu: '',
+    successTitleKz: '',
+    successItemsRu: '',
+    successItemsKz: '',
     orderIndex: 0,
   })
   const [currentSectionId, setCurrentSectionId] = useState('')
@@ -223,6 +229,10 @@ export default function IslamHajjGuidePage() {
       warningTitleKz: '',
       warningItemsRu: '',
       warningItemsKz: '',
+      successTitleRu: '',
+      successTitleKz: '',
+      successItemsRu: '',
+      successItemsKz: '',
       orderIndex: existing.length,
     })
     setInstrDialogOpen(true)
@@ -244,6 +254,10 @@ export default function IslamHajjGuidePage() {
       warningTitleKz: i.warningTitleKz || '',
       warningItemsRu: formatLines(i.warningItemsRu),
       warningItemsKz: formatLines(i.warningItemsKz),
+      successTitleRu: i.successTitleRu || '',
+      successTitleKz: i.successTitleKz || '',
+      successItemsRu: formatLines(i.successItemsRu),
+      successItemsKz: formatLines(i.successItemsKz),
       orderIndex: i.orderIndex,
     })
     setInstrDialogOpen(true)
@@ -265,6 +279,10 @@ export default function IslamHajjGuidePage() {
         warningTitleKz: instrForm.warningTitleKz || null,
         warningItemsRu: parseLines(instrForm.warningItemsRu),
         warningItemsKz: parseLines(instrForm.warningItemsKz),
+        successTitleRu: instrForm.successTitleRu || null,
+        successTitleKz: instrForm.successTitleKz || null,
+        successItemsRu: parseLines(instrForm.successItemsRu),
+        successItemsKz: parseLines(instrForm.successItemsKz),
         orderIndex: instrForm.orderIndex,
       }
       if (editingInstr) { await updateIslamHajjInstruction(editingInstr.id, payload); setSuccess('Инструкция обновлена') }
@@ -700,6 +718,10 @@ export default function IslamHajjGuidePage() {
             <TextField label="Заголовок предупреждения (каз)" value={instrForm.warningTitleKz} onChange={(e) => setInstrForm({ ...instrForm, warningTitleKz: e.target.value })} />
             <TextField label="Пункты предупреждения (рус), по строке" multiline rows={3} value={instrForm.warningItemsRu} onChange={(e) => setInstrForm({ ...instrForm, warningItemsRu: e.target.value })} />
             <TextField label="Пункты предупреждения (каз), по строке" multiline rows={3} value={instrForm.warningItemsKz} onChange={(e) => setInstrForm({ ...instrForm, warningItemsKz: e.target.value })} />
+            <TextField label="Заголовок разрешённого (рус)" value={instrForm.successTitleRu} onChange={(e) => setInstrForm({ ...instrForm, successTitleRu: e.target.value })} />
+            <TextField label="Заголовок разрешённого (каз)" value={instrForm.successTitleKz} onChange={(e) => setInstrForm({ ...instrForm, successTitleKz: e.target.value })} />
+            <TextField label="Пункты разрешённого (рус), по строке" multiline rows={3} value={instrForm.successItemsRu} onChange={(e) => setInstrForm({ ...instrForm, successItemsRu: e.target.value })} />
+            <TextField label="Пункты разрешённого (каз), по строке" multiline rows={3} value={instrForm.successItemsKz} onChange={(e) => setInstrForm({ ...instrForm, successItemsKz: e.target.value })} />
             <FormControlLabel
               control={<Switch checked={instrForm.isHighlight} onChange={(e) => setInstrForm({ ...instrForm, isHighlight: e.target.checked })} />}
               label="Выделенная заметка"
