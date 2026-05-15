@@ -27,19 +27,41 @@ export function wrapBareTablesInContainer(root: HTMLElement): void {
   }
 }
 
+function cleanRichTextClassValue(raw: string): string {
+  return raw
+    .split(/\s+/)
+    .map((c) => c.trim())
+    .filter((c) => c && c.startsWith('ilm-richtext-'))
+    .join(' ')
+}
+
+export function sanitizeRichTextHtml(html: string): string {
+  if (!html) return html
+  return html
+    .replace(/class="([^"]*)"/gi, (_match, raw: string) => {
+      const cleaned = cleanRichTextClassValue(raw)
+      return cleaned ? `class="${cleaned}"` : ''
+    })
+    .replace(/class='([^']*)'/gi, (_match, raw: string) => {
+      const cleaned = cleanRichTextClassValue(raw)
+      return cleaned ? `class='${cleaned}'` : ''
+    })
+}
+
 /**
  * HTML fragment → same fragment with bare tables wrapped (for preview / SSR-safe string path).
  * **Persistence:** LessonEditorPage also runs this on save so the API stores the same
  * structure the editor and mobile agree on. Safe to call multiple times.
  */
 export function wrapRichTextTables(html: string): string {
-  if (!html || !html.toLowerCase().includes('<table')) return html
+  const sanitized = sanitizeRichTextHtml(html)
+  if (!sanitized || !sanitized.toLowerCase().includes('<table')) return sanitized
   const parsed = new DOMParser().parseFromString(
-    `<div id="ilm-rt-root">${html}</div>`,
+    `<div id="ilm-rt-root">${sanitized}</div>`,
     'text/html',
   )
   const root = parsed.getElementById('ilm-rt-root')
-  if (!root) return html
+  if (!root) return sanitized
   wrapBareTablesInContainer(root)
   return root.innerHTML
 }
