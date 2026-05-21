@@ -1,157 +1,217 @@
-import apiClient from './client'
+import apiClient from "./client";
 
 // Auth
 export const login = async (email: string, password: string) => {
-  const response = await apiClient.post('/auth/login', { email, password })
+  const response = await apiClient.post("/auth/login", { email, password });
   if (response.data.accessToken) {
-    localStorage.setItem('admin_token', response.data.accessToken)
+    localStorage.setItem("admin_token", response.data.accessToken);
   }
   if (response.data.refreshToken) {
-    localStorage.setItem('admin_refresh_token', response.data.refreshToken)
+    localStorage.setItem("admin_refresh_token", response.data.refreshToken);
   }
-  return response.data
-}
+  return response.data;
+};
 
 // Dashboard
 export const getDashboardStats = (params?: { days?: number }) =>
-  apiClient.get('/admin/dashboard/stats', { params })
+  apiClient.get("/admin/dashboard/stats", { params });
 
 // Users
 export const getUsers = (params?: { page?: number; limit?: number }) =>
-  apiClient.get('/admin/users', { params })
-export const getUserById = (id: string) => apiClient.get(`/admin/users/${id}`)
+  apiClient.get("/admin/users", { params });
+export const getUserById = (id: string) => apiClient.get(`/admin/users/${id}`);
 
-export type UserRole = 'user' | 'content_manager' | 'support' | 'admin'
+export type UserRole = "user" | "content_manager" | "support" | "admin";
 export const assignUserRole = (userId: string, role: UserRole) =>
-  apiClient.patch(`/admin/users/${userId}/role`, { role })
+  apiClient.patch(`/admin/users/${userId}/role`, { role });
 
 // Audit (Admin only)
 export const getAuditLogs = (params?: {
-  page?: number
-  limit?: number
-  resource?: string
-  resourceId?: string
-  userId?: string
-}) => apiClient.get('/admin/audit', { params })
+  page?: number;
+  limit?: number;
+  resource?: string;
+  resourceId?: string;
+  userId?: string;
+}) => apiClient.get("/admin/audit", { params });
 
 // User dashboard (admin)
 export const getUserLearningSummary = (userId: string) =>
-  apiClient.get(`/admin/users/${userId}/learning-summary`)
+  apiClient.get(`/admin/users/${userId}/learning-summary`);
 export const getUserCoursesProgress = (userId: string) =>
-  apiClient.get(`/admin/users/${userId}/courses-progress`)
-export const getUserTestsAttempts = (userId: string, params?: { testType?: string; courseId?: string }) =>
-  apiClient.get(`/admin/users/${userId}/tests-attempts`, { params })
+  apiClient.get(`/admin/users/${userId}/courses-progress`);
+export const getUserTestsAttempts = (
+  userId: string,
+  params?: { testType?: string; courseId?: string },
+) => apiClient.get(`/admin/users/${userId}/tests-attempts`, { params });
 export const getUserAchievements = (userId: string) =>
-  apiClient.get(`/admin/users/${userId}/achievements`)
+  apiClient.get(`/admin/users/${userId}/achievements`);
 export const getUserStreaks = (userId: string) =>
-  apiClient.get(`/admin/users/${userId}/streaks`)
+  apiClient.get(`/admin/users/${userId}/streaks`);
 
 export const getUserSubscriptions = (userId: string) =>
-  apiClient.get(`/admin/users/${userId}/subscriptions`)
+  apiClient.get(`/admin/users/${userId}/subscriptions`);
 
 export const getUserOAuthProviders = (userId: string) =>
-  apiClient.get(`/admin/users/${userId}/oauth-providers`)
+  apiClient.get(`/admin/users/${userId}/oauth-providers`);
 
 export const getUserStudyPlan = (userId: string) =>
-  apiClient.get(`/admin/users/${userId}/study-plan`)
+  apiClient.get(`/admin/users/${userId}/study-plan`);
 
 export const getUserWordsSummary = (userId: string) =>
-  apiClient.get(`/admin/users/${userId}/words-summary`)
+  apiClient.get(`/admin/users/${userId}/words-summary`);
 
 // Courses
-export const getCourses = () => apiClient.get('/admin/courses')
-export const getCourseById = (id: string) => apiClient.get(`/admin/courses/${id}`)
-export const createCourse = (data: any) => apiClient.post('/admin/courses', data)
-export const updateCourse = (id: string, data: any) => apiClient.patch(`/admin/courses/${id}`, data)
-export const deleteCourse = (id: string) => apiClient.delete(`/admin/courses/${id}`)
+export const getCourses = () => apiClient.get("/admin/courses");
+export const getCourseById = (id: string) =>
+  apiClient.get(`/admin/courses/${id}`);
+export const createCourse = (data: any) =>
+  apiClient.post("/admin/courses", data);
+export const updateCourse = (id: string, data: any) =>
+  apiClient.patch(`/admin/courses/${id}`, data);
+export const deleteCourse = (id: string) =>
+  apiClient.delete(`/admin/courses/${id}`);
 export const exportCourseContent = (id: string) =>
-  apiClient.get(`/admin/courses/${id}/export-content`, { responseType: 'blob' })
+  apiClient.get(`/admin/courses/${id}/export-content`, {
+    responseType: "blob",
+  });
 
 // Modules
 export const getModules = (courseId?: string) => {
   if (courseId) {
-    return apiClient.get(`/admin/courses/${courseId}/modules`)
+    return apiClient.get(`/admin/courses/${courseId}/modules`);
   }
-  return apiClient.get('/admin/modules')
-}
-export const getModuleById = (id: string) => apiClient.get(`/admin/modules/${id}`)
-export const createModule = (data: any) => apiClient.post('/admin/modules', data)
-export const updateModule = (id: string, data: any) => apiClient.patch(`/admin/modules/${id}`, data)
-export const deleteModule = (id: string) => apiClient.delete(`/admin/modules/${id}`)
+  return apiClient.get("/admin/modules");
+};
+export const getModuleById = (id: string) =>
+  apiClient.get(`/admin/modules/${id}`);
+export const createModule = (data: any) =>
+  apiClient.post("/admin/modules", data);
+export const updateModule = (id: string, data: any) =>
+  apiClient.patch(`/admin/modules/${id}`, data);
+export const deleteModule = (id: string) =>
+  apiClient.delete(`/admin/modules/${id}`);
 export const reorderModules = (courseId: string, moduleIds: string[]) =>
-  apiClient.patch(`/admin/courses/${courseId}/modules/reorder`, { moduleIds })
+  apiClient.patch(`/admin/courses/${courseId}/modules/reorder`, { moduleIds });
 export const reorderLessons = (moduleId: string, lessonIds: string[]) =>
-  apiClient.patch(`/admin/modules/${moduleId}/lessons/reorder`, { lessonIds })
+  apiClient.patch(`/admin/modules/${moduleId}/lessons/reorder`, { lessonIds });
 
 // Lessons
 export const getLessons = (courseId?: string, moduleId?: string) => {
   if (moduleId) {
-    return apiClient.get(`/admin/modules/${moduleId}/lessons`)
+    return apiClient.get(`/admin/modules/${moduleId}/lessons`);
   }
   if (courseId) {
-    return apiClient.get(`/admin/courses/${courseId}/lessons`)
+    return apiClient.get(`/admin/courses/${courseId}/lessons`);
   }
-  return apiClient.get('/admin/lessons')
-}
-export const getLessonById = (id: string) => apiClient.get(`/admin/lessons/${id}`)
-export const createLesson = (data: any) => apiClient.post('/admin/lessons', data)
-export const updateLesson = (id: string, data: any) => apiClient.patch(`/admin/lessons/${id}`, data)
+  return apiClient.get("/admin/lessons");
+};
+export const getLessonById = (id: string) =>
+  apiClient.get(`/admin/lessons/${id}`);
+export const createLesson = (data: any) =>
+  apiClient.post("/admin/lessons", data);
+export const updateLesson = (id: string, data: any) =>
+  apiClient.patch(`/admin/lessons/${id}`, data);
 export const getLessonDeletionImpact = (lessonId: string) =>
-  apiClient.get<{ distinctUserCount: number }>(`/admin/lessons/${lessonId}/deletion-impact`)
-export const deleteLesson = (id: string) => apiClient.delete(`/admin/lessons/${id}`)
+  apiClient.get<{ distinctUserCount: number }>(
+    `/admin/lessons/${lessonId}/deletion-impact`,
+  );
+export const deleteLesson = (id: string) =>
+  apiClient.delete(`/admin/lessons/${id}`);
 
 // Lesson Blocks
 export const getLessonBlocks = (lessonId?: string) => {
   if (lessonId) {
-    return apiClient.get(`/admin/lessons/${lessonId}/blocks`)
+    return apiClient.get(`/admin/lessons/${lessonId}/blocks`);
   }
-  return apiClient.get('/admin/lesson-blocks')
-}
-export const getLessonBlockById = (id: string) => apiClient.get(`/admin/lesson-blocks/${id}`)
-export const createLessonBlock = (data: any) => apiClient.post('/admin/lesson-blocks', data)
-export const updateLessonBlock = (id: string, data: any) => apiClient.patch(`/admin/lesson-blocks/${id}`, data)
-export const deleteLessonBlock = (id: string) => apiClient.delete(`/admin/lesson-blocks/${id}`)
+  return apiClient.get("/admin/lesson-blocks");
+};
+export const getLessonBlockById = (id: string) =>
+  apiClient.get(`/admin/lesson-blocks/${id}`);
+export const createLessonBlock = (data: any) =>
+  apiClient.post("/admin/lesson-blocks", data);
+export const updateLessonBlock = (id: string, data: any) =>
+  apiClient.patch(`/admin/lesson-blocks/${id}`, data);
+export const deleteLessonBlock = (id: string) =>
+  apiClient.delete(`/admin/lesson-blocks/${id}`);
 
 // Media uploads for lesson blocks
 export const uploadBlockMedia = (
   blockId: string,
   file: File,
-  type: 'image' | 'audio' | 'video',
+  type: "image" | "audio" | "video",
   description?: string,
-  locale?: string
+  locale?: string,
 ) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  if (description) formData.append('description', description)
-  if (locale) formData.append('locale', locale)
-  return apiClient.post(`/admin/lesson-blocks/${blockId}/upload-${type}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
-}
+  const formData = new FormData();
+  formData.append("file", file);
+  if (description) formData.append("description", description);
+  if (locale) formData.append("locale", locale);
+  return apiClient.post(
+    `/admin/lesson-blocks/${blockId}/upload-${type}`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
+};
 
 export const getBlockMedia = (blockId: string) =>
-  apiClient.get(`/admin/lesson-blocks/${blockId}/media`)
+  apiClient.get(`/admin/lesson-blocks/${blockId}/media`);
 
 export const deleteBlockMedia = (blockId: string, mediaFileId: string) =>
-  apiClient.delete(`/admin/lesson-blocks/${blockId}/media/${mediaFileId}`)
+  apiClient.delete(`/admin/lesson-blocks/${blockId}/media/${mediaFileId}`);
 
 export const deleteMediaFile = (mediaFileId: string) =>
-  apiClient.delete(`/admin/media/${mediaFileId}`)
+  apiClient.delete(`/admin/media/${mediaFileId}`);
 
-export type PushSegment = 'all' | 'free' | 'paid_no_plan' | 'paid_with_plan'
-export type PushTarget = 'segment' | 'users'
+export type PushSegment = "all" | "free" | "paid_no_plan" | "paid_with_plan";
+export type PushTarget = "segment" | "users";
 
-export const getPushSegments = () => apiClient.get<Record<PushSegment, { users: number; tokens: number }>>('/admin/push/segments')
+export const getPushSegments = () =>
+  apiClient.get<Record<PushSegment, { users: number; tokens: number }>>(
+    "/admin/push/segments",
+  );
+
+export interface PushNotificationLog {
+  id: string;
+  userId: string;
+  type: string;
+  segment: string;
+  title?: string | null;
+  body?: string | null;
+  deliveryStatus: string;
+  sentAt: string;
+  user?: {
+    id: string;
+    email?: string | null;
+    name?: string | null;
+  } | null;
+}
+
+export const getPushLogs = (params?: {
+  page?: number;
+  limit?: number;
+  segment?: string;
+  type?: string;
+  deliveryStatus?: string;
+  search?: string;
+}) =>
+  apiClient.get<{
+    data: PushNotificationLog[];
+    total: number;
+    page: number;
+    limit: number;
+  }>("/admin/push/logs", { params });
 
 export const sendManualPush = (data: {
-  target: PushTarget
-  userIds?: string[]
-  segment?: PushSegment
-  title: string
-  body: string
-  route?: string
-  respectUserSettings?: boolean
-}) => apiClient.post('/admin/push/send', data)
+  target: PushTarget;
+  userIds?: string[];
+  segment?: PushSegment;
+  title: string;
+  body: string;
+  route?: string;
+  respectUserSettings?: boolean;
+}) => apiClient.post("/admin/push/send", data);
 
 // Mini-test (test) media
 export const uploadTestMedia = (
@@ -159,19 +219,19 @@ export const uploadTestMedia = (
   file: File,
   description?: string,
 ) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  if (description) formData.append('description', description)
+  const formData = new FormData();
+  formData.append("file", file);
+  if (description) formData.append("description", description);
   return apiClient.post(`/admin/mini-tests/${miniTestId}/media`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export const getTestMedia = (miniTestId: string) =>
-  apiClient.get(`/admin/mini-tests/${miniTestId}/media`)
+  apiClient.get(`/admin/mini-tests/${miniTestId}/media`);
 
 export const deleteTestMedia = (miniTestId: string, mediaFileId: string) =>
-  apiClient.delete(`/admin/mini-tests/${miniTestId}/media/${mediaFileId}`)
+  apiClient.delete(`/admin/mini-tests/${miniTestId}/media/${mediaFileId}`);
 
 // Question-level media
 export const uploadQuestionMedia = (
@@ -179,390 +239,438 @@ export const uploadQuestionMedia = (
   file: File,
   description?: string,
 ) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  if (description) formData.append('description', description)
+  const formData = new FormData();
+  formData.append("file", file);
+  if (description) formData.append("description", description);
   return apiClient.post(`/admin/questions/${questionId}/media`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export const getQuestionMedia = (questionId: string) =>
-  apiClient.get(`/admin/questions/${questionId}/media`)
+  apiClient.get(`/admin/questions/${questionId}/media`);
 
 export const deleteQuestionMedia = (questionId: string, mediaFileId: string) =>
-  apiClient.delete(`/admin/questions/${questionId}/media/${mediaFileId}`)
+  apiClient.delete(`/admin/questions/${questionId}/media/${mediaFileId}`);
 
-export const reorderQuestionMedia = (questionId: string, mediaFileIds: string[]) =>
-  apiClient.patch(`/admin/questions/${questionId}/media/reorder`, { mediaFileIds })
+export const reorderQuestionMedia = (
+  questionId: string,
+  mediaFileIds: string[],
+) =>
+  apiClient.patch(`/admin/questions/${questionId}/media/reorder`, {
+    mediaFileIds,
+  });
 
 export const reorderBlockMedia = (blockId: string, mediaFileIds: string[]) =>
-  apiClient.patch(`/admin/lesson-blocks/${blockId}/reorder-media`, { mediaFileIds })
+  apiClient.patch(`/admin/lesson-blocks/${blockId}/reorder-media`, {
+    mediaFileIds,
+  });
 
 // Tests management (backend-copy courses module)
 export const getTests = (params?: {
-  testType?: 'lesson' | 'module' | 'level' | 'placement'
-  lessonId?: string
-  moduleId?: string
-  levelCode?: string
-  courseId?: string
-  placementProfile?: string
-}) => apiClient.get('/courses/admin/tests', { params })
+  testType?: "lesson" | "module" | "level" | "placement";
+  lessonId?: string;
+  moduleId?: string;
+  levelCode?: string;
+  courseId?: string;
+  placementProfile?: string;
+}) => apiClient.get("/courses/admin/tests", { params });
 
 export const getTestAttempts = (testId: string) =>
-  apiClient.get(`/courses/admin/tests/${testId}/attempts`)
+  apiClient.get(`/courses/admin/tests/${testId}/attempts`);
 
 export const getTestStats = (testId: string) =>
-  apiClient.get(`/courses/admin/tests/${testId}/stats`)
+  apiClient.get(`/courses/admin/tests/${testId}/stats`);
 
-export const createTest = (data: any) => apiClient.post('/courses/admin/tests', data)
-export const updateTestMeta = (id: string, data: any) => apiClient.patch(`/courses/admin/tests/${id}`, data)
-export const deleteTest = (id: string) => apiClient.delete(`/courses/admin/tests/${id}`)
+export const createTest = (data: any) =>
+  apiClient.post("/courses/admin/tests", data);
+export const updateTestMeta = (id: string, data: any) =>
+  apiClient.patch(`/courses/admin/tests/${id}`, data);
+export const deleteTest = (id: string) =>
+  apiClient.delete(`/courses/admin/tests/${id}`);
 
 export const createTestQuestion = (miniTestId: string, data: any) =>
-  apiClient.post(`/courses/admin/tests/${miniTestId}/questions`, data)
+  apiClient.post(`/courses/admin/tests/${miniTestId}/questions`, data);
 export const updateTestQuestion = (id: string, data: any) =>
-  apiClient.patch(`/courses/admin/tests/questions/${id}`, data)
+  apiClient.patch(`/courses/admin/tests/questions/${id}`, data);
 export const deleteTestQuestion = (id: string) =>
-  apiClient.delete(`/courses/admin/tests/questions/${id}`)
+  apiClient.delete(`/courses/admin/tests/questions/${id}`);
 
 export const createTestAnswer = (questionId: string, data: any) =>
-  apiClient.post(`/courses/admin/tests/questions/${questionId}/answers`, data)
+  apiClient.post(`/courses/admin/tests/questions/${questionId}/answers`, data);
 export const updateTestAnswer = (id: string, data: any) =>
-  apiClient.patch(`/courses/admin/tests/answers/${id}`, data)
+  apiClient.patch(`/courses/admin/tests/answers/${id}`, data);
 export const deleteTestAnswer = (id: string) =>
-  apiClient.delete(`/courses/admin/tests/answers/${id}`)
+  apiClient.delete(`/courses/admin/tests/answers/${id}`);
 
 // Words / Alphabet (backend-copy words module)
-export const getWordsAlphabet = () => apiClient.get('/admin/words/alphabet')
+export const getWordsAlphabet = () => apiClient.get("/admin/words/alphabet");
 
-export const getWordLetter = (code: string) => apiClient.get(`/admin/words/alphabet/${code}`)
+export const getWordLetter = (code: string) =>
+  apiClient.get(`/admin/words/alphabet/${code}`);
 
-export const createWordLetter = (data: any) => apiClient.post('/admin/words/alphabet', data)
+export const createWordLetter = (data: any) =>
+  apiClient.post("/admin/words/alphabet", data);
 
 export const updateWordLetter = (code: string, data: any) =>
-  apiClient.patch(`/admin/words/alphabet/${code}`, data)
+  apiClient.patch(`/admin/words/alphabet/${code}`, data);
 
 export const deleteWordLetter = (code: string) =>
-  apiClient.delete(`/admin/words/alphabet/${code}`)
+  apiClient.delete(`/admin/words/alphabet/${code}`);
 
 export const uploadWordLetterAudio = (code: string, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return apiClient.post(`/admin/words/alphabet/${code}/upload-audio`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiClient.post(
+    `/admin/words/alphabet/${code}/upload-audio`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
+};
 
 export const deleteWordLetterAudio = (code: string) =>
-  apiClient.delete(`/admin/words/alphabet/${code}/audio`)
+  apiClient.delete(`/admin/words/alphabet/${code}/audio`);
 
 // Words / Dictionary (backend-copy words module)
-export const getWordsDictionary = (params?: { page?: number; limit?: number; q?: string }) =>
-  apiClient.get('/admin/words/dictionary', { params })
+export const getWordsDictionary = (params?: {
+  page?: number;
+  limit?: number;
+  q?: string;
+}) => apiClient.get("/admin/words/dictionary", { params });
 
 export const getWordsDictionaryEntry = (id: string) =>
-  apiClient.get(`/admin/words/dictionary/${id}`)
+  apiClient.get(`/admin/words/dictionary/${id}`);
 
 export const createWordsDictionaryEntry = (data: any) =>
-  apiClient.post('/admin/words/dictionary', data)
+  apiClient.post("/admin/words/dictionary", data);
 
 export const updateWordsDictionaryEntry = (id: string, data: any) =>
-  apiClient.patch(`/admin/words/dictionary/${id}`, data)
+  apiClient.patch(`/admin/words/dictionary/${id}`, data);
 
 export const deleteWordsDictionaryEntry = (id: string) =>
-  apiClient.delete(`/admin/words/dictionary/${id}`)
+  apiClient.delete(`/admin/words/dictionary/${id}`);
 
 export const uploadWordsDictionaryEntryAudio = (id: string, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return apiClient.post(`/admin/words/dictionary/${id}/upload-audio`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiClient.post(
+    `/admin/words/dictionary/${id}/upload-audio`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
+};
 
 export const deleteWordsDictionaryEntryAudio = (id: string) =>
-  apiClient.delete(`/admin/words/dictionary/${id}/audio`)
+  apiClient.delete(`/admin/words/dictionary/${id}/audio`);
 
 export const createWordsDictionaryExample = (entryId: string, data: any) =>
-  apiClient.post(`/admin/words/dictionary/${entryId}/examples`, data)
+  apiClient.post(`/admin/words/dictionary/${entryId}/examples`, data);
 
 export const updateWordsDictionaryExample = (id: string, data: any) =>
-  apiClient.patch(`/admin/words/dictionary/examples/${id}`, data)
+  apiClient.patch(`/admin/words/dictionary/examples/${id}`, data);
 
 export const deleteWordsDictionaryExample = (id: string) =>
-  apiClient.delete(`/admin/words/dictionary/examples/${id}`)
+  apiClient.delete(`/admin/words/dictionary/examples/${id}`);
 
 export const uploadWordsDictionaryExampleAudio = (id: string, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return apiClient.post(`/admin/words/dictionary/examples/${id}/upload-audio`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiClient.post(
+    `/admin/words/dictionary/examples/${id}/upload-audio`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
+};
 
-export const reorderWordsDictionaryExamples = (entryId: string, exampleIds: string[]) =>
-  apiClient.post(`/admin/words/dictionary/${entryId}/examples/reorder`, { exampleIds })
+export const reorderWordsDictionaryExamples = (
+  entryId: string,
+  exampleIds: string[],
+) =>
+  apiClient.post(`/admin/words/dictionary/${entryId}/examples/reorder`, {
+    exampleIds,
+  });
 
 // Words / Card Themes
-export const getWordCardThemes = () => apiClient.get('/admin/words/cards/themes')
+export const getWordCardThemes = () =>
+  apiClient.get("/admin/words/cards/themes");
 
 export const createWordCardTheme = (data: any) =>
-  apiClient.post('/admin/words/cards/themes', data)
+  apiClient.post("/admin/words/cards/themes", data);
 
 export const updateWordCardTheme = (id: string, data: any) =>
-  apiClient.patch(`/admin/words/cards/themes/${id}`, data)
+  apiClient.patch(`/admin/words/cards/themes/${id}`, data);
 
 export const deleteWordCardTheme = (id: string) =>
-  apiClient.delete(`/admin/words/cards/themes/${id}`)
+  apiClient.delete(`/admin/words/cards/themes/${id}`);
 
 export const getWordCardQuizStats = (themeId: string) =>
-  apiClient.get(`/admin/words/cards/themes/${themeId}/quiz-stats`)
+  apiClient.get(`/admin/words/cards/themes/${themeId}/quiz-stats`);
 
 // Words / Cards
 export const getWordCards = (themeId: string) =>
-  apiClient.get(`/admin/words/cards/themes/${themeId}/cards`)
+  apiClient.get(`/admin/words/cards/themes/${themeId}/cards`);
 
-export const createWordCard = (data: any) => apiClient.post('/admin/words/cards', data)
+export const createWordCard = (data: any) =>
+  apiClient.post("/admin/words/cards", data);
 
 export const updateWordCard = (id: string, data: any) =>
-  apiClient.patch(`/admin/words/cards/${id}`, data)
+  apiClient.patch(`/admin/words/cards/${id}`, data);
 
 export const deleteWordCard = (id: string) =>
-  apiClient.delete(`/admin/words/cards/${id}`)
+  apiClient.delete(`/admin/words/cards/${id}`);
 
 export const uploadWordCardAudio = (id: string, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
+  const formData = new FormData();
+  formData.append("file", file);
   return apiClient.post(`/admin/words/cards/${id}/upload-audio`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 export const uploadWordCardImage = (id: string, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
+  const formData = new FormData();
+  formData.append("file", file);
   return apiClient.post(`/admin/words/cards/${id}/upload-image`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
 
 // ==================== Islam / 99 Names of Allah ====================
 
-export const getIslamAllahNames = () => apiClient.get('/admin/islam/allah-names')
+export const getIslamAllahNames = () =>
+  apiClient.get("/admin/islam/allah-names");
 
 export const createIslamAllahName = (data: any) =>
-  apiClient.post('/admin/islam/allah-names', data)
+  apiClient.post("/admin/islam/allah-names", data);
 
 export const updateIslamAllahName = (id: string, data: any) =>
-  apiClient.patch(`/admin/islam/allah-names/${id}`, data)
+  apiClient.patch(`/admin/islam/allah-names/${id}`, data);
 
 export const deleteIslamAllahName = (id: string) =>
-  apiClient.delete(`/admin/islam/allah-names/${id}`)
+  apiClient.delete(`/admin/islam/allah-names/${id}`);
 
 export const uploadIslamAllahNameAudio = (id: string, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return apiClient.post(`/admin/islam/allah-names/${id}/upload-audio`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiClient.post(
+    `/admin/islam/allah-names/${id}/upload-audio`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
+};
 
 // ==================== Islam / Quran (Surahs + Ayahs) ====================
 
-export const getIslamSurahs = () => apiClient.get('/admin/islam/surahs')
+export const getIslamSurahs = () => apiClient.get("/admin/islam/surahs");
 
 export const createIslamSurah = (data: any) =>
-  apiClient.post('/admin/islam/surahs', data)
+  apiClient.post("/admin/islam/surahs", data);
 
 export const updateIslamSurah = (id: string, data: any) =>
-  apiClient.patch(`/admin/islam/surahs/${id}`, data)
+  apiClient.patch(`/admin/islam/surahs/${id}`, data);
 
 export const deleteIslamSurah = (id: string) =>
-  apiClient.delete(`/admin/islam/surahs/${id}`)
+  apiClient.delete(`/admin/islam/surahs/${id}`);
 
 export const getIslamSurahAyahs = (surahId: string) =>
-  apiClient.get(`/admin/islam/surahs/${surahId}/ayahs`)
+  apiClient.get(`/admin/islam/surahs/${surahId}/ayahs`);
 
 export const createIslamAyah = (surahId: string, data: any) =>
-  apiClient.post(`/admin/islam/surahs/${surahId}/ayahs`, data)
+  apiClient.post(`/admin/islam/surahs/${surahId}/ayahs`, data);
 
 export const updateIslamAyah = (id: string, data: any) =>
-  apiClient.patch(`/admin/islam/ayahs/${id}`, data)
+  apiClient.patch(`/admin/islam/ayahs/${id}`, data);
 
 export const deleteIslamAyah = (id: string) =>
-  apiClient.delete(`/admin/islam/ayahs/${id}`)
+  apiClient.delete(`/admin/islam/ayahs/${id}`);
 
 export const getIslamQuranReciters = () =>
-  apiClient.get('/admin/islam/quran/reciters')
+  apiClient.get("/admin/islam/quran/reciters");
 
 export const getIslamEveryAyahReciters = () =>
-  apiClient.get('/admin/islam/quran/everyayah-reciters')
+  apiClient.get("/admin/islam/quran/everyayah-reciters");
 
 export const createIslamQuranReciter = (data: {
-  slug: string
-  displayName: string
-  source?: string
-  bitrate?: string
-  isActive?: boolean
-  sortOrder?: number
-}) => apiClient.post('/admin/islam/quran/reciters', data)
+  slug: string;
+  displayName: string;
+  source?: string;
+  bitrate?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}) => apiClient.post("/admin/islam/quran/reciters", data);
 
-export const updateIslamQuranReciter = (id: string, data: {
-  slug?: string
-  displayName?: string
-  source?: string
-  bitrate?: string
-  isActive?: boolean
-  sortOrder?: number
-}) => apiClient.patch(`/admin/islam/quran/reciters/${id}`, data)
+export const updateIslamQuranReciter = (
+  id: string,
+  data: {
+    slug?: string;
+    displayName?: string;
+    source?: string;
+    bitrate?: string;
+    isActive?: boolean;
+    sortOrder?: number;
+  },
+) => apiClient.patch(`/admin/islam/quran/reciters/${id}`, data);
 
 export const importIslamRecitersFromEveryAyah = (data: {
-  slugs: string[]
-  activate?: boolean
-  overwriteMetadata?: boolean
-}) => apiClient.post('/admin/islam/quran/reciters/import-from-everyayah', data)
+  slugs: string[];
+  activate?: boolean;
+  overwriteMetadata?: boolean;
+}) => apiClient.post("/admin/islam/quran/reciters/import-from-everyayah", data);
 
 export const importIslamEveryAyah = (data: {
-  reciterSlug: string
-  fromSurah?: number
-  toSurah?: number
-  fromAyah?: number
-  toAyah?: number
-  overwrite?: boolean
-  concurrency?: number
-}) => apiClient.post('/admin/islam/quran/import-everyayah', data)
+  reciterSlug: string;
+  fromSurah?: number;
+  toSurah?: number;
+  fromAyah?: number;
+  toAyah?: number;
+  overwrite?: boolean;
+  concurrency?: number;
+}) => apiClient.post("/admin/islam/quran/import-everyayah", data);
 
 export const syncQuranAudioAll = (data?: {
-  overwrite?: boolean
-  fromSurah?: number
-  toSurah?: number
-  concurrency?: number
-}) => apiClient.post('/admin/islam/quran/sync-audio-all', data || {})
+  overwrite?: boolean;
+  fromSurah?: number;
+  toSurah?: number;
+  concurrency?: number;
+}) => apiClient.post("/admin/islam/quran/sync-audio-all", data || {});
 
 export const getIslamEveryAyahImportStatus = (jobId: string) =>
-  apiClient.get(`/admin/islam/quran/import-status/${jobId}`)
+  apiClient.get(`/admin/islam/quran/import-status/${jobId}`);
 
 export const getQuranSyncStatus = (jobId: string) =>
-  apiClient.get(`/admin/islam/quran/sync-status/${jobId}`)
+  apiClient.get(`/admin/islam/quran/sync-status/${jobId}`);
 
 export const getIslamQuranCoverage = (reciter?: string) =>
-  apiClient.get('/admin/islam/quran/coverage', { params: reciter ? { reciter } : undefined })
+  apiClient.get("/admin/islam/quran/coverage", {
+    params: reciter ? { reciter } : undefined,
+  });
 
 // ==================== Islam / Hajj Guide ====================
 
 export const getIslamHajjSections = () =>
-  apiClient.get('/admin/islam/hajj-sections')
+  apiClient.get("/admin/islam/hajj-sections");
 
 export const createIslamHajjSection = (data: any) =>
-  apiClient.post('/admin/islam/hajj-sections', data)
+  apiClient.post("/admin/islam/hajj-sections", data);
 
 export const updateIslamHajjSection = (id: string, data: any) =>
-  apiClient.patch(`/admin/islam/hajj-sections/${id}`, data)
+  apiClient.patch(`/admin/islam/hajj-sections/${id}`, data);
 
 export const deleteIslamHajjSection = (id: string) =>
-  apiClient.delete(`/admin/islam/hajj-sections/${id}`)
+  apiClient.delete(`/admin/islam/hajj-sections/${id}`);
 
 export const getIslamHajjSectionDetails = (id: string) =>
-  apiClient.get(`/admin/islam/hajj-sections/${id}/details`)
+  apiClient.get(`/admin/islam/hajj-sections/${id}/details`);
 
 export const createIslamHajjInstruction = (sectionId: string, data: any) =>
-  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/instructions`, data)
+  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/instructions`, data);
 
 export const updateIslamHajjInstruction = (id: string, data: any) =>
-  apiClient.patch(`/admin/islam/hajj-instructions/${id}`, data)
+  apiClient.patch(`/admin/islam/hajj-instructions/${id}`, data);
 
 export const deleteIslamHajjInstruction = (id: string) =>
-  apiClient.delete(`/admin/islam/hajj-instructions/${id}`)
+  apiClient.delete(`/admin/islam/hajj-instructions/${id}`);
 
 export const createIslamHajjPhrase = (sectionId: string, data: any) =>
-  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/phrases`, data)
+  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/phrases`, data);
 
 export const updateIslamHajjPhrase = (id: string, data: any) =>
-  apiClient.patch(`/admin/islam/hajj-phrases/${id}`, data)
+  apiClient.patch(`/admin/islam/hajj-phrases/${id}`, data);
 
 export const deleteIslamHajjPhrase = (id: string) =>
-  apiClient.delete(`/admin/islam/hajj-phrases/${id}`)
+  apiClient.delete(`/admin/islam/hajj-phrases/${id}`);
 
 export const uploadIslamHajjPhraseAudio = (id: string, file: File) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  return apiClient.post(`/admin/islam/hajj-phrases/${id}/upload-audio`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-}
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiClient.post(
+    `/admin/islam/hajj-phrases/${id}/upload-audio`,
+    formData,
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+    },
+  );
+};
 
 export const createIslamHajjChecklist = (sectionId: string, data: any) =>
-  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/checklists`, data)
+  apiClient.post(`/admin/islam/hajj-sections/${sectionId}/checklists`, data);
 
 export const updateIslamHajjChecklist = (id: string, data: any) =>
-  apiClient.patch(`/admin/islam/hajj-checklists/${id}`, data)
+  apiClient.patch(`/admin/islam/hajj-checklists/${id}`, data);
 
 export const deleteIslamHajjChecklist = (id: string) =>
-  apiClient.delete(`/admin/islam/hajj-checklists/${id}`)
+  apiClient.delete(`/admin/islam/hajj-checklists/${id}`);
 
 // ── Admin Management ─────────────────────────────────────────────────────────
 
 export const getAdmins = (params?: { page?: number; limit?: number }) =>
-  apiClient.get('/admin/admins', { params })
+  apiClient.get("/admin/admins", { params });
 
 export const getAdminById = (id: string) =>
-  apiClient.get(`/admin/admins/${id}`)
+  apiClient.get(`/admin/admins/${id}`);
 
 export const inviteAdmin = (data: { email: string; role: string }) =>
-  apiClient.post('/admin/admins/invite', data)
+  apiClient.post("/admin/admins/invite", data);
 
 export const acceptAdminInvitation = (token: string) =>
-  apiClient.post('/admin/invitations/accept', { token })
+  apiClient.post("/admin/invitations/accept", { token });
 
 export const updateAdminRole = (id: string, role: string) =>
-  apiClient.patch(`/admin/admins/${id}/role`, { role })
+  apiClient.patch(`/admin/admins/${id}/role`, { role });
 
 export const updateAdminPermissions = (id: string, permissionIds: string[]) =>
-  apiClient.patch(`/admin/admins/${id}/permissions`, { permissionIds })
+  apiClient.patch(`/admin/admins/${id}/permissions`, { permissionIds });
 
 export const deactivateAdmin = (id: string) =>
-  apiClient.delete(`/admin/admins/${id}`)
+  apiClient.delete(`/admin/admins/${id}`);
 
 export const getPendingInvitations = () =>
-  apiClient.get('/admin/admins/invitations/pending')
+  apiClient.get("/admin/admins/invitations/pending");
 
 export const cancelInvitation = (id: string) =>
-  apiClient.delete(`/admin/admins/invitations/${id}`)
+  apiClient.delete(`/admin/admins/invitations/${id}`);
 
 export const getPermissionGroups = () =>
-  apiClient.get('/admin/admins/permissions/groups')
+  apiClient.get("/admin/admins/permissions/groups");
 
 // ── Custom Roles ──────────────────────────────────────────────────────────────
 
 export const getCustomRoles = (params?: { includeInactive?: boolean }) =>
-  apiClient.get('/admin/roles', { params })
+  apiClient.get("/admin/roles", { params });
 
 export const getCustomRoleById = (id: string) =>
-  apiClient.get(`/admin/roles/${id}`)
+  apiClient.get(`/admin/roles/${id}`);
 
 export const createCustomRole = (data: {
-  name: string
-  labelRu: string
-  descriptionRu?: string
-  permissionIds?: string[]
-}) => apiClient.post('/admin/roles', data)
+  name: string;
+  labelRu: string;
+  descriptionRu?: string;
+  permissionIds?: string[];
+}) => apiClient.post("/admin/roles", data);
 
 export const updateCustomRole = (
   id: string,
   data: {
-    labelRu?: string
-    descriptionRu?: string
-    isActive?: boolean
-    permissionIds?: string[]
+    labelRu?: string;
+    descriptionRu?: string;
+    isActive?: boolean;
+    permissionIds?: string[];
   },
-) => apiClient.patch(`/admin/roles/${id}`, data)
+) => apiClient.patch(`/admin/roles/${id}`, data);
 
 export const deleteCustomRole = (id: string) =>
-  apiClient.delete(`/admin/roles/${id}`)
+  apiClient.delete(`/admin/roles/${id}`);
 
 export const assignCustomRoleToUser = (roleId: string, userId: string) =>
-  apiClient.post(`/admin/roles/${roleId}/users/${userId}`)
+  apiClient.post(`/admin/roles/${roleId}/users/${userId}`);
 
 export const revokeCustomRoleFromUser = (roleId: string, userId: string) =>
-  apiClient.delete(`/admin/roles/${roleId}/users/${userId}`)
+  apiClient.delete(`/admin/roles/${roleId}/users/${userId}`);
