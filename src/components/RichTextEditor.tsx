@@ -279,6 +279,11 @@ export default function RichTextEditor({
   const currentHtmlRef = useRef(value || '')
   const [currentFontFamily, setCurrentFontFamily] = useState('')
   const [currentFontSize, setCurrentFontSize] = useState('')
+  const [selectedMediaOverlay, setSelectedMediaOverlay] = useState<{
+    top: number
+    left: number
+    title: string
+  } | null>(null)
 
   const emitChange = (html: string) => {
     currentHtmlRef.current = html
@@ -305,8 +310,49 @@ export default function RichTextEditor({
     selection.addRange(range)
   }
 
+  const updateSelectedMediaOverlay = (media: HTMLElement | null) => {
+    const root = editorRef.current
+    if (!root || !media || !root.contains(media)) {
+      setSelectedMediaOverlay(null)
+      return
+    }
+    const rootRect = root.getBoundingClientRect()
+    const mediaRect = media.getBoundingClientRect()
+    const overlaySize = 30
+    const padding = 8
+    const top = Math.max(
+      padding,
+      mediaRect.top - rootRect.top + root.scrollTop + padding,
+    )
+    const left = Math.max(
+      padding,
+      Math.min(
+        root.scrollWidth - overlaySize - padding,
+        mediaRect.right - rootRect.left + root.scrollLeft - overlaySize - padding,
+      ),
+    )
+    const title =
+      media.tagName === 'AUDIO'
+        ? 'Удалить аудио'
+        : media.tagName === 'VIDEO'
+          ? 'Удалить видео'
+          : 'Удалить изображение'
+    setSelectedMediaOverlay({ top, left, title })
+  }
+
+  const clearSelectedMediaState = () => {
+    lastMediaInEditorRef.current?.removeAttribute('data-media-selected')
+    lastMediaInEditorRef.current = null
+    pendingMediaSelectionRef.current = false
+    setSelectedMediaOverlay(null)
+  }
+
   const selectMediaInEditor = (media: HTMLElement) => {
+    if (lastMediaInEditorRef.current && lastMediaInEditorRef.current !== media) {
+      lastMediaInEditorRef.current.removeAttribute('data-media-selected')
+    }
     lastMediaInEditorRef.current = media
+    media.setAttribute('data-media-selected', 'true')
     const r = document.createRange()
     r.selectNode(media)
     const sel = window.getSelection()
@@ -322,6 +368,7 @@ export default function RichTextEditor({
     } catch {
       // ignore
     }
+    updateSelectedMediaOverlay(media)
   }
 
   const rememberMediaFromEvent = (nativeEvent: Event, target: EventTarget | null): boolean => {
@@ -366,7 +413,7 @@ export default function RichTextEditor({
       pendingMediaSelectionRef.current = false
       return
     }
-    lastMediaInEditorRef.current = null
+    clearSelectedMediaState()
     rememberSelection()
   }
 
@@ -591,7 +638,7 @@ export default function RichTextEditor({
     } else if (tag === 'IMG') {
       if (!window.confirm('Удалить это изображение из текста?')) return
     }
-    lastMediaInEditorRef.current = null
+    clearSelectedMediaState()
     let removedAny = false
     if (mediaId) {
       const escaped = cssEscapeAttr(mediaId)
@@ -667,6 +714,24 @@ export default function RichTextEditor({
     }
     wrapBareTablesInContainer(el)
   }, [value])
+
+  useEffect(() => {
+    const refreshOverlay = () => {
+      const media = lastMediaInEditorRef.current
+      if (!media || !editorRef.current?.contains(media)) {
+        setSelectedMediaOverlay(null)
+        return
+      }
+      updateSelectedMediaOverlay(media)
+    }
+
+    window.addEventListener('resize', refreshOverlay)
+    window.addEventListener('scroll', refreshOverlay, true)
+    return () => {
+      window.removeEventListener('resize', refreshOverlay)
+      window.removeEventListener('scroll', refreshOverlay, true)
+    }
+  }, [])
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
@@ -940,56 +1005,94 @@ export default function RichTextEditor({
         </Select>
       </Stack>
 
-      <Box
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onPointerDownCapture={handleEditorPointerDownCapture}
-        onClickCapture={handleEditorClickCapture}
-        onPointerUp={handleEditorPointerUp}
-        onKeyUp={rememberSelection}
-        onInput={(e) => emitChange((e.target as HTMLDivElement).innerHTML)}
-        sx={{
-          p: 2,
-          minHeight,
-          outline: 'none',
-          '&:empty:before': {
-            content: `"${placeholder}"`,
-            color: 'text.disabled',
-          },
-          '& h1, & h2, & h3': { margin: '8px 0' },
-          '& p': { margin: '6px 0' },
-          '& ul, & ol': { margin: '8px 0 8px 20px' },
-          '& a': { color: 'primary.main' },
-          // WYSIWYG: do not draw a «card» border/shadow here — that looked like boxes around
-          // every block when tables/Word layout nest oddly. Rounded table shell + cell lines
-          // come from inline HTML; final look is in MobilePreview & app.
-          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
-            borderRadius: '14px',
-            overflow: 'hidden',
-            my: 1,
-            width: '100%',
-            maxWidth: '100%',
-            boxSizing: 'border-box',
-          },
-          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
-            width: '100%',
-            borderCollapse: 'collapse',
-            borderSpacing: 0,
-            margin: 0,
-          },
-          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: {
-            bgcolor: '#f0ebe4',
-            fontWeight: 600,
-          },
-          // Layout hints only; avoid heavy chrome that reads as extra «frames» on <audio>
-          [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .${ILM_RICHTEXT_AUDIO_TD_CLASS}`]: {
-            verticalAlign: 'middle',
-            textAlign: 'center',
-            whiteSpace: 'nowrap',
-          },
-        }}
-      />
+      <Box sx={{ position: 'relative' }}>
+        <Box
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onPointerDownCapture={handleEditorPointerDownCapture}
+          onClickCapture={handleEditorClickCapture}
+          onPointerUp={handleEditorPointerUp}
+          onKeyUp={rememberSelection}
+          onInput={(e) => emitChange((e.target as HTMLDivElement).innerHTML)}
+          sx={{
+            p: 2,
+            minHeight,
+            outline: 'none',
+            '&:empty:before': {
+              content: `"${placeholder}"`,
+              color: 'text.disabled',
+            },
+            '& h1, & h2, & h3': { margin: '8px 0' },
+            '& p': { margin: '6px 0' },
+            '& ul, & ol': { margin: '8px 0 8px 20px' },
+            '& a': { color: 'primary.main' },
+            '& [data-media-selected="true"]': {
+              outline: '2px solid #d14343',
+              outlineOffset: 2,
+            },
+            // WYSIWYG: do not draw a «card» border/shadow here — that looked like boxes around
+            // every block when tables/Word layout nest oddly. Rounded table shell + cell lines
+            // come from inline HTML; final look is in MobilePreview & app.
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
+              borderRadius: '14px',
+              overflow: 'hidden',
+              my: 1,
+              width: '100%',
+              maxWidth: '100%',
+              boxSizing: 'border-box',
+            },
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
+              width: '100%',
+              borderCollapse: 'collapse',
+              borderSpacing: 0,
+              margin: 0,
+            },
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: {
+              bgcolor: '#f0ebe4',
+              fontWeight: 600,
+            },
+            // Layout hints only; avoid heavy chrome that reads as extra «frames» on <audio>
+            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .${ILM_RICHTEXT_AUDIO_TD_CLASS}`]: {
+              verticalAlign: 'middle',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+            },
+          }}
+        />
+        {selectedMediaOverlay ? (
+          <Tooltip title={selectedMediaOverlay.title}>
+            <IconButton
+              size="small"
+              color="error"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+              onClick={() => {
+                void removeCurrentMedia()
+              }}
+              sx={{
+                position: 'absolute',
+                top: selectedMediaOverlay.top,
+                left: selectedMediaOverlay.left,
+                zIndex: 2,
+                width: 30,
+                height: 30,
+                bgcolor: '#fff',
+                border: '1px solid',
+                borderColor: 'error.light',
+                boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+                '&:hover': {
+                  bgcolor: '#fff4f4',
+                },
+              }}
+            >
+              <DeleteOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </Box>
     </Paper>
   )
 }
