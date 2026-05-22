@@ -107,6 +107,99 @@ function mediaIdForElement(el: HTMLElement): string | null {
   return el.getAttribute('data-media-id') || el.querySelector('source[data-media-id]')?.getAttribute('data-media-id') || null
 }
 
+function collectComparableMediaUrls(el: Element | null): string[] {
+  if (!el || typeof window === 'undefined') return []
+  const urls = new Set<string>()
+  const addUrl = (value?: string | null) => {
+    const next = value?.trim()
+    if (!next) return
+    urls.add(next)
+    try {
+      const absolute = new URL(next, window.location.href)
+      urls.add(absolute.href)
+      absolute.search = ''
+      absolute.hash = ''
+      urls.add(absolute.href)
+    } catch {
+      // Ignore malformed URLs; raw string comparison above still helps.
+    }
+  }
+
+  if (el instanceof HTMLImageElement) {
+    addUrl(el.getAttribute('src'))
+    addUrl(el.currentSrc)
+    addUrl(el.src)
+    return Array.from(urls)
+  }
+
+  if (el instanceof HTMLSourceElement) {
+    addUrl(el.getAttribute('src'))
+    addUrl(el.src)
+    return Array.from(urls)
+  }
+
+  if (el instanceof HTMLAudioElement || el instanceof HTMLVideoElement) {
+    addUrl(el.getAttribute('src'))
+    addUrl(el.currentSrc)
+    addUrl(el.src)
+    el.querySelectorAll('source').forEach((source) => {
+      addUrl(source.getAttribute('src'))
+      addUrl((source as HTMLSourceElement).src)
+    })
+    return Array.from(urls)
+  }
+
+  if (el instanceof HTMLElement) {
+    addUrl(el.getAttribute('src'))
+  }
+
+  return Array.from(urls)
+}
+
+function removeMatchingMediaFromHtml(html: string, mediaEl: HTMLElement): { html: string; removed: boolean } {
+  const template = document.createElement('template')
+  template.innerHTML = html
+
+  const tagName = mediaEl.tagName
+  const mediaId = mediaIdForElement(mediaEl)
+  const comparableUrls = new Set(collectComparableMediaUrls(mediaEl))
+  const targetOuterHtml = mediaEl.outerHTML
+
+  const candidates = Array.from(template.content.querySelectorAll(tagName.toLowerCase()))
+  let removed = false
+
+  if (mediaId) {
+    for (const candidate of candidates) {
+      if (!(candidate instanceof HTMLElement)) continue
+      if (mediaIdForElement(candidate) !== mediaId) continue
+      candidate.remove()
+      removed = true
+    }
+    return { html: template.innerHTML, removed }
+  }
+
+  const exactMatch = candidates.find(
+    (candidate) => candidate instanceof HTMLElement && candidate.outerHTML === targetOuterHtml,
+  ) as HTMLElement | undefined
+  if (exactMatch) {
+    exactMatch.remove()
+    return { html: template.innerHTML, removed: true }
+  }
+
+  if (comparableUrls.size > 0) {
+    const urlMatch = candidates.find((candidate) => {
+      const candidateUrls = collectComparableMediaUrls(candidate)
+      return candidateUrls.some((url) => comparableUrls.has(url))
+    })
+    if (urlMatch instanceof HTMLElement) {
+      urlMatch.remove()
+      return { html: template.innerHTML, removed: true }
+    }
+  }
+
+  return { html: template.innerHTML, removed }
+}
+
 function cssEscapeAttr(value: string): string {
   if (typeof (window as any).CSS !== 'undefined' && typeof (window as any).CSS.escape === 'function') {
     return (window as any).CSS.escape(value)
@@ -474,6 +567,13 @@ export default function RichTextEditor({
           node.remove()
           removedAny = true
         }
+      }
+    }
+    if (!removedAny) {
+      const removedFromHtml = removeMatchingMediaFromHtml(root.innerHTML, mediaEl)
+      if (removedFromHtml.removed) {
+        root.innerHTML = removedFromHtml.html
+        removedAny = true
       }
     }
     if (!removedAny) {
