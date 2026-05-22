@@ -19,7 +19,7 @@ import {
   LooksOne,
   ViewColumn,
 } from '@mui/icons-material'
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   ILM_RICHTEXT_TABLE_WRAP_CLASS,
   ILM_RICHTEXT_TABLE_WRAP_STYLE,
@@ -101,6 +101,33 @@ function findMediaInComposedPath(event: { composedPath: () => EventTarget[] }, r
     }
   }
   return null
+}
+
+function findMediaFromTarget(target: EventTarget | null, root: HTMLElement): HTMLElement | null {
+  if (target instanceof HTMLAudioElement || target instanceof HTMLVideoElement || target instanceof HTMLImageElement) {
+    return root.contains(target) ? target : null
+  }
+  if (!(target instanceof Element)) return null
+  const matched = target.closest('audio,img,video,source') as HTMLElement | null
+  if (!matched || !root.contains(matched)) return null
+  if (matched.tagName === 'SOURCE') {
+    const media = matched.parentElement
+    return media && root.contains(media) ? media as HTMLElement : null
+  }
+  return matched
+}
+
+function resolveMediaFromEvent(options: {
+  nativeEvent: Event
+  root: HTMLElement
+  target: EventTarget | null
+}): HTMLElement | null {
+  const { nativeEvent, root, target } = options
+  if (typeof nativeEvent.composedPath === 'function') {
+    const fromPath = findMediaInComposedPath(nativeEvent, root)
+    if (fromPath) return fromPath
+  }
+  return findMediaFromTarget(target, root)
 }
 
 function mediaIdForElement(el: HTMLElement): string | null {
@@ -247,6 +274,8 @@ export default function RichTextEditor({
   const insertRangeRef = useRef<Range | null>(null)
   /** Last media clicked in the editor (native <audio> controls do not set document selection). */
   const lastMediaInEditorRef = useRef<HTMLElement | null>(null)
+  /** Marks that capture-phase media selection already happened for the current pointer interaction. */
+  const pendingMediaSelectionRef = useRef(false)
   const currentHtmlRef = useRef(value || '')
   const [currentFontFamily, setCurrentFontFamily] = useState('')
   const [currentFontSize, setCurrentFontSize] = useState('')
@@ -276,6 +305,34 @@ export default function RichTextEditor({
     selection.addRange(range)
   }
 
+  const selectMediaInEditor = (media: HTMLElement) => {
+    lastMediaInEditorRef.current = media
+    const r = document.createRange()
+    r.selectNode(media)
+    const sel = window.getSelection()
+    if (!sel) return
+    sel.removeAllRanges()
+    try {
+      sel.addRange(r)
+    } catch {
+      // ignore
+    }
+    try {
+      selectionRef.current = r.cloneRange()
+    } catch {
+      // ignore
+    }
+  }
+
+  const rememberMediaFromEvent = (nativeEvent: Event, target: EventTarget | null): boolean => {
+    const root = editorRef.current
+    if (!root) return false
+    const media = resolveMediaFromEvent({ nativeEvent, root, target })
+    if (!media) return false
+    selectMediaInEditor(media)
+    return true
+  }
+
   const getSelectedMedia = (): { el: HTMLElement; mediaId: string | null } | null => {
     const root = editorRef.current
     if (!root) return null
@@ -301,40 +358,24 @@ export default function RichTextEditor({
   }
 
   const handleEditorPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    const root = editorRef.current
-    if (!root) return
-    const native = e.nativeEvent
-    let media = findMediaInComposedPath(native, root)
-    if (!media) {
-      const t = e.target
-      if (t instanceof HTMLAudioElement || t instanceof HTMLVideoElement) {
-        if (root.contains(t)) media = t
-      } else if (t instanceof HTMLImageElement) {
-        if (root.contains(t)) media = t
-      }
+    if (rememberMediaFromEvent(e.nativeEvent, e.target)) {
+      pendingMediaSelectionRef.current = false
+      return
     }
-    if (media) {
-      lastMediaInEditorRef.current = media
-      const r = document.createRange()
-      r.selectNode(media)
-      const sel = window.getSelection()
-      if (sel) {
-        sel.removeAllRanges()
-        try {
-          sel.addRange(r)
-        } catch {
-          // ignore
-        }
-        try {
-          selectionRef.current = r.cloneRange()
-        } catch {
-          // ignore
-        }
-      }
+    if (pendingMediaSelectionRef.current) {
+      pendingMediaSelectionRef.current = false
       return
     }
     lastMediaInEditorRef.current = null
     rememberSelection()
+  }
+
+  const handleEditorPointerDownCapture = (e: ReactPointerEvent<HTMLDivElement>) => {
+    pendingMediaSelectionRef.current = rememberMediaFromEvent(e.nativeEvent, e.target)
+  }
+
+  const handleEditorClickCapture = (e: ReactMouseEvent<HTMLDivElement>) => {
+    void rememberMediaFromEvent(e.nativeEvent, e.target)
   }
 
   const insertHtmlAtCursor = (html: string) => {
@@ -903,6 +944,8 @@ export default function RichTextEditor({
         ref={editorRef}
         contentEditable
         suppressContentEditableWarning
+        onPointerDownCapture={handleEditorPointerDownCapture}
+        onClickCapture={handleEditorClickCapture}
         onPointerUp={handleEditorPointerUp}
         onKeyUp={rememberSelection}
         onInput={(e) => emitChange((e.target as HTMLDivElement).innerHTML)}
