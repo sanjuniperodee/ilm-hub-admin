@@ -176,11 +176,16 @@ export interface PushNotificationLog {
   id: string;
   userId: string;
   type: string;
+  scenario?: string | null;
   segment: string;
+  ruleSetId?: string | null;
+  templateId?: string | null;
+  route?: string | null;
   title?: string | null;
   body?: string | null;
   deliveryStatus: string;
   sentAt: string;
+  openedAt?: string | null;
   user?: {
     id: string;
     email?: string | null;
@@ -212,6 +217,97 @@ export const sendManualPush = (data: {
   route?: string;
   respectUserSettings?: boolean;
 }) => apiClient.post("/admin/push/send", data);
+
+export type PushRuleSetStatus = "draft" | "published" | "archived";
+export interface PushSegmentPolicy {
+  id: string;
+  segment: Exclude<PushSegment, "all">;
+  dailyLimit: number;
+  minIntervalMinutes: number;
+  quietStart: string;
+  quietEnd: string;
+  suppressOnSameDayActivity: boolean;
+  recentActivityMinutes: number;
+}
+
+export interface PushTemplate {
+  id: string;
+  scenarioId: string;
+  language: string;
+  title: string;
+  body: string;
+  isActive: boolean;
+}
+
+export interface PushScenario {
+  id: string;
+  key: string;
+  segment: Exclude<PushSegment, "all">;
+  enabled: boolean;
+  priority: number;
+  route: string;
+  triggerType: string;
+  requiresStudyReminders: boolean;
+  maxPerWeek?: number | null;
+  maxPerDay?: number | null;
+  allowedWindows: Array<{ start: string; end: string }>;
+  triggerConfig: Record<string, unknown>;
+  templates: PushTemplate[];
+}
+
+export interface PushRuleSet {
+  id: string;
+  status: PushRuleSetStatus;
+  version: number;
+  name: string;
+  publishedAt?: string | null;
+  policies: PushSegmentPolicy[];
+  scenarios: PushScenario[];
+}
+
+export interface PushRuleVersion {
+  id: string;
+  status: PushRuleSetStatus;
+  version: number;
+  name: string;
+  publishedAt?: string | null;
+  archivedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const getPublishedPushRules = () =>
+  apiClient.get<PushRuleSet>("/admin/push/rules/published");
+export const getDraftPushRules = () =>
+  apiClient.get<PushRuleSet>("/admin/push/rules/draft");
+export const createDraftPushRules = () =>
+  apiClient.post<PushRuleSet>("/admin/push/rules/draft");
+export const updateDraftPushSegmentPolicy = (
+  segment: Exclude<PushSegment, "all">,
+  data: Partial<PushSegmentPolicy>,
+) => apiClient.patch<PushRuleSet>(`/admin/push/rules/segments/${segment}`, data);
+export const updateDraftPushScenario = (
+  key: string,
+  data: Partial<PushScenario>,
+) => apiClient.patch<PushRuleSet>(`/admin/push/rules/scenarios/${key}`, data);
+export const createDraftPushTemplate = (
+  key: string,
+  data: Partial<PushTemplate>,
+) => apiClient.post<PushRuleSet>(`/admin/push/rules/scenarios/${key}/templates`, data);
+export const updateDraftPushTemplate = (
+  templateId: string,
+  data: Partial<PushTemplate>,
+) => apiClient.patch<PushRuleSet>(`/admin/push/rules/templates/${templateId}`, data);
+export const deleteDraftPushTemplate = (templateId: string) =>
+  apiClient.delete<PushRuleSet>(`/admin/push/rules/templates/${templateId}`);
+export const validateDraftPushRules = () =>
+  apiClient.post<{ ok: boolean; errors: string[] }>("/admin/push/rules/validate");
+export const publishDraftPushRules = () =>
+  apiClient.post<PushRuleSet>("/admin/push/rules/publish");
+export const rollbackPushRules = () =>
+  apiClient.post<PushRuleSet>("/admin/push/rules/rollback");
+export const getPushRuleVersions = () =>
+  apiClient.get<PushRuleVersion[]>("/admin/push/rules/versions");
 
 // Mini-test (test) media
 export const uploadTestMedia = (
