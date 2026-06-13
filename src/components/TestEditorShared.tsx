@@ -1,38 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
   Card,
   CardContent,
-  Chip,
-  Collapse,
-  Divider,
-  FormControl,
   Grid,
-  IconButton,
-  InputLabel,
   Menu,
-  MenuItem,
-  Select,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material'
 import {
   Add,
   ArrowBack,
-  CheckCircle,
-  DeleteOutline,
-  ExpandLess,
-  ExpandMore,
+  PermMediaOutlined,
   QuizOutlined,
-  RadioButtonUnchecked,
-  SaveOutlined,
 } from '@mui/icons-material'
 import {
   createTest,
@@ -50,34 +33,13 @@ import {
   uploadTestMedia,
 } from '../api/adminApi'
 import MediaUploader from './MediaUploader'
+import { getConfigTemplate } from './QuestionConfigEditors'
 import {
-  FillBlankConfigEditor,
-  MatchPairsConfigEditor,
-  ManualInputConfigEditor,
-  MultipleChoiceConfigEditor,
-  AudioMultipleChoiceConfigEditor,
-  ImageWordMatchConfigEditor,
-  AudioChoiceConfigEditor,
-  FindLetterInWordConfigEditor,
-  ListenAndChooseWordConfigEditor,
-  getConfigTemplate,
-} from './QuestionConfigEditors'
+  TestQuestionEditor,
+  renderQuestionTypeMenuItems,
+  type QuestionType,
+} from './TestQuestionEditor'
 import { pageTitleH4Sx, testEditorMaxWidthSx } from '../utils/responsivePageSx'
-
-type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input' | 'audio_multiple_choice' | 'image_word_match' | 'audio_choice' | 'find_letter_in_word' | 'listen_and_choose_word'
-
-const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
-  { value: 'multiple_choice', label: 'Multiple choice' },
-  { value: 'single_choice', label: 'Single choice' },
-  { value: 'fill_blank', label: 'Fill blank' },
-  { value: 'match_pairs', label: 'Match pairs (текст / аудио)' },
-  { value: 'manual_input', label: 'Manual input' },
-  { value: 'audio_multiple_choice', label: 'Аудио + выбор' },
-  { value: 'image_word_match', label: 'Картинка ↔ Слово' },
-  { value: 'audio_choice', label: 'Аудио → Буква (Махрадж)' },
-  { value: 'find_letter_in_word', label: 'Найди букву в слове' },
-  { value: 'listen_and_choose_word', label: 'Послушай → Слово' },
-]
 
 export interface TestEditorSharedProps {
   testType: 'lesson' | 'module' | 'level' | 'placement'
@@ -111,6 +73,24 @@ export function TestEditorShared({
   const [testMediaFiles, setTestMediaFiles] = useState<any[]>([])
   const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null)
 
+  const notifyError = (e: any, fallback: string) => {
+    setError(e?.response?.data?.message?.[0] || e?.message || fallback)
+  }
+
+  const notifySuccess = (msg: string) => {
+    setSuccess(msg)
+    setError('')
+  }
+
+  const loadTestMedia = async (miniTestId: string) => {
+    try {
+      const { data } = await getTestMedia(miniTestId)
+      setTestMediaFiles(Array.isArray(data) ? data : [])
+    } catch {
+      setTestMediaFiles([])
+    }
+  }
+
   const load = async () => {
     setLoading(true)
     setError('')
@@ -130,32 +110,15 @@ export function TestEditorShared({
         await loadTestMedia(list[0].id)
       }
     } catch (e: any) {
-      setError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить тест')
+      notifyError(e, 'Не удалось загрузить тест')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const loadTestMedia = async (miniTestId: string) => {
-    try {
-      const { data } = await getTestMedia(miniTestId)
-      setTestMediaFiles(Array.isArray(data) ? data : [])
-    } catch {
-      setTestMediaFiles([])
     }
   }
 
   useEffect(() => {
     load()
   }, [testType, lessonId, moduleId, levelCode, courseId, placementProfile])
-
-  const notifyError = (msg: string) => {
-    setError(msg)
-  }
-  const notifySuccess = (msg: string) => {
-    setSuccess(msg)
-    setError('')
-  }
 
   const createTestHandler = async () => {
     if (!newTitle.trim()) {
@@ -178,7 +141,7 @@ export function TestEditorShared({
       await load()
       notifySuccess('Тест создан')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось создать тест')
+      notifyError(e, 'Не удалось создать тест')
     }
   }
 
@@ -192,7 +155,7 @@ export function TestEditorShared({
       await load()
       notifySuccess('Настройки сохранены')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось сохранить')
+      notifyError(e, 'Не удалось сохранить')
     }
   }
 
@@ -203,7 +166,7 @@ export function TestEditorShared({
       setTest(null)
       notifySuccess('Тест удален')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось удалить')
+      notifyError(e, 'Не удалось удалить')
     }
   }
 
@@ -228,7 +191,7 @@ export function TestEditorShared({
       await load()
       notifySuccess('Вопрос добавлен')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось добавить вопрос')
+      notifyError(e, 'Не удалось добавить вопрос')
     }
   }
 
@@ -243,7 +206,7 @@ export function TestEditorShared({
       await load()
       notifySuccess('Вопрос сохранен')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось сохранить')
+      notifyError(e, 'Не удалось сохранить')
     }
   }
 
@@ -253,7 +216,7 @@ export function TestEditorShared({
       await load()
       notifySuccess('Вопрос удален')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось удалить')
+      notifyError(e, 'Не удалось удалить')
     }
   }
 
@@ -267,7 +230,7 @@ export function TestEditorShared({
       await load()
       notifySuccess('Ответ добавлен')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось добавить')
+      notifyError(e, 'Не удалось добавить')
     }
   }
 
@@ -281,7 +244,7 @@ export function TestEditorShared({
       await load()
       notifySuccess('Ответ сохранен')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось сохранить')
+      notifyError(e, 'Не удалось сохранить')
     }
   }
 
@@ -291,7 +254,7 @@ export function TestEditorShared({
       await load()
       notifySuccess('Ответ удален')
     } catch (e: any) {
-      notifyError(e?.response?.data?.message?.[0] || e?.message || 'Не удалось удалить')
+      notifyError(e, 'Не удалось удалить')
     }
   }
 
@@ -308,6 +271,8 @@ export function TestEditorShared({
   if (loading && !test) {
     return <Typography color="text.secondary">Загрузка…</Typography>
   }
+
+  const questions = (test?.questions || []) as any[]
 
   return (
     <Box sx={testEditorMaxWidthSx}>
@@ -330,30 +295,51 @@ export function TestEditorShared({
 
       {!test ? (
         <Card sx={{ borderRadius: 3 }}>
-          <CardContent>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-              Тест ещё не создан
-            </Typography>
-            <Grid container spacing={2}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Stack alignItems="center" spacing={1} sx={{ mb: 3, textAlign: 'center' }}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'primary.main',
+                  bgcolor: 'rgba(99,102,241,0.1)',
+                }}
+              >
+                <QuizOutlined sx={{ fontSize: 28 }} />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                Тест ещё не создан
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 420 }}>
+                Задайте название и проходной балл — после создания вы сможете добавлять вопросы и медиа.
+              </Typography>
+            </Stack>
+            <Grid container spacing={2} sx={{ maxWidth: 640, mx: 'auto' }}>
               <Grid item xs={12} md={8}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Название теста (RU)"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12} md={2}>
+              <Grid item xs={6} md={2}>
                 <TextField
                   fullWidth
+                  size="small"
                   type="number"
                   label="Проходной %"
                   value={newPassing}
                   onChange={(e) => setNewPassing(Number(e.target.value) || 70)}
                 />
               </Grid>
-              <Grid item xs={12} md={2}>
-                <Button fullWidth variant="contained" onClick={createTestHandler}>
+              <Grid item xs={6} md={2}>
+                <Button fullWidth variant="contained" startIcon={<Add />} onClick={createTestHandler} sx={{ height: 40 }}>
                   Создать
                 </Button>
               </Grid>
@@ -361,7 +347,7 @@ export function TestEditorShared({
           </CardContent>
         </Card>
       ) : (
-        <Stack spacing={3}>
+        <Stack spacing={{ xs: 2, md: 3 }}>
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent>
               <Stack
@@ -404,9 +390,12 @@ export function TestEditorShared({
 
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-                Медиа файлы теста
-              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                <PermMediaOutlined fontSize="small" color="primary" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  Медиа файлы теста
+                </Typography>
+              </Stack>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Загрузите аудио и изображения для вопросов. Затем выберите их в настройках вопроса.
               </Typography>
@@ -436,9 +425,7 @@ export function TestEditorShared({
                       Вопросы
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {(test.questions || []).length
-                        ? `${(test.questions || []).length} вопросов в тесте`
-                        : 'Добавьте первый вопрос'}
+                      {questions.length ? `${questions.length} вопросов в тесте` : 'Добавьте первый вопрос'}
                     </Typography>
                   </Box>
                 </Stack>
@@ -453,312 +440,42 @@ export function TestEditorShared({
                     Добавить вопрос
                   </Button>
                   <Menu anchorEl={addMenuAnchor} open={Boolean(addMenuAnchor)} onClose={() => setAddMenuAnchor(null)}>
-                    {QUESTION_TYPES.map((t) => (
-                      <MenuItem
-                        key={t.value}
-                        onClick={() => {
-                          setAddMenuAnchor(null)
-                          void addQuestion(t.value)
-                        }}
-                      >
-                        {t.label}
-                      </MenuItem>
-                    ))}
+                    {renderQuestionTypeMenuItems((type) => {
+                      setAddMenuAnchor(null)
+                      void addQuestion(type)
+                    })}
                   </Menu>
                 </Box>
               </Stack>
-              <Stack spacing={2}>
-                {(test.questions || []).map((q: any, idx: number) => (
-                  <QuestionCard
-                    key={q.id}
-                    index={idx}
-                    question={q}
-                    mediaFiles={testMediaFiles}
-                    onSave={saveQuestion}
-                    onDelete={() => removeQuestion(q.id)}
-                    onAddAnswer={() => addAnswer(q.id, (q.answers || []).length)}
-                    onSaveAnswer={saveAnswer}
-                    onDeleteAnswer={removeAnswer}
-                  />
-                ))}
-              </Stack>
+              {questions.length === 0 ? (
+                <Stack alignItems="center" spacing={1} sx={{ py: 4, textAlign: 'center' }}>
+                  <QuizOutlined sx={{ fontSize: 36, color: 'text.disabled' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    В тесте пока нет вопросов
+                  </Typography>
+                </Stack>
+              ) : (
+                <Stack spacing={2}>
+                  {questions.map((q: any, idx: number) => (
+                    <TestQuestionEditor
+                      key={q.id}
+                      index={idx}
+                      question={q}
+                      mediaMode="test"
+                      mediaFiles={testMediaFiles}
+                      onSave={saveQuestion}
+                      onDelete={() => removeQuestion(q.id)}
+                      onAddAnswer={() => addAnswer(q.id, (q.answers || []).length)}
+                      onSaveAnswer={saveAnswer}
+                      onDeleteAnswer={removeAnswer}
+                    />
+                  ))}
+                </Stack>
+              )}
             </CardContent>
           </Card>
         </Stack>
       )}
     </Box>
-  )
-}
-
-function QuestionCard({
-  index,
-  question,
-  mediaFiles,
-  onSave,
-  onDelete,
-  onAddAnswer,
-  onSaveAnswer,
-  onDeleteAnswer,
-}: {
-  index: number
-  question: any
-  mediaFiles: any[]
-  onSave: (q: any) => void
-  onDelete: () => void
-  onAddAnswer: () => void
-  onSaveAnswer: (a: any) => void
-  onDeleteAnswer: (id: string) => void
-}) {
-  const [q, setQ] = useState(question)
-  const [configText, setConfigText] = useState(JSON.stringify(question.config || {}, null, 2))
-  const [expanded, setExpanded] = useState(false)
-
-  const typeLabel = QUESTION_TYPES.find((t) => t.value === (q.type || 'multiple_choice'))?.label || 'Вопрос'
-  const answerCount = (q.answers || []).length
-  const correctCount = (q.answers || []).filter((a: any) => a.isCorrect).length
-
-  useEffect(() => {
-    setQ(question)
-    setConfigText(JSON.stringify(question.config || {}, null, 2))
-  }, [question])
-
-  const renderConfig = () => {
-    const type = q.type || 'multiple_choice'
-    if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
-    if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
-    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
-    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
-    if (type === 'find_letter_in_word') return <FindLetterInWordConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} />
-    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(c) => setQ({ ...q, config: c })} mediaFiles={mediaFiles} />
-    return <MultipleChoiceConfigEditor />
-  }
-
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderRadius: 2,
-        overflow: 'hidden',
-        borderColor: expanded ? 'primary.main' : 'divider',
-        transition: 'border-color 120ms ease',
-      }}
-    >
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={1}
-        onClick={() => setExpanded((v) => !v)}
-        sx={{
-          p: { xs: 1.25, sm: 1.5 },
-          cursor: 'pointer',
-          bgcolor: expanded ? 'rgba(99,102,241,0.04)' : 'transparent',
-          '&:hover': { bgcolor: 'rgba(99,102,241,0.04)' },
-        }}
-      >
-        <Box
-          sx={{
-            width: 28,
-            height: 28,
-            borderRadius: 1.5,
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 13,
-            fontWeight: 700,
-            color: 'primary.main',
-            bgcolor: 'rgba(99,102,241,0.1)',
-          }}
-        >
-          {index + 1}
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
-            {q.questionRu?.text || 'Без текста вопроса'}
-          </Typography>
-          <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
-            <Chip size="small" variant="outlined" color="primary" label={typeLabel} sx={{ height: 20 }} />
-            {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
-              <Chip
-                size="small"
-                variant="outlined"
-                color={correctCount ? 'success' : 'default'}
-                label={`${answerCount} отв. · ${correctCount} верн.`}
-                sx={{ height: 20 }}
-              />
-            )}
-          </Stack>
-        </Box>
-        <Tooltip title="Удалить вопрос">
-          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); onDelete() }}>
-            <DeleteOutline fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <IconButton size="small">{expanded ? <ExpandLess /> : <ExpandMore />}</IconButton>
-      </Stack>
-      <Collapse in={expanded} timeout="auto" unmountOnExit>
-        <Divider />
-        <CardContent>
-          <Grid container spacing={1.5}>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Тип</InputLabel>
-                <Select
-                  label="Тип"
-                  value={q.type || 'multiple_choice'}
-                  onChange={(e) => {
-                    const t = e.target.value as QuestionType
-                    setQ({ ...q, type: t, config: getConfigTemplate(t) })
-                  }}
-                >
-                  {QUESTION_TYPES.map((qt) => (
-                    <MenuItem key={qt.value} value={qt.value}>{qt.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={7}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Текст вопроса"
-                value={q.questionRu?.text || ''}
-                onChange={(e) => setQ({ ...q, questionRu: { ...(q.questionRu || {}), text: e.target.value } })}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                size="small"
-                type="number"
-                label="Порядок"
-                value={q.orderIndex || 1}
-                onChange={(e) => setQ({ ...q, orderIndex: Number(e.target.value) || 1 })}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Подсказка"
-                value={q.questionRu?.hint || ''}
-                onChange={(e) => setQ({ ...q, questionRu: { ...(q.questionRu || {}), hint: e.target.value } })}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Конфиг</Typography>
-              {renderConfig()}
-            </Grid>
-            <Grid item xs={12}>
-              <Accordion variant="outlined">
-                <AccordionSummary expandIcon={<ExpandMore />}>Raw JSON</AccordionSummary>
-                <AccordionDetails>
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={3}
-                    size="small"
-                    value={configText}
-                    onChange={(e) => setConfigText(e.target.value)}
-                    onBlur={() => {
-                      try {
-                        setQ({ ...q, config: JSON.parse(configText || '{}') })
-                      } catch {
-                        /* ignore */
-                      }
-                    }}
-                  />
-                </AccordionDetails>
-              </Accordion>
-            </Grid>
-            <Grid item xs={12}>
-              <Divider sx={{ mb: 1.5 }} />
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}>
-                <Button variant="contained" size="small" startIcon={<SaveOutlined />} onClick={() => onSave(q)}>Сохранить вопрос</Button>
-                {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
-                  <Button variant="outlined" size="small" startIcon={<Add />} onClick={onAddAnswer}>Добавить ответ</Button>
-                )}
-              </Stack>
-            </Grid>
-            {(q.answers || []).length > 0 && (
-              <Grid item xs={12}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Варианты ответов
-                </Typography>
-                <Stack spacing={1} sx={{ mt: 1 }}>
-                  {(q.answers || []).map((a: any) => (
-                    <AnswerRow key={a.id} answer={a} onSave={onSaveAnswer} onDelete={onDeleteAnswer} />
-                  ))}
-                </Stack>
-              </Grid>
-            )}
-          </Grid>
-        </CardContent>
-      </Collapse>
-    </Card>
-  )
-}
-
-function AnswerRow({
-  answer,
-  onSave,
-  onDelete,
-}: {
-  answer: any
-  onSave: (a: any) => void
-  onDelete: (id: string) => void
-}) {
-  const [a, setA] = useState(answer)
-  useEffect(() => setA(answer), [answer])
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderRadius: 1.5,
-        borderColor: a.isCorrect ? 'success.main' : 'divider',
-        borderLeft: '4px solid',
-        borderLeftColor: a.isCorrect ? 'success.main' : 'divider',
-        bgcolor: a.isCorrect ? 'rgba(16,185,129,0.04)' : 'background.paper',
-        transition: 'border-color 120ms ease, background-color 120ms ease',
-      }}
-    >
-      <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-        <Grid container spacing={1} alignItems="center">
-          <Grid item xs="auto">
-            <Tooltip title={a.isCorrect ? 'Правильный ответ' : 'Отметить правильным'}>
-              <IconButton
-                size="small"
-                color={a.isCorrect ? 'success' : 'default'}
-                onClick={() => setA({ ...a, isCorrect: !a.isCorrect })}
-              >
-                {a.isCorrect ? <CheckCircle fontSize="small" /> : <RadioButtonUnchecked fontSize="small" />}
-              </IconButton>
-            </Tooltip>
-          </Grid>
-          <Grid item xs>
-            <TextField fullWidth size="small" placeholder="Текст ответа" value={a.answerRu || ''} onChange={(e) => setA({ ...a, answerRu: e.target.value })} />
-          </Grid>
-          <Grid item xs={4} sm={2}>
-            <TextField fullWidth size="small" type="number" label="Порядок" value={a.orderIndex || 1} onChange={(e) => setA({ ...a, orderIndex: Number(e.target.value) || 1 })} />
-          </Grid>
-          <Grid item xs="auto">
-            <Stack direction="row" spacing={0.5}>
-              <Tooltip title="Сохранить ответ">
-                <IconButton size="small" color="primary" onClick={() => onSave(a)}>
-                  <SaveOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Удалить ответ">
-                <IconButton size="small" color="error" onClick={() => onDelete(a.id)}>
-                  <DeleteOutline fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          </Grid>
-        </Grid>
-      </CardContent>
-    </Card>
   )
 }
