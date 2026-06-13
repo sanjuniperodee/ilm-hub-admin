@@ -899,7 +899,7 @@ export default function LessonEditorPage() {
       titleRu: (block.contentRu?.title as string) || '',
       textRuHtml: (block.contentRu?.html as string) || (block.contentRu?.text as string) || '',
       titleKz: (block.contentKz?.title as string) || '',
-      textKz: (block.contentKz?.text as string) || '',
+      textKz: (block.contentKz?.html as string) || (block.contentKz?.text as string) || '',
       arabicWord: (block.contentRu?.arabicWord as string) || '',
       transcription: (block.contentRu?.transcription as string) || '',
       translationRu: (block.contentRu?.translation as string) || (block.contentRu?.translationRu as string) || '',
@@ -1053,7 +1053,11 @@ export default function LessonEditorPage() {
       ? {
           translation: blockDraft.translationKz || '',
         }
-      : { title: blockDraft.titleKz, text: blockDraft.textKz }
+      : {
+          title: blockDraft.titleKz,
+          text: stripHtml(blockDraft.textKz),
+          html: wrapRichTextTables(blockDraft.textKz),
+        }
 
     const basePayload = {
       type: blockDraft.type,
@@ -1068,10 +1072,12 @@ export default function LessonEditorPage() {
     const payload = buildBlockPayload(false, { allowDraftGridWithoutAudio: true }) as {
       type?: string
       contentRu?: Record<string, any>
+      contentKz?: Record<string, any>
     }
     return {
       type: payload.type || blockDraft.type,
       contentRu: payload.contentRu || {},
+      contentKz: payload.contentKz || {},
     }
   }, [blockDraft, mediaFiles])
 
@@ -1539,7 +1545,7 @@ export default function LessonEditorPage() {
 
       {activeTab === 'blocks' && (
         <Grid container spacing={2} alignItems="flex-start">
-          <Grid item xs={12} md={4} lg={2}>
+          <Grid item xs={12} md={4} lg={3} xl={2}>
           <Card
             variant="outlined"
             sx={{
@@ -1623,7 +1629,7 @@ export default function LessonEditorPage() {
           </Card>
           </Grid>
 
-          <Grid item xs={12} md={8} lg={7}>
+          <Grid item xs={12} md={8} lg={9} xl={7}>
           <Card variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Stack
@@ -2011,14 +2017,16 @@ export default function LessonEditorPage() {
                         />
                       </Grid>
                       <Grid item xs={12}>
-                        <TextField
-                          fullWidth
-                          multiline
-                          minRows={2}
-                          size="small"
-                          label="Текст (KZ)"
+                        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap' }}>
+                          <Chip size="small" color="primary" variant="outlined" label="Rich text KZ" />
+                        </Stack>
+                        <RichTextEditor
                           value={blockDraft.textKz}
-                          onChange={(e) => setBlockDraft((p) => ({ ...p, textKz: e.target.value }))}
+                          onChange={(v) => setBlockDraft((p) => ({ ...p, textKz: v }))}
+                          minHeight={240}
+                          placeholder="Қазақша мәтінді енгізіңіз..."
+                          onUploadFile={uploadEditorMedia}
+                          onRemoveMedia={removeEditorMedia}
                         />
                       </Grid>
                     </>
@@ -2052,7 +2060,7 @@ export default function LessonEditorPage() {
               </CardContent>
           </Card>
           </Grid>
-          <Grid item xs={12} lg={3}>
+          <Grid item xs={12} xl={3} sx={{ display: { xs: 'none', xl: 'block' } }}>
             <Card
               variant="outlined"
               sx={{

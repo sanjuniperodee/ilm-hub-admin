@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Dialog, DialogContent, IconButton, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import { Box, Dialog, DialogContent, IconButton, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
 import { Close, PlayCircleFilled, VolumeUp, MusicOff, MenuBook, Star, TrendingUp, PhoneIphone, TabletMac } from '@mui/icons-material'
 import { ILM_RICHTEXT_TABLE_WRAP_CLASS, wrapRichTextTables } from '../utils/wrapRichTextTables'
@@ -40,6 +40,7 @@ const font = (size: number, weight: number, family = "'Montserrat', sans-serif")
 export interface MobilePreviewBlock {
   type: string
   contentRu?: Record<string, any>
+  contentKz?: Record<string, any>
 }
 
 interface MobilePreviewProps {
@@ -123,12 +124,28 @@ export function MobilePreviewFrame({
   compact?: boolean
 }) {
   const [modelId, setModelId] = useState<PhoneModelId>('iphone-14')
+  const [locale, setLocale] = useState<'ru' | 'kz'>('ru')
   const model = PHONE_MODELS.find((m) => m.id === modelId) || PHONE_MODELS[1]
-  const cr = block.contentRu || {}
+  const cr = locale === 'kz' ? (block.contentKz || block.contentRu || {}) : (block.contentRu || {})
   const scale = model.h > maxFrameH ? maxFrameH / model.h : 1
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
+        <Stack direction="row" spacing={1} sx={{ mb: compact ? 1 : 2 }}>
+          <ToggleButtonGroup
+            value={locale}
+            exclusive
+            onChange={(_, v) => { if (v) setLocale(v as 'ru' | 'kz') }}
+            size="small"
+          >
+            <ToggleButton value="ru" sx={{ textTransform: 'none', fontSize: 11, px: 1.25, py: 0.5 }}>
+              RU
+            </ToggleButton>
+            <ToggleButton value="kz" sx={{ textTransform: 'none', fontSize: 11, px: 1.25, py: 0.5 }}>
+              KZ
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Stack>
         {!compact && (
           <ToggleButtonGroup
             value={modelId}

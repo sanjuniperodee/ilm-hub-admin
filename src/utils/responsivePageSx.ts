@@ -16,7 +16,7 @@ export const pageTitleH4Sx: SxProps<Theme> = {
 
 /** Ограничение ширины форм-редакторов: на телефоне на всю ширину. */
 export const editorMaxWidthSx: SxProps<Theme> = {
-  maxWidth: { xs: '100%', sm: 1200 },
+  maxWidth: { xs: '100%', sm: 1200, xl: 1560 },
   mx: 'auto',
 }
 
