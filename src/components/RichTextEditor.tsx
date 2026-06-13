@@ -228,28 +228,102 @@ const PreserveImage = Image.extend({
   },
 }).configure({ allowBase64: true })
 
-function MediaNodeView({ node, selected }: NodeViewProps) {
+function MediaNodeView({ node, selected, getPos, editor }: NodeViewProps) {
   const attrs = node.attrs as Record<string, string>
+  const mediaId = attrs.mediaId || undefined
+  const wrapperStyle: React.CSSProperties = {
+    position: 'relative',
+    display: 'block',
+    margin: '6px 0',
+  }
+  const stopNativeAudio = (event: React.SyntheticEvent) => {
+    // Prevent the native <audio controls> from grabbing the mousedown/click
+    // so the user can still select the node and trigger the trash button.
+    event.stopPropagation()
+  }
+  const selectThisNode = (event: React.SyntheticEvent) => {
+    if (typeof getPos !== 'function') return
+    const pos = getPos()
+    if (typeof pos !== 'number') return
+    // Don't hijack clicks on the actual <audio>/<video> controls — let the
+    // native player handle them. Selection should happen from the wrapper area.
+    const target = event.target as HTMLElement
+    if (target.closest('audio') || target.closest('video')) return
+    event.preventDefault()
+    event.stopPropagation()
+    editor?.chain().focus().setNodeSelection(pos).run()
+  }
+  const handleRemove = (event: React.SyntheticEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (typeof getPos !== 'function') return
+    const pos = getPos()
+    if (typeof pos !== 'number') return
+    // Delete the node at this position, then notify the parent so the
+    // underlying media file is also removed from storage.
+    editor?.chain().focus().setNodeSelection(pos).deleteSelection().run()
+    if (!mediaId) return
+    const onRemove = (editor?.options as any)?.editorProps?.onRemoveMedia as
+      | ((id: string) => Promise<void>)
+      | undefined
+    if (typeof onRemove === 'function') {
+      void onRemove(mediaId)
+    }
+  }
   if (node.type.name === 'audio') {
     return (
-      <NodeViewWrapper as="span" data-selected={selected ? 'true' : undefined}>
+      <NodeViewWrapper
+        as="div"
+        className="ilm-richtext-audio-wrap"
+        data-selected={selected ? 'true' : undefined}
+        style={wrapperStyle}
+        onMouseDown={selectThisNode}
+        onClick={selectThisNode}
+      >
         <audio
           className={attrs.class}
-          data-media-id={attrs.mediaId || undefined}
+          data-media-id={mediaId}
           controls
           preload="metadata"
           src={attrs.src}
+          onMouseDown={stopNativeAudio}
+          onClick={stopNativeAudio}
           style={attrs.style ? undefined : { width: '100%' }}
         >
-          <source data-media-id={attrs.mediaId || undefined} src={attrs.src} />
+          <source data-media-id={mediaId} src={attrs.src} />
         </audio>
+        <IconButton
+          size="small"
+          aria-label="Удалить аудио"
+          title="Удалить аудио"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={handleRemove}
+          sx={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            bgcolor: 'background.paper',
+            boxShadow: 1,
+            '&:hover': { bgcolor: 'error.main', color: 'common.white' },
+            opacity: selected ? 1 : 0.85,
+          }}
+        >
+          <DeleteOutline fontSize="small" />
+        </IconButton>
       </NodeViewWrapper>
     )
   }
   return (
-    <NodeViewWrapper as="span" data-selected={selected ? 'true' : undefined}>
+    <NodeViewWrapper
+      as="div"
+      className="ilm-richtext-video-wrap"
+      data-selected={selected ? 'true' : undefined}
+      style={wrapperStyle}
+      onMouseDown={selectThisNode}
+      onClick={selectThisNode}
+    >
       <video
-        data-media-id={attrs.mediaId || undefined}
+        data-media-id={mediaId}
         controls
         preload="metadata"
         src={attrs.src}
@@ -257,6 +331,24 @@ function MediaNodeView({ node, selected }: NodeViewProps) {
       >
         <source src={attrs.src} />
       </video>
+      <IconButton
+        size="small"
+        aria-label="Удалить видео"
+        title="Удалить видео"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={handleRemove}
+        sx={{
+          position: 'absolute',
+          top: 4,
+          right: 4,
+          bgcolor: 'background.paper',
+          boxShadow: 1,
+          '&:hover': { bgcolor: 'error.main', color: 'common.white' },
+          opacity: selected ? 1 : 0.85,
+        }}
+      >
+        <DeleteOutline fontSize="small" />
+      </IconButton>
     </NodeViewWrapper>
   )
 }
@@ -421,6 +513,11 @@ export default function RichTextEditor({
     extensions,
     content: normalizeHtmlForEditor(value || ''),
     editorProps: {
+      // Custom prop consumed by MediaNodeView to remove the underlying
+      // media file from storage when the in-editor trash button is clicked.
+      // Cast: TipTap's EditorProps doesn't model this custom field, but it's
+      // surfaced on `editor.options.editorProps` at runtime.
+      ...({ onRemoveMedia } as Record<string, unknown>),
       attributes: {
         class: 'ilm-tiptap-editor',
       },
