@@ -8,18 +8,32 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
+  Collapse,
+  Divider,
   FormControl,
-  FormControlLabel,
   Grid,
+  IconButton,
   InputLabel,
+  Menu,
   MenuItem,
   Select,
   Stack,
-  Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { ArrowBack, ExpandMore } from '@mui/icons-material'
+import {
+  Add,
+  ArrowBack,
+  CheckCircle,
+  DeleteOutline,
+  ExpandLess,
+  ExpandMore,
+  QuizOutlined,
+  RadioButtonUnchecked,
+  SaveOutlined,
+} from '@mui/icons-material'
 import {
   createTest,
   createTestAnswer,
@@ -95,6 +109,7 @@ export function TestEditorShared({
   const [newTitle, setNewTitle] = useState('')
   const [newPassing, setNewPassing] = useState(70)
   const [testMediaFiles, setTestMediaFiles] = useState<any[]>([])
+  const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null)
 
   const load = async () => {
     setLoading(true)
@@ -410,31 +425,53 @@ export function TestEditorShared({
               <Stack
                 direction={{ xs: 'column', sm: 'row' }}
                 justifyContent="space-between"
-                alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                alignItems={{ xs: 'stretch', sm: 'center' }}
                 spacing={1.5}
                 sx={{ mb: 2 }}
               >
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  Вопросы
-                </Typography>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  flexWrap="wrap"
-                  useFlexGap
-                  sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}
-                >
-                  {QUESTION_TYPES.map((t) => (
-                    <Button key={t.value} size="small" variant="outlined" onClick={() => addQuestion(t.value)}>
-                      + {t.label}
-                    </Button>
-                  ))}
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <QuizOutlined fontSize="small" color="primary" />
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                      Вопросы
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {(test.questions || []).length
+                        ? `${(test.questions || []).length} вопросов в тесте`
+                        : 'Добавьте первый вопрос'}
+                    </Typography>
+                  </Box>
                 </Stack>
+                <Box>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<Add />}
+                    onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                  >
+                    Добавить вопрос
+                  </Button>
+                  <Menu anchorEl={addMenuAnchor} open={Boolean(addMenuAnchor)} onClose={() => setAddMenuAnchor(null)}>
+                    {QUESTION_TYPES.map((t) => (
+                      <MenuItem
+                        key={t.value}
+                        onClick={() => {
+                          setAddMenuAnchor(null)
+                          void addQuestion(t.value)
+                        }}
+                      >
+                        {t.label}
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                </Box>
               </Stack>
               <Stack spacing={2}>
-                {(test.questions || []).map((q: any) => (
+                {(test.questions || []).map((q: any, idx: number) => (
                   <QuestionCard
                     key={q.id}
+                    index={idx}
                     question={q}
                     mediaFiles={testMediaFiles}
                     onSave={saveQuestion}
@@ -454,6 +491,7 @@ export function TestEditorShared({
 }
 
 function QuestionCard({
+  index,
   question,
   mediaFiles,
   onSave,
@@ -462,6 +500,7 @@ function QuestionCard({
   onSaveAnswer,
   onDeleteAnswer,
 }: {
+  index: number
   question: any
   mediaFiles: any[]
   onSave: (q: any) => void
@@ -472,6 +511,11 @@ function QuestionCard({
 }) {
   const [q, setQ] = useState(question)
   const [configText, setConfigText] = useState(JSON.stringify(question.config || {}, null, 2))
+  const [expanded, setExpanded] = useState(false)
+
+  const typeLabel = QUESTION_TYPES.find((t) => t.value === (q.type || 'multiple_choice'))?.label || 'Вопрос'
+  const answerCount = (q.answers || []).length
+  const correctCount = (q.answers || []).filter((a: any) => a.isCorrect).length
 
   useEffect(() => {
     setQ(question)
@@ -492,98 +536,167 @@ function QuestionCard({
   }
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2 }}>
-      <CardContent>
-        <Grid container spacing={1}>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Тип</InputLabel>
-              <Select
-                label="Тип"
-                value={q.type || 'multiple_choice'}
-                onChange={(e) => {
-                  const t = e.target.value as QuestionType
-                  setQ({ ...q, type: t, config: getConfigTemplate(t) })
-                }}
-              >
-                {QUESTION_TYPES.map((qt) => (
-                  <MenuItem key={qt.value} value={qt.value}>{qt.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={8}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Текст вопроса"
-              value={q.questionRu?.text || ''}
-              onChange={(e) => setQ({ ...q, questionRu: { ...(q.questionRu || {}), text: e.target.value } })}
-            />
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField
-              fullWidth
-              size="small"
-              type="number"
-              label="Порядок"
-              value={q.orderIndex || 1}
-              onChange={(e) => setQ({ ...q, orderIndex: Number(e.target.value) || 1 })}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Подсказка"
-              value={q.questionRu?.hint || ''}
-              onChange={(e) => setQ({ ...q, questionRu: { ...(q.questionRu || {}), hint: e.target.value } })}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Конфиг</Typography>
-            {renderConfig()}
-          </Grid>
-          <Grid item xs={12}>
-            <Accordion variant="outlined">
-              <AccordionSummary expandIcon={<ExpandMore />}>Raw JSON</AccordionSummary>
-              <AccordionDetails>
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  size="small"
-                  value={configText}
-                  onChange={(e) => setConfigText(e.target.value)}
-                  onBlur={() => {
-                    try {
-                      setQ({ ...q, config: JSON.parse(configText || '{}') })
-                    } catch {
-                      /* ignore */
-                    }
+    <Card
+      variant="outlined"
+      sx={{
+        borderRadius: 2,
+        overflow: 'hidden',
+        borderColor: expanded ? 'primary.main' : 'divider',
+        transition: 'border-color 120ms ease',
+      }}
+    >
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        onClick={() => setExpanded((v) => !v)}
+        sx={{
+          p: { xs: 1.25, sm: 1.5 },
+          cursor: 'pointer',
+          bgcolor: expanded ? 'rgba(99,102,241,0.04)' : 'transparent',
+          '&:hover': { bgcolor: 'rgba(99,102,241,0.04)' },
+        }}
+      >
+        <Box
+          sx={{
+            width: 28,
+            height: 28,
+            borderRadius: 1.5,
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 13,
+            fontWeight: 700,
+            color: 'primary.main',
+            bgcolor: 'rgba(99,102,241,0.1)',
+          }}
+        >
+          {index + 1}
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+            {q.questionRu?.text || 'Без текста вопроса'}
+          </Typography>
+          <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
+            <Chip size="small" variant="outlined" color="primary" label={typeLabel} sx={{ height: 20 }} />
+            {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
+              <Chip
+                size="small"
+                variant="outlined"
+                color={correctCount ? 'success' : 'default'}
+                label={`${answerCount} отв. · ${correctCount} верн.`}
+                sx={{ height: 20 }}
+              />
+            )}
+          </Stack>
+        </Box>
+        <Tooltip title="Удалить вопрос">
+          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); onDelete() }}>
+            <DeleteOutline fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <IconButton size="small">{expanded ? <ExpandLess /> : <ExpandMore />}</IconButton>
+      </Stack>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <Divider />
+        <CardContent>
+          <Grid container spacing={1.5}>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Тип</InputLabel>
+                <Select
+                  label="Тип"
+                  value={q.type || 'multiple_choice'}
+                  onChange={(e) => {
+                    const t = e.target.value as QuestionType
+                    setQ({ ...q, type: t, config: getConfigTemplate(t) })
                   }}
-                />
-              </AccordionDetails>
-            </Accordion>
+                >
+                  {QUESTION_TYPES.map((qt) => (
+                    <MenuItem key={qt.value} value={qt.value}>{qt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={7}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Текст вопроса"
+                value={q.questionRu?.text || ''}
+                onChange={(e) => setQ({ ...q, questionRu: { ...(q.questionRu || {}), text: e.target.value } })}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                size="small"
+                type="number"
+                label="Порядок"
+                value={q.orderIndex || 1}
+                onChange={(e) => setQ({ ...q, orderIndex: Number(e.target.value) || 1 })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Подсказка"
+                value={q.questionRu?.hint || ''}
+                onChange={(e) => setQ({ ...q, questionRu: { ...(q.questionRu || {}), hint: e.target.value } })}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Конфиг</Typography>
+              {renderConfig()}
+            </Grid>
+            <Grid item xs={12}>
+              <Accordion variant="outlined">
+                <AccordionSummary expandIcon={<ExpandMore />}>Raw JSON</AccordionSummary>
+                <AccordionDetails>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={3}
+                    size="small"
+                    value={configText}
+                    onChange={(e) => setConfigText(e.target.value)}
+                    onBlur={() => {
+                      try {
+                        setQ({ ...q, config: JSON.parse(configText || '{}') })
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                  />
+                </AccordionDetails>
+              </Accordion>
+            </Grid>
+            <Grid item xs={12}>
+              <Divider sx={{ mb: 1.5 }} />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } } }}>
+                <Button variant="contained" size="small" startIcon={<SaveOutlined />} onClick={() => onSave(q)}>Сохранить вопрос</Button>
+                {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
+                  <Button variant="outlined" size="small" startIcon={<Add />} onClick={onAddAnswer}>Добавить ответ</Button>
+                )}
+              </Stack>
+            </Grid>
+            {(q.answers || []).length > 0 && (
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Варианты ответов
+                </Typography>
+                <Stack spacing={1} sx={{ mt: 1 }}>
+                  {(q.answers || []).map((a: any) => (
+                    <AnswerRow key={a.id} answer={a} onSave={onSaveAnswer} onDelete={onDeleteAnswer} />
+                  ))}
+                </Stack>
+              </Grid>
+            )}
           </Grid>
-          <Grid item xs={12}>
-            <Stack direction="row" spacing={1}>
-              <Button variant="contained" size="small" onClick={() => onSave(q)}>Сохранить</Button>
-              {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
-                <Button variant="outlined" size="small" onClick={onAddAnswer}>Добавить ответ</Button>
-              )}
-              <Button variant="outlined" color="error" size="small" onClick={onDelete}>Удалить</Button>
-            </Stack>
-          </Grid>
-          <Grid item xs={12}>
-            <Stack spacing={1}>
-              {(q.answers || []).map((a: any) => (
-                <AnswerRow key={a.id} answer={a} onSave={onSaveAnswer} onDelete={onDeleteAnswer} />
-              ))}
-            </Stack>
-          </Grid>
-        </Grid>
-      </CardContent>
+        </CardContent>
+      </Collapse>
     </Card>
   )
 }
@@ -600,22 +713,48 @@ function AnswerRow({
   const [a, setA] = useState(answer)
   useEffect(() => setA(answer), [answer])
   return (
-    <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
-      <CardContent sx={{ py: 1 }}>
+    <Card
+      variant="outlined"
+      sx={{
+        borderRadius: 1.5,
+        borderColor: a.isCorrect ? 'success.main' : 'divider',
+        borderLeft: '4px solid',
+        borderLeftColor: a.isCorrect ? 'success.main' : 'divider',
+        bgcolor: a.isCorrect ? 'rgba(16,185,129,0.04)' : 'background.paper',
+        transition: 'border-color 120ms ease, background-color 120ms ease',
+      }}
+    >
+      <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
         <Grid container spacing={1} alignItems="center">
-          <Grid item xs={12} md={7}>
-            <TextField fullWidth size="small" label="Ответ" value={a.answerRu || ''} onChange={(e) => setA({ ...a, answerRu: e.target.value })} />
+          <Grid item xs="auto">
+            <Tooltip title={a.isCorrect ? 'Правильный ответ' : 'Отметить правильным'}>
+              <IconButton
+                size="small"
+                color={a.isCorrect ? 'success' : 'default'}
+                onClick={() => setA({ ...a, isCorrect: !a.isCorrect })}
+              >
+                {a.isCorrect ? <CheckCircle fontSize="small" /> : <RadioButtonUnchecked fontSize="small" />}
+              </IconButton>
+            </Tooltip>
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid item xs>
+            <TextField fullWidth size="small" placeholder="Текст ответа" value={a.answerRu || ''} onChange={(e) => setA({ ...a, answerRu: e.target.value })} />
+          </Grid>
+          <Grid item xs={4} sm={2}>
             <TextField fullWidth size="small" type="number" label="Порядок" value={a.orderIndex || 1} onChange={(e) => setA({ ...a, orderIndex: Number(e.target.value) || 1 })} />
           </Grid>
-          <Grid item xs={12} md={1.5}>
-            <FormControlLabel control={<Switch checked={!!a.isCorrect} onChange={(e) => setA({ ...a, isCorrect: e.target.checked })} />} label="Верно" />
-          </Grid>
-          <Grid item xs={12} md={1.5}>
+          <Grid item xs="auto">
             <Stack direction="row" spacing={0.5}>
-              <Button size="small" variant="contained" onClick={() => onSave(a)}>Сохранить</Button>
-              <Button size="small" color="error" variant="outlined" onClick={() => onDelete(a.id)}>Удалить</Button>
+              <Tooltip title="Сохранить ответ">
+                <IconButton size="small" color="primary" onClick={() => onSave(a)}>
+                  <SaveOutlined fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Удалить ответ">
+                <IconButton size="small" color="error" onClick={() => onDelete(a.id)}>
+                  <DeleteOutline fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Stack>
           </Grid>
         </Grid>
