@@ -29,10 +29,13 @@ import {
   AccordionDetails,
   AccordionSummary,
   Menu,
+  Paper,
 } from '@mui/material'
 import {
+  Add,
   ArrowBack,
   DeleteOutline,
+  DragIndicator,
   EditOutlined,
   ExpandMore,
   SaveOutlined,
@@ -119,7 +122,17 @@ type BlockType =
   | 'listen_and_choose_word'
   | 'grid'
 type DetailTab = 'meta' | 'blocks' | 'test'
-type QuestionType = 'multiple_choice' | 'single_choice' | 'fill_blank' | 'match_pairs' | 'manual_input'
+type QuestionType =
+  | 'multiple_choice'
+  | 'single_choice'
+  | 'fill_blank'
+  | 'match_pairs'
+  | 'manual_input'
+  | 'audio_multiple_choice'
+  | 'image_word_match'
+  | 'audio_choice'
+  | 'find_letter_in_word'
+  | 'listen_and_choose_word'
 
 const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'theory', label: 'Теория' },
@@ -139,6 +152,19 @@ const BLOCK_TYPES: { value: BlockType; label: string }[] = [
   { value: 'find_letter_in_word', label: 'Найди букву в слове' },
   { value: 'listen_and_choose_word', label: 'Послушай → Слово' },
   { value: 'grid', label: 'Сетка' },
+]
+
+const QUESTION_TYPES: { type: QuestionType; label: string; shortLabel: string }[] = [
+  { type: 'multiple_choice', label: 'Несколько вариантов', shortLabel: 'Multiple choice' },
+  { type: 'single_choice', label: 'Один вариант', shortLabel: 'Single choice' },
+  { type: 'fill_blank', label: 'Заполни пропуск', shortLabel: 'Fill blank' },
+  { type: 'match_pairs', label: 'Сопоставь пары', shortLabel: 'Match pairs' },
+  { type: 'manual_input', label: 'Ввод вручную', shortLabel: 'Manual input' },
+  { type: 'audio_multiple_choice', label: 'Аудио + выбор', shortLabel: 'Аудио + выбор' },
+  { type: 'image_word_match', label: 'Картинка ↔ слово', shortLabel: 'Картинка ↔ слово' },
+  { type: 'audio_choice', label: 'Аудио → буква', shortLabel: 'Аудио → буква' },
+  { type: 'find_letter_in_word', label: 'Найди букву в слове', shortLabel: 'Найди букву' },
+  { type: 'listen_and_choose_word', label: 'Послушай → слово', shortLabel: 'Послушай → слово' },
 ]
 
 interface StudioBlock {
@@ -165,6 +191,37 @@ function stripHtml(html: string): string {
   const div = document.createElement('div')
   div.innerHTML = html
   return div.textContent || div.innerText || ''
+}
+
+function getBlockTypeLabel(type: string) {
+  const normalized = type === 'element_grid' ? 'grid' : type
+  return BLOCK_TYPES.find((bt) => bt.value === normalized)?.label || type
+}
+
+function getBlockDisplayTitle(block: StudioBlock) {
+  if (block.type === 'illustration') {
+    return (
+      (block.contentRu?.arabicWord as string) ||
+      (block.contentRu?.translation as string) ||
+      'Без заголовка'
+    )
+  }
+  if (block.type === 'element_grid' || block.type === 'grid') {
+    const firstItem =
+      Array.isArray((block.contentRu as { items?: any[] } | undefined)?.items) &&
+      (block.contentRu as { items: any[] }).items[0]
+    return (
+      (block.contentRu?.title as string) ||
+      (typeof firstItem === 'string' ? firstItem : firstItem?.mainText) ||
+      'Сетка'
+    )
+  }
+  return (
+    (block.contentRu?.title as string) ||
+    (block.contentRu?.question as string) ||
+    stripHtml((block.contentRu?.html as string) || (block.contentRu?.text as string) || '').slice(0, 72) ||
+    'Без заголовка'
+  )
 }
 
 function parseGridBlockForDraft(block: StudioBlock): {
@@ -1392,20 +1449,36 @@ export default function LessonEditorPage() {
       )}
 
       {activeTab === 'blocks' && (
-        <Stack direction="column" spacing={3}>
-          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+        <Grid container spacing={2} alignItems="flex-start">
+          <Grid item xs={12} md={4} lg={3}>
+          <Card
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              position: { md: 'sticky' },
+              top: { md: 16 },
+              maxHeight: { md: 'calc(100vh - 132px)' },
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
             <CardContent>
               <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  Блоки урока
-                </Typography>
-                <Button size="small" onClick={resetBlockDraft}>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Блоки урока
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {blocks.length ? `${blocks.length} блоков` : 'Пока пусто'}
+                  </Typography>
+                </Box>
+                <Button size="small" onClick={resetBlockDraft} startIcon={<Add />}>
                   Новый
                 </Button>
               </Stack>
-              <Stack spacing={1}>
+              <Stack spacing={1} sx={{ overflowY: 'auto', pr: { md: 0.5 }, maxHeight: { md: 'calc(100vh - 240px)' } }}>
                 {blocks.map((b) => (
-                  <Card
+                  <Paper
                     key={b.id}
                     variant="outlined"
                     draggable
@@ -1416,24 +1489,24 @@ export default function LessonEditorPage() {
                       borderRadius: 2,
                       cursor: 'grab',
                       opacity: draggingBlockId === b.id ? 0.7 : 1,
-                      borderColor: draggingBlockId === b.id ? 'primary.main' : 'divider',
+                      borderColor:
+                        blockDraft.id === b.id || draggingBlockId === b.id
+                          ? 'primary.main'
+                          : 'divider',
+                      bgcolor: blockDraft.id === b.id ? 'action.selected' : 'background.paper',
+                      transition: 'border-color 120ms ease, background-color 120ms ease',
                     }}
                   >
-                    <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
-                      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Box sx={{ py: 1, px: 1.25 }}>
+                      <Stack direction="row" alignItems="flex-start" spacing={0.75}>
+                        <DragIndicator fontSize="small" sx={{ color: 'text.disabled', mt: 0.25, flexShrink: 0 }} />
+                        <Box sx={{ minWidth: 0, flex: 1, cursor: 'pointer' }} onClick={() => editBlock(b)}>
+                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.25 }}>
+                            <Chip size="small" label={`#${b.orderIndex}`} sx={{ height: 20 }} />
+                            <Chip size="small" color="primary" variant="outlined" label={getBlockTypeLabel(b.type)} sx={{ height: 20, maxWidth: 140 }} />
+                          </Stack>
                           <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }} noWrap>
-                            #{b.orderIndex} • {b.type}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap>
-                            {b.type === 'illustration'
-                              ? ((b.contentRu?.arabicWord as string) || (b.contentRu?.translation as string) || 'Без заголовка')
-                              : b.type === 'element_grid' || b.type === 'grid'
-                                ? ((b.contentRu?.title as string) ||
-                                    (Array.isArray((b.contentRu as { items?: string[] } | undefined)?.items) &&
-                                      (b.contentRu as { items: string[] }).items[0]) ||
-                                    'Сетка')
-                                : ((b.contentRu?.title as string) || (b.contentRu?.question as string) || 'Без заголовка')}
+                            {getBlockDisplayTitle(b)}
                           </Typography>
                         </Box>
                         <Stack direction="row" spacing={0.25} sx={{ flexShrink: 0 }}>
@@ -1448,19 +1521,21 @@ export default function LessonEditorPage() {
                           </IconButton>
                         </Stack>
                       </Stack>
-                    </CardContent>
-                  </Card>
+                    </Box>
+                  </Paper>
                 ))}
                 {blocks.length === 0 && (
                   <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                    Блоки не созданы. Используйте форму справа.
+                    Блоки не созданы.
                   </Typography>
                 )}
               </Stack>
             </CardContent>
           </Card>
+          </Grid>
 
-          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+          <Grid item xs={12} md={8} lg={9}>
+          <Card variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Stack
                   direction={{ xs: 'column', sm: 'row' }}
@@ -1469,11 +1544,19 @@ export default function LessonEditorPage() {
                   spacing={1}
                   sx={{ mb: 2 }}
                 >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {blockDraft.id ? 'Редактировать блок' : 'Создать блок'}
-                  </Typography>
+                  <Box>
+                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                        {blockDraft.id ? 'Редактировать блок' : 'Создать блок'}
+                      </Typography>
+                      {hasUnsavedBlockChanges ? <Chip size="small" color="warning" label="Есть изменения" /> : null}
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                      {getBlockTypeLabel(blockDraft.type)} · порядок {blockDraft.orderIndex}
+                    </Typography>
+                  </Box>
                   <Button size="small" startIcon={<ArrowBack />} onClick={handleBackFromBlockEditor}>
-                    Назад
+                    Сбросить выбор
                   </Button>
                 </Stack>
                 <Grid container spacing={2}>
@@ -1825,7 +1908,22 @@ export default function LessonEditorPage() {
                     </>
                   )}
                   <Grid item xs={12}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={1}
+                      sx={{
+                        flexWrap: 'wrap',
+                        gap: 1,
+                        position: { md: 'sticky' },
+                        bottom: { md: 12 },
+                        zIndex: 1,
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        p: 1,
+                      }}
+                    >
                       <Button variant="contained" startIcon={<SaveOutlined />} onClick={saveBlock}>
                         Сохранить блок
                       </Button>
@@ -1837,7 +1935,8 @@ export default function LessonEditorPage() {
                 </Grid>
               </CardContent>
             </Card>
-          </Stack>
+          </Grid>
+        </Grid>
       )}
 
       {activeTab === 'test' && (
@@ -1948,15 +2047,7 @@ export default function LessonEditorPage() {
                         open={Boolean(addQuestionMenuAnchor)}
                         onClose={() => setAddQuestionMenuAnchor(null)}
                       >
-                        {(
-                          [
-                            { type: 'multiple_choice', label: 'Несколько вариантов (multiple choice)' },
-                            { type: 'single_choice', label: 'Один вариант (single choice)' },
-                            { type: 'fill_blank', label: 'Заполни пропуск (fill blank)' },
-                            { type: 'match_pairs', label: 'Сопоставь пары (в т.ч. аудио ↔ текст)' },
-                            { type: 'manual_input', label: 'Ввод вручную (manual input)' },
-                          ] as { type: QuestionType; label: string }[]
-                        ).map(({ type, label }) => (
+                        {QUESTION_TYPES.map(({ type, label, shortLabel }) => (
                           <MenuItem
                             key={type}
                             onClick={() => {
@@ -1964,7 +2055,10 @@ export default function LessonEditorPage() {
                               void addQuestion(type)
                             }}
                           >
-                            {label}
+                            <Stack spacing={0}>
+                              <Typography variant="body2">{label}</Typography>
+                              <Typography variant="caption" color="text.secondary">{shortLabel}</Typography>
+                            </Stack>
                           </MenuItem>
                         ))}
                       </Menu>
@@ -2136,16 +2230,11 @@ function TestQuestionCard({
                   setQ({ ...q, type: newType, config: getConfigTemplate(newType) })
                 }}
               >
-                <MenuItem value="multiple_choice">Multiple choice</MenuItem>
-                <MenuItem value="single_choice">Single choice</MenuItem>
-                <MenuItem value="fill_blank">Fill blank</MenuItem>
-                <MenuItem value="match_pairs">Match pairs</MenuItem>
-                <MenuItem value="manual_input">Manual input</MenuItem>
-                <MenuItem value="audio_multiple_choice">Аудио + выбор</MenuItem>
-                <MenuItem value="image_word_match">Картинка ↔ Слово</MenuItem>
-                <MenuItem value="audio_choice">Аудио → Буква (Махрадж)</MenuItem>
-                <MenuItem value="find_letter_in_word">Найди букву в слове</MenuItem>
-                <MenuItem value="listen_and_choose_word">Послушай → Слово</MenuItem>
+                {QUESTION_TYPES.map((qt) => (
+                  <MenuItem key={qt.type} value={qt.type}>
+                    {qt.shortLabel}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </Grid>
@@ -2177,31 +2266,40 @@ function TestQuestionCard({
               onChange={(e) => setQ({ ...q, orderIndex: Number(e.target.value) || 1 })}
             />
           </Grid>
+          {needsMedia && q.id && (
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ borderRadius: 2, p: 1.5, bgcolor: 'background.default' }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  spacing={1}
+                  sx={{ mb: 1 }}
+                >
+                  <Box>
+                    <Typography variant="subtitle2">Медиа этого вопроса</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {questionMediaFiles.length
+                        ? `${questionMediaFiles.length} файлов доступно в полях ниже`
+                        : 'Загрузите аудио или изображение для выбора в конфиге'}
+                    </Typography>
+                  </Box>
+                  <Chip label={questionMediaFiles.length} size="small" />
+                </Stack>
+                <MediaUploader
+                  blockId={undefined}
+                  mediaFiles={questionMediaFiles}
+                  onUpload={handleQuestionMediaUpload}
+                  onDelete={handleQuestionMediaDelete}
+                  onRefresh={() => q.id && loadQuestionMedia(q.id)}
+                />
+              </Paper>
+            </Grid>
+          )}
           <Grid item xs={12}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>Конфиг</Typography>
             {renderConfigEditor()}
           </Grid>
-          {needsMedia && q.id && (
-            <Grid item xs={12}>
-              <Accordion variant="outlined" sx={{ borderRadius: 1 }}>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Typography variant="subtitle2">Медиа файлы вопроса</Typography>
-                    <Chip label={questionMediaFiles.length} size="small" />
-                  </Stack>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <MediaUploader
-                    blockId={undefined}
-                    mediaFiles={questionMediaFiles}
-                    onUpload={handleQuestionMediaUpload}
-                    onDelete={handleQuestionMediaDelete}
-                    onRefresh={() => q.id && loadQuestionMedia(q.id)}
-                  />
-                </AccordionDetails>
-              </Accordion>
-            </Grid>
-          )}
           <Grid item xs={12}>
             <Accordion variant="outlined" sx={{ borderRadius: 1 }}>
               <AccordionSummary expandIcon={<ExpandMore />}>Raw JSON</AccordionSummary>

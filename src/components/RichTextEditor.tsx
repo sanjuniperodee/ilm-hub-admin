@@ -1,4 +1,4 @@
-import { Box, IconButton, MenuItem, Paper, Select, Stack, Tooltip } from '@mui/material'
+import { Box, CircularProgress, IconButton, MenuItem, Paper, Select, Stack, Tooltip, Typography } from '@mui/material'
 import {
   FormatBold,
   FormatItalic,
@@ -284,6 +284,7 @@ export default function RichTextEditor({
     left: number
     title: string
   } | null>(null)
+  const [uploadingFileName, setUploadingFileName] = useState('')
 
   const emitChange = (html: string) => {
     currentHtmlRef.current = html
@@ -569,6 +570,7 @@ export default function RichTextEditor({
       }
       insertRangeRef.current = range
       try {
+        setUploadingFileName(file.name)
         const uploaded = await onUploadFile(file)
         if (insertRangeRef.current) {
           const sel1 = window.getSelection()
@@ -612,6 +614,7 @@ export default function RichTextEditor({
         window.alert(message)
       } finally {
         insertRangeRef.current = null
+        setUploadingFileName('')
       }
     }
     input.click()
@@ -744,6 +747,9 @@ export default function RichTextEditor({
           borderColor: 'divider',
           backgroundColor: '#fafafa',
           flexWrap: 'wrap',
+          position: 'sticky',
+          top: 0,
+          zIndex: 3,
         }}
       >
         <Tooltip title="Заголовок">
@@ -1004,6 +1010,26 @@ export default function RichTextEditor({
           ))}
         </Select>
       </Stack>
+
+      {uploadingFileName ? (
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{
+            px: 1.5,
+            py: 1,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'action.hover',
+          }}
+        >
+          <CircularProgress size={16} />
+          <Typography variant="caption" color="text.secondary" noWrap>
+            Загрузка медиа: {uploadingFileName}
+          </Typography>
+        </Stack>
+      ) : null}
 
       <Box sx={{ position: 'relative' }}>
         <Box

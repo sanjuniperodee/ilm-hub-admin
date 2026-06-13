@@ -380,7 +380,7 @@ export function MatchPairsConfigEditor({ value, onChange, mediaFiles = [] }: Edi
   return (
     <Stack spacing={2}>
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Загрузите аудио и изображения через «Медиа файлы теста», затем выберите их ниже.
+        Загрузите аудио и изображения в медиа-разделе выше, затем выберите их ниже.
       </Alert>
       <TextField
         fullWidth
@@ -581,7 +581,7 @@ export function AudioMultipleChoiceConfigEditor({ value, onChange, mediaFiles = 
   return (
     <Stack spacing={2}>
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Загрузите аудиофайл через «Медиа файлы теста», затем выберите его ниже.
+        Загрузите аудиофайл в медиа-разделе выше, затем выберите его ниже.
       </Alert>
       <AudioMediaPicker
         mediaFiles={mediaFiles}
@@ -697,7 +697,7 @@ export function ImageWordMatchConfigEditor({ value, onChange, mediaFiles = [] }:
         placeholder="Сурет пен сөзді қосыңыз"
       />
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Загрузите изображения через «Медиа файлы теста», затем выберите их ниже.
+        Загрузите изображения в медиа-разделе выше, затем выберите их ниже.
       </Alert>
       {pairs.map((pair, idx) => (
         <Box key={pair.id} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -811,7 +811,7 @@ export function AudioChoiceConfigEditor({ value, onChange, mediaFiles = [] }: Ed
   return (
     <Stack spacing={2}>
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Загрузите аудиофайл через «Медиа файлы теста», затем выберите его ниже.
+        Загрузите аудиофайл в медиа-разделе выше, затем выберите его ниже.
       </Alert>
       <TextField
         fullWidth
@@ -1016,7 +1016,7 @@ export function ListenAndChooseWordConfigEditor({ value, onChange, mediaFiles = 
   return (
     <Stack spacing={2}>
       <Alert severity="info" sx={{ fontSize: 13 }}>
-        Загрузите аудиофайл через «Медиа файлы теста», затем выберите его ниже.
+        Загрузите аудиофайл в медиа-разделе выше, затем выберите его ниже.
       </Alert>
       <TextField
         fullWidth
