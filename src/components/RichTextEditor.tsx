@@ -623,19 +623,31 @@ export default function RichTextEditor({
   if (!editor) return null
 
   return (
-    <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+    <Paper variant="outlined" sx={{ borderRadius: { xs: 2, sm: 3 }, overflow: 'hidden', minWidth: 0 }}>
       <Stack
         direction="row"
         spacing={0.5}
         sx={{
-          p: 1,
+          p: { xs: 0.75, sm: 1 },
           borderBottom: '1px solid',
           borderColor: 'divider',
           bgcolor: '#fafafa',
-          flexWrap: 'wrap',
+          flexWrap: { xs: 'nowrap', sm: 'wrap' },
+          overflowX: { xs: 'auto', sm: 'visible' },
+          overflowY: 'hidden',
+          maxWidth: '100%',
           position: 'sticky',
           top: 0,
           zIndex: 3,
+          scrollbarWidth: 'thin',
+          '& .MuiIconButton-root': {
+            width: 34,
+            height: 34,
+            flex: '0 0 auto',
+          },
+          '& .MuiSelect-select': {
+            whiteSpace: 'nowrap',
+          },
         }}
       >
         <Tooltip title="Заголовок">
@@ -774,7 +786,13 @@ export default function RichTextEditor({
             setCurrentFontFamily(val)
             if (entry?.family) editor.chain().focus().setFontFamily(entry.family).run()
           }}
-          sx={{ height: 32, minWidth: 170, fontSize: 13 }}
+          sx={{
+            height: 32,
+            minWidth: { xs: 142, sm: 170 },
+            maxWidth: { xs: 170, sm: 220 },
+            flex: '0 0 auto',
+            fontSize: 13,
+          }}
         >
           {FONT_FAMILIES.map((f) => (
             <MenuItem key={f.value} value={f.value} sx={{ fontSize: 13, fontFamily: f.family || undefined, fontWeight: f.weight ? Number(f.weight) : undefined }}>
@@ -792,7 +810,7 @@ export default function RichTextEditor({
             setCurrentFontSize(size)
             if (size) editor.chain().focus().setFontSize(size).run()
           }}
-          sx={{ height: 32, width: 90, fontSize: 13 }}
+          sx={{ height: 32, width: { xs: 84, sm: 90 }, flex: '0 0 auto', fontSize: 13 }}
         >
           {FONT_SIZES.map((s) => (
             <MenuItem key={s.value} value={s.value} sx={{ fontSize: 13 }}>
@@ -814,10 +832,15 @@ export default function RichTextEditor({
       <Box
         sx={{
           position: 'relative',
+          minWidth: 0,
           '& .ilm-tiptap-editor': {
-            p: 2,
-            minHeight,
+            p: { xs: 1.25, sm: 2 },
+            minHeight: { xs: Math.max(140, minHeight - 40), sm: minHeight },
             outline: 'none',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            overflowWrap: 'anywhere',
+            wordBreak: 'normal',
           },
           '& .ilm-tiptap-editor h2, & .ilm-tiptap-editor h3': { margin: '8px 0' },
           '& .ilm-tiptap-editor p': { margin: '6px 0' },
@@ -825,22 +848,33 @@ export default function RichTextEditor({
           '& .ilm-tiptap-editor a': { color: 'primary.main' },
           '& .ilm-tiptap-editor table': {
             width: '100%',
+            minWidth: { xs: 360, sm: '100%' },
             borderCollapse: 'collapse',
             borderSpacing: 0,
             margin: '8px 0',
           },
+          '& .ilm-tiptap-editor .tableWrapper': {
+            maxWidth: '100%',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
+          },
           '& .ilm-tiptap-editor td, & .ilm-tiptap-editor th': {
             border: '1px solid #c9bcad',
-            padding: '10px 12px',
+            padding: { xs: '8px 9px', sm: '10px 12px' },
             verticalAlign: 'middle',
           },
           [`& .ilm-tiptap-editor .${ILM_RICHTEXT_AUDIO_TD_CLASS}`]: {
             textAlign: 'center',
             whiteSpace: 'nowrap',
             bgcolor: '#faf8f5',
+            minWidth: { xs: 112, sm: 128 },
           },
-          '& .ilm-tiptap-editor img, & .ilm-tiptap-editor video': {
+          '& .ilm-tiptap-editor img, & .ilm-tiptap-editor video, & .ilm-tiptap-editor audio': {
             maxWidth: '100%',
+          },
+          '& .ilm-tiptap-editor audio': {
+            width: '100%',
+            minWidth: 0,
           },
           '& .ilm-tiptap-editor .ProseMirror-selectednode, & [data-selected="true"]': {
             outline: '2px solid #d14343',
@@ -859,7 +893,7 @@ export default function RichTextEditor({
       >
         <EditorContent editor={editor} />
         {editor.isEmpty ? (
-          <Typography variant="body2" color="text.disabled" sx={{ position: 'absolute', top: 16, left: 16, pointerEvents: 'none' }}>
+          <Typography variant="body2" color="text.disabled" sx={{ position: 'absolute', top: { xs: 10, sm: 16 }, left: { xs: 10, sm: 16 }, right: { xs: 10, sm: 16 }, pointerEvents: 'none' }}>
             {placeholder}
           </Typography>
         ) : null}

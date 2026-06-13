@@ -1444,7 +1444,7 @@ export default function LessonEditorPage() {
 
       {activeTab === 'meta' && (
         <Card sx={{ borderRadius: 3 }}>
-          <CardContent>
+          <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth size="small">
@@ -1551,13 +1551,14 @@ export default function LessonEditorPage() {
             sx={{
               borderRadius: 2,
               position: { md: 'sticky' },
-              top: { md: 16 },
-              maxHeight: { md: 'calc(100vh - 132px)' },
+              top: { md: 88 },
+              maxHeight: { xs: 420, md: 'calc(100vh - 116px)' },
               display: 'flex',
               flexDirection: 'column',
+              minWidth: 0,
             }}
           >
-            <CardContent>
+            <CardContent sx={{ p: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
                 <Box>
                   <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -1571,7 +1572,7 @@ export default function LessonEditorPage() {
                   Новый
                 </Button>
               </Stack>
-              <Stack spacing={1} sx={{ overflowY: 'auto', pr: { md: 0.5 }, maxHeight: { md: 'calc(100vh - 240px)' } }}>
+              <Stack spacing={1} sx={{ overflowY: 'auto', pr: { md: 0.5 }, maxHeight: { xs: 320, md: 'calc(100vh - 224px)' } }}>
                 {blocks.map((b) => (
                   <Paper
                     key={b.id}
@@ -1596,9 +1597,9 @@ export default function LessonEditorPage() {
                       <Stack direction="row" alignItems="flex-start" spacing={0.75}>
                         <DragIndicator fontSize="small" sx={{ color: 'text.disabled', mt: 0.25, flexShrink: 0 }} />
                         <Box sx={{ minWidth: 0, flex: 1, cursor: 'pointer' }} onClick={() => editBlock(b)}>
-                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.25 }}>
+                          <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mb: 0.25 }}>
                             <Chip size="small" label={`#${b.orderIndex}`} sx={{ height: 20 }} />
-                            <Chip size="small" color="primary" variant="outlined" label={getBlockTypeLabel(b.type)} sx={{ height: 20, maxWidth: 140 }} />
+                            <Chip size="small" color="primary" variant="outlined" label={getBlockTypeLabel(b.type)} sx={{ height: 20, maxWidth: { xs: '100%', md: 140 } }} />
                           </Stack>
                           <Typography variant="body2" sx={{ fontWeight: 600, fontSize: 13 }} noWrap>
                             {getBlockDisplayTitle(b)}
@@ -1630,8 +1631,8 @@ export default function LessonEditorPage() {
           </Grid>
 
           <Grid item xs={12} md={8} lg={9} xl={7}>
-          <Card variant="outlined" sx={{ borderRadius: 2 }}>
-              <CardContent>
+          <Card variant="outlined" sx={{ borderRadius: 2, minWidth: 0 }}>
+              <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0 }}>
                 <Stack
                   direction={{ xs: 'column', sm: 'row' }}
                   justifyContent="space-between"
@@ -1659,7 +1660,7 @@ export default function LessonEditorPage() {
                     severity="warning"
                     sx={{ mb: 2 }}
                     action={
-                      <Stack direction="row" spacing={1}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                         <Button
                           size="small"
                           color="inherit"
@@ -2046,6 +2047,9 @@ export default function LessonEditorPage() {
                         borderColor: 'divider',
                         borderRadius: 2,
                         p: 1,
+                        '& .MuiButton-root': {
+                          width: { xs: '100%', sm: 'auto' },
+                        },
                       }}
                     >
                       <Button variant="contained" startIcon={<SaveOutlined />} onClick={saveBlock}>
@@ -2066,7 +2070,7 @@ export default function LessonEditorPage() {
               sx={{
                 borderRadius: 2,
                 position: { lg: 'sticky' },
-                top: { lg: 16 },
+                top: { lg: 88 },
                 overflow: 'hidden',
               }}
             >
@@ -2094,8 +2098,8 @@ export default function LessonEditorPage() {
       {activeTab === 'test' && (
         <Box>
           {!lessonTest ? (
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent>
+            <Card sx={{ borderRadius: 3, minWidth: 0 }}>
+              <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
                   Для этого урока тест ещё не создан
                 </Typography>
@@ -2126,14 +2130,14 @@ export default function LessonEditorPage() {
               </CardContent>
             </Card>
           ) : (
-            <Stack spacing={3}>
-              <Card variant="outlined" sx={{ borderRadius: 3 }}>
-                <CardContent>
+            <Stack spacing={{ xs: 2, md: 3 }}>
+              <Card variant="outlined" sx={{ borderRadius: 3, minWidth: 0 }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0 }}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                       Настройки теста
                     </Typography>
-                    <Button color="error" variant="outlined" onClick={removeLessonTest}>
+                    <Button color="error" variant="outlined" onClick={removeLessonTest} sx={{ width: { xs: '100%', sm: 'auto' } }}>
                       Удалить тест
                     </Button>
                   </Stack>
@@ -2156,14 +2160,14 @@ export default function LessonEditorPage() {
                       />
                     </Grid>
                   </Grid>
-                  <Button sx={{ mt: 2 }} variant="contained" onClick={updateLessonTestMeta}>
+                  <Button sx={{ mt: 2, width: { xs: '100%', sm: 'auto' } }} variant="contained" onClick={updateLessonTestMeta}>
                     Сохранить настройки
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card variant="outlined" sx={{ borderRadius: 3 }}>
-                <CardContent>
+              <Card variant="outlined" sx={{ borderRadius: 3, minWidth: 0 }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0 }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
                     Медиа файлы теста
                   </Typography>
@@ -2180,8 +2184,8 @@ export default function LessonEditorPage() {
                 </CardContent>
               </Card>
 
-              <Card variant="outlined" sx={{ borderRadius: 3 }}>
-                <CardContent>
+              <Card variant="outlined" sx={{ borderRadius: 3, minWidth: 0 }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0 }}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                       Вопросы и ответы
@@ -2191,6 +2195,7 @@ export default function LessonEditorPage() {
                         size="small"
                         variant="contained"
                         onClick={(e) => setAddQuestionMenuAnchor(e.currentTarget)}
+                        sx={{ width: { xs: '100%', sm: 'auto' } }}
                       >
                         + Добавить вопрос
                       </Button>
@@ -2368,9 +2373,9 @@ function TestQuestionCard({
   }
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2 }}>
-      <CardContent>
-        <Grid container spacing={1}>
+    <Card variant="outlined" sx={{ borderRadius: 2, minWidth: 0 }}>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
+        <Grid container spacing={{ xs: 1.25, sm: 1.5 }}>
           <Grid item xs={12} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Тип</InputLabel>
@@ -2420,7 +2425,7 @@ function TestQuestionCard({
           </Grid>
           {needsMedia && q.id && (
             <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ borderRadius: 2, p: 1.5, bgcolor: 'background.default' }}>
+              <Paper variant="outlined" sx={{ borderRadius: 2, p: { xs: 1, sm: 1.5 }, bgcolor: 'background.default', minWidth: 0 }}>
                 <Stack
                   direction={{ xs: 'column', sm: 'row' }}
                   justifyContent="space-between"
@@ -2453,7 +2458,7 @@ function TestQuestionCard({
             {renderConfigEditor()}
           </Grid>
           <Grid item xs={12}>
-            <Accordion variant="outlined" sx={{ borderRadius: 1 }}>
+            <Accordion variant="outlined" sx={{ borderRadius: 1, overflow: 'hidden' }}>
               <AccordionSummary expandIcon={<ExpandMore />}>Raw JSON</AccordionSummary>
               <AccordionDetails>
                 <TextField
@@ -2476,7 +2481,15 @@ function TestQuestionCard({
             </Accordion>
           </Grid>
           <Grid item xs={12}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{
+                flexWrap: 'wrap',
+                gap: 1,
+                '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } },
+              }}
+            >
               <Button variant="contained" size="small" onClick={() => onSave(q)}>Сохранить</Button>
               {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
                 <Button variant="outlined" size="small" onClick={onAddAnswer}>Добавить ответ</Button>
@@ -2513,9 +2526,9 @@ function TestAnswerRow({
   }, [answer])
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: 1.5 }}>
-      <CardContent sx={{ py: 1 }}>
-        <Grid container spacing={1} alignItems="center">
+    <Card variant="outlined" sx={{ borderRadius: 1.5, minWidth: 0 }}>
+      <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
+        <Grid container spacing={{ xs: 1, sm: 1.25 }} alignItems="center">
           <Grid item xs={12} md={7}>
             <TextField
               fullWidth
@@ -2542,7 +2555,15 @@ function TestAnswerRow({
             />
           </Grid>
           <Grid item xs={12}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.5} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={0.5}
+              sx={{
+                flexWrap: 'wrap',
+                gap: 1,
+                '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } },
+              }}
+            >
               <Button size="small" variant="contained" onClick={() => onSave(a)}>Сохранить</Button>
               <Button size="small" color="error" variant="outlined" onClick={() => onDelete(a.id)}>Удалить</Button>
             </Stack>

@@ -406,9 +406,12 @@ export default function Layout() {
         component="main"
         sx={{
           flexGrow: 1,
+          minWidth: 0,
+          width: '100%',
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
+          overflowX: 'hidden',
         }}
       >
         {/* Top bar */}
@@ -466,8 +469,11 @@ export default function Layout() {
         <Box
           sx={{
             flex: 1,
-            px: { xs: 2, sm: 3, md: 4 },
-            py: 3,
+            minWidth: 0,
+            width: '100%',
+            px: { xs: 1.5, sm: 3, md: 4 },
+            py: { xs: 2, md: 3 },
+            overflowX: 'hidden',
           }}
           className="page-enter"
         >

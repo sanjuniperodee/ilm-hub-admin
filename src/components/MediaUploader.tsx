@@ -5,9 +5,7 @@ import {
     IconButton,
     List,
     ListItem,
-    ListItemIcon,
     ListItemText,
-    ListItemSecondaryAction,
     CircularProgress,
     Alert,
     Paper,
@@ -128,8 +126,9 @@ function AudioPlayer({ url, filename }: { url: string; filename: string }) {
                 bgcolor: 'grey.100',
                 border: '1px solid',
                 borderColor: 'grey.200',
-                minWidth: 260,
-                maxWidth: 360,
+                minWidth: 0,
+                width: '100%',
+                maxWidth: { xs: '100%', sm: 360 },
             }}
         >
             <audio ref={audioRef} src={url} preload="metadata" />
@@ -151,11 +150,11 @@ function AudioPlayer({ url, filename }: { url: string; filename: string }) {
             </IconButton>
 
             {/* Progress + time */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0 }}>
                 <Typography
                     variant="caption"
                     noWrap
-                    sx={{ color: 'text.secondary', fontSize: 10, lineHeight: 1.2, maxWidth: 200 }}
+                    sx={{ color: 'text.secondary', fontSize: 10, lineHeight: 1.2, maxWidth: '100%' }}
                 >
                     {filename}
                 </Typography>
@@ -286,7 +285,7 @@ export default function MediaUploader({
             {/* Drop zone */}
             <Paper
                 sx={{
-                    p: 3,
+                    p: { xs: 2, sm: 3 },
                     mb: 2,
                     textAlign: 'center',
                     border: '2px dashed',
@@ -313,7 +312,7 @@ export default function MediaUploader({
                     <CircularProgress size={40} />
                 ) : (
                     <>
-                        <CloudUpload sx={{ fontSize: 48, color: 'grey.400', mb: 1 }} />
+                        <CloudUpload sx={{ fontSize: { xs: 36, sm: 48 }, color: 'grey.400', mb: 1 }} />
                         <Typography variant="body1" color="textSecondary">
                             Перетащите файлы сюда или нажмите для выбора
                         </Typography>
@@ -349,41 +348,51 @@ export default function MediaUploader({
 
             {/* Media list */}
             {visibleMediaFiles.length > 0 && (
-                <List dense>
+                <List dense disablePadding>
                     {visibleMediaFiles.map((media) => (
-                        <ListItem key={media.id}>
-                            <ListItemIcon>
-                                {getMediaIcon(media.type)}
-                            </ListItemIcon>
-                            <ListItemText
-                                primary={media.description?.trim() || media.filename}
-                                secondary={`${media.type} • ${formatFileSize(media.size)}${media.description?.trim() ? ` • ${media.filename}` : ''}`}
-                            />
-                            {media.type === 'image' && (
-                                <Box sx={{ mr: 2 }}>
-                                    <img
-                                        src={media.url}
-                                        alt={media.filename}
-                                        style={{ height: 40, width: 40, objectFit: 'cover', borderRadius: 4 }}
+                        <ListItem key={media.id} disableGutters sx={{ py: 0.75 }}>
+                            <Stack
+                                direction={{ xs: 'column', sm: 'row' }}
+                                spacing={1}
+                                alignItems={{ xs: 'stretch', sm: 'center' }}
+                                sx={{ width: '100%', minWidth: 0 }}
+                            >
+                                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                                    <Box sx={{ color: 'text.secondary', display: 'flex', flexShrink: 0 }}>
+                                        {getMediaIcon(media.type)}
+                                    </Box>
+                                    <ListItemText
+                                        primary={media.description?.trim() || media.filename}
+                                        secondary={`${media.type} • ${formatFileSize(media.size)}${media.description?.trim() ? ` • ${media.filename}` : ''}`}
+                                        primaryTypographyProps={{ noWrap: true }}
+                                        secondaryTypographyProps={{ noWrap: true }}
+                                        sx={{ minWidth: 0, my: 0 }}
                                     />
-                                </Box>
-                            )}
-                            {media.type === 'audio' && (
-                                <Box sx={{ mr: 2 }}>
-                                    <AudioPlayer url={media.url} filename={media.filename} />
-                                </Box>
-                            )}
-                            <ListItemSecondaryAction>
+                                </Stack>
+                                {media.type === 'image' && (
+                                    <Box sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, flexShrink: 0 }}>
+                                        <img
+                                            src={media.url}
+                                            alt={media.filename}
+                                            style={{ height: 40, width: 40, objectFit: 'cover', borderRadius: 4, display: 'block' }}
+                                        />
+                                    </Box>
+                                )}
+                                {media.type === 'audio' && (
+                                    <Box sx={{ width: { xs: '100%', sm: 360 }, maxWidth: '100%', flexShrink: 1, minWidth: 0 }}>
+                                        <AudioPlayer url={media.url} filename={media.filename} />
+                                    </Box>
+                                )}
                                 <IconButton
-                                    edge="end"
                                     onClick={() => handleDelete(media.id)}
                                     disabled={disabled}
                                     color="error"
                                     size="small"
+                                    sx={{ alignSelf: { xs: 'flex-end', sm: 'center' }, flexShrink: 0 }}
                                 >
                                     <Delete />
                                 </IconButton>
-                            </ListItemSecondaryAction>
+                            </Stack>
                         </ListItem>
                     ))}
                 </List>
