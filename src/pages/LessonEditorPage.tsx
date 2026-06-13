@@ -17,6 +17,7 @@ import {
   IconButton,
   InputLabel,
   LinearProgress,
+  ListSubheader,
   MenuItem,
   Select,
   Stack,
@@ -25,14 +26,9 @@ import {
   Tabs,
   TextField,
   Typography,
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Menu,
   Paper,
-  Collapse,
   Divider,
-  Tooltip,
 } from '@mui/material'
 import {
   Add,
@@ -40,16 +36,13 @@ import {
   DeleteOutline,
   DragIndicator,
   EditOutlined,
-  ExpandMore,
-  ExpandLess,
   SaveOutlined,
   VisibilityOutlined,
-  CheckCircle,
-  RadioButtonUnchecked,
   QuizOutlined,
   SchoolOutlined,
   TuneOutlined,
   ViewListOutlined,
+  PermMediaOutlined,
 } from '@mui/icons-material'
 import {
   createLessonBlock,
@@ -72,11 +65,8 @@ import {
   getTests,
   uploadBlockMedia,
   uploadTestMedia,
-  uploadQuestionMedia,
   getTestMedia,
   deleteTestMedia,
-  getQuestionMedia,
-  deleteQuestionMedia,
   updateLesson,
   updateLessonBlock,
   updateTestAnswer,
@@ -98,16 +88,13 @@ import {
 } from '../components/ExerciseEditors'
 import {
   FillBlankConfigEditor,
-  MatchPairsConfigEditor,
-  ManualInputConfigEditor,
-  MultipleChoiceConfigEditor,
-  AudioMultipleChoiceConfigEditor,
-  AudioChoiceConfigEditor,
-  FindLetterInWordConfigEditor,
-  ListenAndChooseWordConfigEditor,
-  ImageWordMatchConfigEditor,
   getConfigTemplate,
 } from '../components/QuestionConfigEditors'
+import {
+  TestQuestionEditor,
+  renderQuestionTypeMenuItems,
+  type QuestionType,
+} from '../components/TestQuestionEditor'
 import MobilePreview, { MobilePreviewFrame, type MobilePreviewBlock } from '../components/MobilePreview'
 import GridBlockEditor, { newGridItemRow, type GridItemRow } from '../components/GridBlockEditor'
 import { wrapRichTextTables } from '../utils/wrapRichTextTables'
@@ -132,50 +119,32 @@ type BlockType =
   | 'listen_and_choose_word'
   | 'grid'
 type DetailTab = 'meta' | 'blocks' | 'test'
-type QuestionType =
-  | 'multiple_choice'
-  | 'single_choice'
-  | 'fill_blank'
-  | 'match_pairs'
-  | 'manual_input'
-  | 'audio_multiple_choice'
-  | 'image_word_match'
-  | 'audio_choice'
-  | 'find_letter_in_word'
-  | 'listen_and_choose_word'
 
-const BLOCK_TYPES: { value: BlockType; label: string }[] = [
-  { value: 'theory', label: 'Теория' },
-  { value: 'illustration', label: 'Иллюстрация' },
-  { value: 'audio', label: 'Аудио' },
-  { value: 'video', label: 'Видео' },
-  { value: 'lesson_complete', label: 'Завершение урока' },
-  { value: 'multiple_choice', label: 'Multiple Choice' },
-  { value: 'audio_multiple_choice', label: 'Audio Multiple Choice' },
-  { value: 'single_choice', label: 'Single Choice' },
-  { value: 'match_pairs', label: 'Match Pairs (текст / аудио / картинка)' },
-  { value: 'fill_blank', label: 'Fill Blank' },
-  { value: 'manual_input', label: 'Manual Input' },
-  { value: 'listen_repeat', label: 'Послушай и повтори' },
-  { value: 'image_word_match', label: 'Картинка ↔ Слово' },
-  { value: 'audio_choice', label: 'Аудио → Буква (Махрадж)' },
-  { value: 'find_letter_in_word', label: 'Найди букву в слове' },
-  { value: 'listen_and_choose_word', label: 'Послушай → Слово' },
-  { value: 'grid', label: 'Сетка' },
+const BLOCK_TYPES: { value: BlockType; label: string; group: string }[] = [
+  { value: 'theory', label: 'Теория', group: 'Контент' },
+  { value: 'illustration', label: 'Иллюстрация', group: 'Контент' },
+  { value: 'audio', label: 'Аудио', group: 'Контент' },
+  { value: 'video', label: 'Видео', group: 'Контент' },
+  { value: 'grid', label: 'Сетка', group: 'Контент' },
+  { value: 'multiple_choice', label: 'Multiple Choice', group: 'Упражнения' },
+  { value: 'single_choice', label: 'Single Choice', group: 'Упражнения' },
+  { value: 'fill_blank', label: 'Fill Blank', group: 'Упражнения' },
+  { value: 'manual_input', label: 'Manual Input', group: 'Упражнения' },
+  { value: 'match_pairs', label: 'Match Pairs (текст / аудио / картинка)', group: 'Упражнения' },
+  { value: 'image_word_match', label: 'Картинка ↔ Слово', group: 'Упражнения' },
+  { value: 'audio_multiple_choice', label: 'Audio Multiple Choice', group: 'Аудио-упражнения' },
+  { value: 'audio_choice', label: 'Аудио → Буква (Махрадж)', group: 'Аудио-упражнения' },
+  { value: 'listen_repeat', label: 'Послушай и повтори', group: 'Аудио-упражнения' },
+  { value: 'listen_and_choose_word', label: 'Послушай → Слово', group: 'Аудио-упражнения' },
+  { value: 'find_letter_in_word', label: 'Найди букву в слове', group: 'Буквы' },
+  { value: 'lesson_complete', label: 'Завершение урока', group: 'Системные' },
 ]
 
-const QUESTION_TYPES: { type: QuestionType; label: string; shortLabel: string }[] = [
-  { type: 'multiple_choice', label: 'Несколько вариантов', shortLabel: 'Multiple choice' },
-  { type: 'single_choice', label: 'Один вариант', shortLabel: 'Single choice' },
-  { type: 'fill_blank', label: 'Заполни пропуск', shortLabel: 'Fill blank' },
-  { type: 'match_pairs', label: 'Сопоставь пары', shortLabel: 'Match pairs' },
-  { type: 'manual_input', label: 'Ввод вручную', shortLabel: 'Manual input' },
-  { type: 'audio_multiple_choice', label: 'Аудио + выбор', shortLabel: 'Аудио + выбор' },
-  { type: 'image_word_match', label: 'Картинка ↔ слово', shortLabel: 'Картинка ↔ слово' },
-  { type: 'audio_choice', label: 'Аудио → буква', shortLabel: 'Аудио → буква' },
-  { type: 'find_letter_in_word', label: 'Найди букву в слове', shortLabel: 'Найди букву' },
-  { type: 'listen_and_choose_word', label: 'Послушай → слово', shortLabel: 'Послушай → слово' },
-]
+/** Ordered, unique block-type group names for rendering grouped pickers. */
+const BLOCK_TYPE_GROUPS: string[] = BLOCK_TYPES.reduce<string[]>((groups, bt) => {
+  if (!groups.includes(bt.group)) groups.push(bt.group)
+  return groups
+}, [])
 
 interface StudioBlock {
   id: string
@@ -1820,9 +1789,14 @@ export default function LessonEditorPage() {
                           }))
                         }}
                       >
-                        {BLOCK_TYPES.map((bt) => (
-                          <MenuItem key={bt.value} value={bt.value}>{bt.label}</MenuItem>
-                        ))}
+                        {BLOCK_TYPE_GROUPS.flatMap((group) => [
+                          <ListSubheader key={`group-${group}`} disableSticky sx={{ lineHeight: 2.2, fontWeight: 700 }}>
+                            {group}
+                          </ListSubheader>,
+                          ...BLOCK_TYPES.filter((bt) => bt.group === group).map((bt) => (
+                            <MenuItem key={bt.value} value={bt.value}>{bt.label}</MenuItem>
+                          )),
+                        ])}
                       </Select>
                     </FormControl>
                   </Grid>
@@ -2120,7 +2094,7 @@ export default function LessonEditorPage() {
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                           Медиа можно загрузить кнопками панели, перетащить прямо в текст или вставить из буфера.
                           Для компактного аудио используйте таблицу «текст + аудио» и бросайте файл в правую ячейку.
-                          Чтобы удалить медиа: кликните по нему в тексте, затем нажмите корзину на панели.
+                          Чтобы уд��лить медиа: кликните по нему в тексте, затем нажмите корзину на панели.
                         </Typography>
                       </Grid>
                       <Grid item xs={12} md={6}>
@@ -2304,9 +2278,12 @@ export default function LessonEditorPage() {
 
               <Card variant="outlined" sx={{ borderRadius: 3, minWidth: 0 }}>
                 <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-                    Медиа файлы теста
-                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                    <PermMediaOutlined fontSize="small" color="primary" />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                      Медиа файлы теста
+                    </Typography>
+                  </Stack>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Загрузите аудио и изображения для вопросов. Затем выберите их в настройках вопроса.
                   </Typography>
@@ -2351,37 +2328,37 @@ export default function LessonEditorPage() {
                         open={Boolean(addQuestionMenuAnchor)}
                         onClose={() => setAddQuestionMenuAnchor(null)}
                       >
-                        {QUESTION_TYPES.map(({ type, label, shortLabel }) => (
-                          <MenuItem
-                            key={type}
-                            onClick={() => {
-                              setAddQuestionMenuAnchor(null)
-                              void addQuestion(type)
-                            }}
-                          >
-                            <Stack spacing={0}>
-                              <Typography variant="body2">{label}</Typography>
-                              <Typography variant="caption" color="text.secondary">{shortLabel}</Typography>
-                            </Stack>
-                          </MenuItem>
-                        ))}
+                        {renderQuestionTypeMenuItems((type) => {
+                          setAddQuestionMenuAnchor(null)
+                          void addQuestion(type)
+                        })}
                       </Menu>
                     </>
                   </Stack>
-                  <Stack spacing={2}>
-                    {(lessonTest.questions || []).map((q: any, idx: number) => (
-                      <TestQuestionCard
-                        key={q.id}
-                        index={idx}
-                        question={q}
-                        onSave={saveQuestion}
-                        onDelete={() => removeQuestion(q.id)}
-                        onAddAnswer={() => addAnswer(q.id, (q.answers || []).length)}
-                        onSaveAnswer={saveAnswer}
-                        onDeleteAnswer={removeAnswer}
-                      />
-                    ))}
-                  </Stack>
+                  {(lessonTest.questions || []).length === 0 ? (
+                    <Stack alignItems="center" spacing={1} sx={{ py: 4, textAlign: 'center' }}>
+                      <QuizOutlined sx={{ fontSize: 36, color: 'text.disabled' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        В тесте пока нет вопросов
+                      </Typography>
+                    </Stack>
+                  ) : (
+                    <Stack spacing={2}>
+                      {(lessonTest.questions || []).map((q: any, idx: number) => (
+                        <TestQuestionEditor
+                          key={q.id}
+                          index={idx}
+                          question={q}
+                          mediaMode="question"
+                          onSave={saveQuestion}
+                          onDelete={() => removeQuestion(q.id)}
+                          onAddAnswer={() => addAnswer(q.id, (q.answers || []).length)}
+                          onSaveAnswer={saveAnswer}
+                          onDeleteAnswer={removeAnswer}
+                        />
+                      ))}
+                    </Stack>
+                  )}
                 </CardContent>
               </Card>
             </Stack>
@@ -2441,376 +2418,5 @@ export default function LessonEditorPage() {
         </DialogActions>
       </Dialog>
     </Box>
-  )
-}
-
-function TestQuestionCard({
-  index,
-  question,
-  onSave,
-  onDelete,
-  onAddAnswer,
-  onSaveAnswer,
-  onDeleteAnswer,
-}: {
-  index: number
-  question: any
-  onSave: (q: any) => void
-  onDelete: () => void
-  onAddAnswer: () => void
-  onSaveAnswer: (a: any) => void
-  onDeleteAnswer: (id: string) => void
-}) {
-  const [q, setQ] = useState<any>(question)
-  const [configText, setConfigText] = useState(JSON.stringify(question.config || {}, null, 2))
-  const [questionMediaFiles, setQuestionMediaFiles] = useState<any[]>([])
-  const [expanded, setExpanded] = useState(false)
-
-  const typeLabel = QUESTION_TYPES.find((t) => t.type === (q.type || 'multiple_choice'))?.shortLabel || 'Вопрос'
-  const answerCount = (q.answers || []).length
-  const correctCount = (q.answers || []).filter((a: any) => a.isCorrect).length
-
-  const QUESTION_MEDIA_TYPES = [
-    'match_pairs', 'audio_multiple_choice', 'image_word_match',
-    'audio_choice', 'listen_and_choose_word',
-  ]
-  const needsMedia = QUESTION_MEDIA_TYPES.includes(q.type)
-
-  useEffect(() => {
-    setQ(question)
-    setConfigText(JSON.stringify(question.config || {}, null, 2))
-  }, [question])
-
-  useEffect(() => {
-    setConfigText(JSON.stringify(q.config || {}, null, 2))
-  }, [q.config])
-
-  useEffect(() => {
-    if (q.id && needsMedia) {
-      loadQuestionMedia(q.id)
-    } else {
-      setQuestionMediaFiles([])
-    }
-  }, [q.id, q.type, needsMedia])
-
-  const loadQuestionMedia = async (questionId: string) => {
-    try {
-      const { data } = await getQuestionMedia(questionId)
-      setQuestionMediaFiles(Array.isArray(data) ? data : [])
-    } catch {
-      setQuestionMediaFiles([])
-    }
-  }
-
-  const handleQuestionMediaUpload = async (file: File, _type: 'image' | 'audio' | 'video', description?: string) => {
-    if (!q.id) return
-    await uploadQuestionMedia(q.id, file, description)
-    await loadQuestionMedia(q.id)
-  }
-
-  const handleQuestionMediaDelete = async (mediaFileId: string) => {
-    if (!q.id) return
-    await deleteQuestionMedia(q.id, mediaFileId)
-    await loadQuestionMedia(q.id)
-  }
-
-  const renderConfigEditor = () => {
-    const type = q.type || 'multiple_choice'
-    if (type === 'fill_blank') return <FillBlankConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'match_pairs') return <MatchPairsConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
-    if (type === 'manual_input') return <ManualInputConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'audio_multiple_choice') return <AudioMultipleChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
-    if (type === 'image_word_match') return <ImageWordMatchConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
-    if (type === 'audio_choice') return <AudioChoiceConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
-    if (type === 'find_letter_in_word') return <FindLetterInWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} />
-    if (type === 'listen_and_choose_word') return <ListenAndChooseWordConfigEditor value={q.config || {}} onChange={(config) => setQ({ ...q, config })} mediaFiles={questionMediaFiles} />
-    return <MultipleChoiceConfigEditor />
-  }
-
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderRadius: 2,
-        minWidth: 0,
-        overflow: 'hidden',
-        borderColor: expanded ? 'primary.main' : 'divider',
-        transition: 'border-color 120ms ease',
-      }}
-    >
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={1}
-        onClick={() => setExpanded((v) => !v)}
-        sx={{
-          p: { xs: 1.25, sm: 1.5 },
-          cursor: 'pointer',
-          bgcolor: expanded ? 'rgba(99,102,241,0.04)' : 'transparent',
-          '&:hover': { bgcolor: 'rgba(99,102,241,0.04)' },
-        }}
-      >
-        <Box
-          sx={{
-            width: 28,
-            height: 28,
-            borderRadius: 1.5,
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 13,
-            fontWeight: 700,
-            color: 'primary.main',
-            bgcolor: 'rgba(99,102,241,0.1)',
-          }}
-        >
-          {index + 1}
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
-            {q.questionRu?.text || 'Без текста вопроса'}
-          </Typography>
-          <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
-            <Chip size="small" variant="outlined" color="primary" label={typeLabel} sx={{ height: 20 }} />
-            {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
-              <Chip
-                size="small"
-                variant="outlined"
-                color={correctCount ? 'success' : 'default'}
-                label={`${answerCount} отв. · ${correctCount} верн.`}
-                sx={{ height: 20 }}
-              />
-            )}
-          </Stack>
-        </Box>
-        <Tooltip title="Удалить вопрос">
-          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); onDelete() }}>
-            <DeleteOutline fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <IconButton size="small">{expanded ? <ExpandLess /> : <ExpandMore />}</IconButton>
-      </Stack>
-      <Collapse in={expanded} timeout="auto" unmountOnExit>
-        <Divider />
-        <CardContent sx={{ p: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
-        <Grid container spacing={{ xs: 1.25, sm: 1.5 }}>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Тип</InputLabel>
-              <Select
-                label="Тип"
-                value={q.type || 'multiple_choice'}
-                onChange={(e) => {
-                  const newType = e.target.value as QuestionType
-                  setQ({ ...q, type: newType, config: getConfigTemplate(newType) })
-                }}
-              >
-                {QUESTION_TYPES.map((qt) => (
-                  <MenuItem key={qt.type} value={qt.type}>
-                    {qt.shortLabel}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={8}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Текст вопроса"
-              value={q.questionRu?.text || ''}
-              onChange={(e) => setQ({ ...q, questionRu: { ...(q.questionRu || {}), text: e.target.value } })}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Подсказка"
-              value={q.questionRu?.hint || ''}
-              onChange={(e) => setQ({ ...q, questionRu: { ...(q.questionRu || {}), hint: e.target.value } })}
-            />
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField
-              fullWidth
-              size="small"
-              type="number"
-              label="Порядок"
-              value={q.orderIndex || 1}
-              onChange={(e) => setQ({ ...q, orderIndex: Number(e.target.value) || 1 })}
-            />
-          </Grid>
-          {needsMedia && q.id && (
-            <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ borderRadius: 2, p: { xs: 1, sm: 1.5 }, bgcolor: 'background.default', minWidth: 0 }}>
-                <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  justifyContent="space-between"
-                  alignItems={{ xs: 'flex-start', sm: 'center' }}
-                  spacing={1}
-                  sx={{ mb: 1 }}
-                >
-                  <Box>
-                    <Typography variant="subtitle2">Медиа этого вопроса</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {questionMediaFiles.length
-                        ? `${questionMediaFiles.length} файлов доступно в полях ниже`
-                        : 'Загрузите аудио или изображение для выбора в конфиге'}
-                    </Typography>
-                  </Box>
-                  <Chip label={questionMediaFiles.length} size="small" />
-                </Stack>
-                <MediaUploader
-                  blockId={undefined}
-                  mediaFiles={questionMediaFiles}
-                  onUpload={handleQuestionMediaUpload}
-                  onDelete={handleQuestionMediaDelete}
-                  onRefresh={() => q.id && loadQuestionMedia(q.id)}
-                />
-              </Paper>
-            </Grid>
-          )}
-          <Grid item xs={12}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Конфиг</Typography>
-            {renderConfigEditor()}
-          </Grid>
-          <Grid item xs={12}>
-            <Accordion variant="outlined" sx={{ borderRadius: 1, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMore />}>Raw JSON</AccordionSummary>
-              <AccordionDetails>
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  size="small"
-                  value={configText}
-                  onChange={(e) => setConfigText(e.target.value)}
-                  onBlur={() => {
-                    try {
-                      const parsed = JSON.parse(configText || '{}')
-                      setQ({ ...q, config: parsed })
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                />
-              </AccordionDetails>
-            </Accordion>
-          </Grid>
-          <Grid item xs={12}>
-            <Divider sx={{ mb: 1.5 }} />
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={1}
-              sx={{
-                flexWrap: 'wrap',
-                gap: 1,
-                '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } },
-              }}
-            >
-              <Button variant="contained" size="small" startIcon={<SaveOutlined />} onClick={() => onSave(q)}>Сохранить вопрос</Button>
-              {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
-                <Button variant="outlined" size="small" startIcon={<Add />} onClick={onAddAnswer}>Добавить ответ</Button>
-              )}
-            </Stack>
-          </Grid>
-          {(q.answers || []).length > 0 && (
-            <Grid item xs={12}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Варианты ответов
-              </Typography>
-              <Stack spacing={1} sx={{ mt: 1 }}>
-                {(q.answers || []).map((a: any) => (
-                  <TestAnswerRow key={a.id} answer={a} onSave={onSaveAnswer} onDelete={onDeleteAnswer} />
-                ))}
-              </Stack>
-            </Grid>
-          )}
-        </Grid>
-        </CardContent>
-      </Collapse>
-    </Card>
-  )
-}
-
-function TestAnswerRow({
-  answer,
-  onSave,
-  onDelete,
-}: {
-  answer: any
-  onSave: (a: any) => void
-  onDelete: (id: string) => void
-}) {
-  const [a, setA] = useState<any>(answer)
-
-  useEffect(() => {
-    setA(answer)
-  }, [answer])
-
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderRadius: 1.5,
-        minWidth: 0,
-        borderColor: a.isCorrect ? 'success.main' : 'divider',
-        borderLeft: '4px solid',
-        borderLeftColor: a.isCorrect ? 'success.main' : 'divider',
-        bgcolor: a.isCorrect ? 'rgba(16,185,129,0.04)' : 'background.paper',
-        transition: 'border-color 120ms ease, background-color 120ms ease',
-      }}
-    >
-      <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
-        <Grid container spacing={{ xs: 1, sm: 1.25 }} alignItems="center">
-          <Grid item xs="auto">
-            <Tooltip title={a.isCorrect ? 'Правильный ответ' : 'Отметить правильным'}>
-              <IconButton
-                size="small"
-                color={a.isCorrect ? 'success' : 'default'}
-                onClick={() => setA({ ...a, isCorrect: !a.isCorrect })}
-              >
-                {a.isCorrect ? <CheckCircle fontSize="small" /> : <RadioButtonUnchecked fontSize="small" />}
-              </IconButton>
-            </Tooltip>
-          </Grid>
-          <Grid item xs>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Текст ответа"
-              value={a.answerRu || ''}
-              onChange={(e) => setA({ ...a, answerRu: e.target.value })}
-            />
-          </Grid>
-          <Grid item xs={4} sm={2}>
-            <TextField
-              fullWidth
-              size="small"
-              type="number"
-              label="Порядок"
-              value={a.orderIndex || 1}
-              onChange={(e) => setA({ ...a, orderIndex: Number(e.target.value) || 1 })}
-            />
-          </Grid>
-          <Grid item xs="auto">
-            <Stack direction="row" spacing={0.5}>
-              <Tooltip title="Сохранить ответ">
-                <IconButton size="small" color="primary" onClick={() => onSave(a)}>
-                  <SaveOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Удалить ответ">
-                <IconButton size="small" color="error" onClick={() => onDelete(a.id)}>
-                  <DeleteOutline fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          </Grid>
-        </Grid>
-      </CardContent>
-    </Card>
   )
 }
