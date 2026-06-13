@@ -13,6 +13,8 @@ import {
     Paper,
     Slider,
     TextField,
+    Chip,
+    Stack,
 } from '@mui/material'
 import {
     CloudUpload,
@@ -44,6 +46,8 @@ interface MediaUploaderProps {
     onRefresh: () => void
     disabled?: boolean
 }
+
+type MediaFilter = 'all' | 'image' | 'audio' | 'video'
 
 const getMediaType = (mimeType: string): 'image' | 'audio' | 'video' => {
     if (mimeType.startsWith('image/')) return 'image'
@@ -202,6 +206,18 @@ export default function MediaUploader({
     const [dragOver, setDragOver] = useState(false)
     /** Applied to each file in the next upload batch (stored as media description). */
     const [uploadDescription, setUploadDescription] = useState('')
+    const [mediaFilter, setMediaFilter] = useState<MediaFilter>('all')
+
+    const counts = {
+        all: mediaFiles.length,
+        image: mediaFiles.filter((f) => f.type === 'image').length,
+        audio: mediaFiles.filter((f) => f.type === 'audio').length,
+        video: mediaFiles.filter((f) => f.type === 'video').length,
+    }
+    const visibleMediaFiles =
+        mediaFilter === 'all'
+            ? mediaFiles
+            : mediaFiles.filter((media) => media.type === mediaFilter)
 
     const handleFileSelect = useCallback(async (files: FileList | null) => {
         if (!files || files.length === 0 || disabled) return
@@ -308,10 +324,33 @@ export default function MediaUploader({
                 )}
             </Paper>
 
-            {/* Media list */}
             {mediaFiles.length > 0 && (
+                <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 1 }}>
+                    {(
+                        [
+                            { value: 'all', label: 'Все' },
+                            { value: 'audio', label: 'Аудио' },
+                            { value: 'image', label: 'Изображения' },
+                            { value: 'video', label: 'Видео' },
+                        ] as { value: MediaFilter; label: string }[]
+                    ).map((filter) => (
+                        <Chip
+                            key={filter.value}
+                            size="small"
+                            label={`${filter.label} ${counts[filter.value]}`}
+                            color={mediaFilter === filter.value ? 'primary' : 'default'}
+                            variant={mediaFilter === filter.value ? 'filled' : 'outlined'}
+                            onClick={() => setMediaFilter(filter.value)}
+                            sx={{ cursor: 'pointer' }}
+                        />
+                    ))}
+                </Stack>
+            )}
+
+            {/* Media list */}
+            {visibleMediaFiles.length > 0 && (
                 <List dense>
-                    {mediaFiles.map((media) => (
+                    {visibleMediaFiles.map((media) => (
                         <ListItem key={media.id}>
                             <ListItemIcon>
                                 {getMediaIcon(media.type)}
@@ -348,6 +387,12 @@ export default function MediaUploader({
                         </ListItem>
                     ))}
                 </List>
+            )}
+
+            {mediaFiles.length > 0 && visibleMediaFiles.length === 0 && !uploading && (
+                <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center', py: 2 }}>
+                    В этом фильтре файлов нет
+                </Typography>
             )}
 
             {mediaFiles.length === 0 && !uploading && (

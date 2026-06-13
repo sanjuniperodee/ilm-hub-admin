@@ -19,7 +19,15 @@ import {
   LooksOne,
   ViewColumn,
 } from '@mui/icons-material'
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type DragEvent as ReactDragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import {
   ILM_RICHTEXT_TABLE_WRAP_CLASS,
   ILM_RICHTEXT_TABLE_WRAP_STYLE,
@@ -285,6 +293,7 @@ export default function RichTextEditor({
     title: string
   } | null>(null)
   const [uploadingFileName, setUploadingFileName] = useState('')
+  const [draggingFileOverEditor, setDraggingFileOverEditor] = useState(false)
 
   const emitChange = (html: string) => {
     currentHtmlRef.current = html
@@ -541,81 +550,119 @@ export default function RichTextEditor({
     )
   }
 
+  const getCurrentRangeForInsertion = (): Range | null => {
+    const s0 = window.getSelection()
+    if (s0?.rangeCount) {
+      try {
+        return s0.getRangeAt(0).cloneRange()
+      } catch {
+        // fall through
+      }
+    }
+    if (selectionRef.current) {
+      try {
+        return selectionRef.current.cloneRange()
+      } catch {
+        return null
+      }
+    }
+    return null
+  }
+
+  const getCaretRangeFromPoint = (x: number, y: number): Range | null => {
+    const doc = document as Document & {
+      caretRangeFromPoint?: (x: number, y: number) => Range | null
+      caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
+    }
+    const legacyRange = doc.caretRangeFromPoint?.(x, y)
+    if (legacyRange) return legacyRange
+    const position = doc.caretPositionFromPoint?.(x, y)
+    if (!position) return null
+    const range = document.createRange()
+    range.setStart(position.offsetNode, position.offset)
+    range.collapse(true)
+    return range
+  }
+
+  const restoreInsertionRange = (range: Range | null) => {
+    if (!range) return
+    const sel = window.getSelection()
+    if (!sel) return
+    sel.removeAllRanges()
+    try {
+      sel.addRange(range)
+      selectionRef.current = range.cloneRange()
+    } catch {
+      // ignore invalid stale ranges
+    }
+  }
+
+  const uploadFileToEditor = async (file: File, rangeOverride?: Range | null) => {
+    if (!onUploadFile || !editorRef.current) return
+    const root = editorRef.current
+    root.focus()
+    if (rangeOverride) {
+      restoreInsertionRange(rangeOverride)
+    } else {
+      restoreSelection()
+    }
+    insertRangeRef.current = rangeOverride || getCurrentRangeForInsertion()
+    try {
+      setUploadingFileName(file.name)
+      const uploaded = await onUploadFile(file)
+      if (insertRangeRef.current) {
+        restoreInsertionRange(insertRangeRef.current)
+      }
+      const inTableCell = !!(
+        insertRangeRef.current && isRangeInsideTableCell(insertRangeRef.current, root)
+      )
+      const audioCompact = shouldUseCompactAudioForInsertion(root, insertRangeRef.current)
+      if (uploaded.type === 'audio') {
+        insertHtmlAtCursor(
+          buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: audioCompact }),
+        )
+        return
+      }
+      if (uploaded.type === 'video') {
+        const vStyle = inTableCell
+          ? 'max-width:min(100%,360px);max-height:200px;border-radius:8px;vertical-align:middle;display:inline-block;'
+          : 'max-width:100%;border-radius:8px;vertical-align:middle;'
+        insertHtmlAtCursor(
+          `<video data-media-id="${uploaded.id}" controls="" preload="metadata" style="${vStyle}"><source src="${uploaded.url}" /></video>`,
+        )
+        return
+      }
+      const iStyle = inTableCell
+        ? 'max-width:100%;height:auto;max-height:200px;border-radius:8px;vertical-align:middle;'
+        : 'max-width:100%;height:auto;border-radius:8px;vertical-align:middle;'
+      insertHtmlAtCursor(
+        `<img data-media-id="${uploaded.id}" src="${uploaded.url}" alt="${file.name}" style="${iStyle}" />`,
+      )
+    } catch (e: any) {
+      const message = e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить файл'
+      window.alert(message)
+    } finally {
+      insertRangeRef.current = null
+      setUploadingFileName('')
+    }
+  }
+
+  const uploadFilesToEditor = async (files: File[], rangeOverride?: Range | null) => {
+    for (const file of files) {
+      await uploadFileToEditor(file, rangeOverride)
+      rangeOverride = getCurrentRangeForInsertion()
+    }
+  }
+
   const pickAndUpload = (accept: string) => {
     if (!onUploadFile) return
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = accept
-    input.onchange = async (event) => {
-      const file = (event.target as HTMLInputElement).files?.[0]
-      if (!file || !editorRef.current) return
-      const root = editorRef.current
-      root.focus()
-      restoreSelection()
-      let range: Range | null = null
-      const s0 = window.getSelection()
-      if (s0?.rangeCount) {
-        try {
-          range = s0.getRangeAt(0).cloneRange()
-        } catch {
-          range = null
-        }
-      }
-      if (!range && selectionRef.current) {
-        try {
-          range = selectionRef.current.cloneRange()
-        } catch {
-          range = null
-        }
-      }
-      insertRangeRef.current = range
-      try {
-        setUploadingFileName(file.name)
-        const uploaded = await onUploadFile(file)
-        if (insertRangeRef.current) {
-          const sel1 = window.getSelection()
-          if (sel1) {
-            sel1.removeAllRanges()
-            try {
-              sel1.addRange(insertRangeRef.current)
-            } catch {
-              // Range no longer valid — insertHtmlAtCursor will fall back
-            }
-          }
-          selectionRef.current = insertRangeRef.current
-        }
-        const inTableCell = !!(
-          insertRangeRef.current && isRangeInsideTableCell(insertRangeRef.current, root)
-        )
-        const audioCompact = shouldUseCompactAudioForInsertion(root, insertRangeRef.current)
-        if (uploaded.type === 'audio') {
-          insertHtmlAtCursor(
-            buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: audioCompact }),
-          )
-          return
-        }
-        if (uploaded.type === 'video') {
-          const vStyle = inTableCell
-            ? 'max-width:min(100%,360px);max-height:200px;border-radius:8px;vertical-align:middle;display:inline-block;'
-            : 'max-width:100%;border-radius:8px;vertical-align:middle;'
-          insertHtmlAtCursor(
-            `<video data-media-id="${uploaded.id}" controls="" preload="metadata" style="${vStyle}"><source src="${uploaded.url}" /></video>`,
-          )
-          return
-        }
-        const iStyle = inTableCell
-          ? 'max-width:100%;height:auto;max-height:200px;border-radius:8px;vertical-align:middle;'
-          : 'max-width:100%;height:auto;border-radius:8px;vertical-align:middle;'
-        insertHtmlAtCursor(
-          `<img data-media-id="${uploaded.id}" src="${uploaded.url}" alt="${file.name}" style="${iStyle}" />`,
-        )
-      } catch (e: any) {
-        const message = e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить файл'
-        window.alert(message)
-      } finally {
-        insertRangeRef.current = null
-        setUploadingFileName('')
-      }
+    input.multiple = true
+    input.onchange = (event) => {
+      const files = Array.from((event.target as HTMLInputElement).files || [])
+      void uploadFilesToEditor(files)
     }
     input.click()
   }
@@ -735,6 +782,45 @@ export default function RichTextEditor({
       window.removeEventListener('scroll', refreshOverlay, true)
     }
   }, [])
+
+  const handleEditorPaste = (e: ReactClipboardEvent<HTMLDivElement>) => {
+    if (!onUploadFile) return
+    const files = Array.from(e.clipboardData.files || []).filter((file) =>
+      /^(image|audio|video)\//.test(file.type || ''),
+    )
+    if (files.length === 0) return
+    e.preventDefault()
+    void uploadFilesToEditor(files, getCurrentRangeForInsertion())
+  }
+
+  const handleEditorDragOver = (e: ReactDragEvent<HTMLDivElement>) => {
+    if (!onUploadFile || e.dataTransfer.types?.includes('Files') !== true) return
+    e.preventDefault()
+    setDraggingFileOverEditor(true)
+  }
+
+  const handleEditorDragLeave = (e: ReactDragEvent<HTMLDivElement>) => {
+    if (!editorRef.current?.contains(e.relatedTarget as Node | null)) {
+      setDraggingFileOverEditor(false)
+    }
+  }
+
+  const handleEditorDrop = (e: ReactDragEvent<HTMLDivElement>) => {
+    if (!onUploadFile) return
+    const files = Array.from(e.dataTransfer.files || []).filter((file) =>
+      /^(image|audio|video)\//.test(file.type || ''),
+    )
+    if (files.length === 0) return
+    e.preventDefault()
+    setDraggingFileOverEditor(false)
+    const range = getCaretRangeFromPoint(e.clientX, e.clientY)
+    const root = editorRef.current
+    const safeRange =
+      range && root && root.contains(range.commonAncestorContainer)
+        ? range
+        : getCurrentRangeForInsertion()
+    void uploadFilesToEditor(files, safeRange)
+  }
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
@@ -1040,6 +1126,10 @@ export default function RichTextEditor({
           onClickCapture={handleEditorClickCapture}
           onPointerUp={handleEditorPointerUp}
           onKeyUp={rememberSelection}
+          onPaste={handleEditorPaste}
+          onDragOver={handleEditorDragOver}
+          onDragLeave={handleEditorDragLeave}
+          onDrop={handleEditorDrop}
           onInput={(e) => emitChange((e.target as HTMLDivElement).innerHTML)}
           sx={{
             p: 2,
@@ -1086,6 +1176,27 @@ export default function RichTextEditor({
             },
           }}
         />
+        {draggingFileOverEditor ? (
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 8,
+              zIndex: 4,
+              border: '2px dashed',
+              borderColor: 'primary.main',
+              borderRadius: 2,
+              bgcolor: 'rgba(25, 118, 210, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+              Отпустите файл, чтобы вставить медиа в текст
+            </Typography>
+          </Box>
+        ) : null}
         {selectedMediaOverlay ? (
           <Tooltip title={selectedMediaOverlay.title}>
             <IconButton
