@@ -37,10 +37,15 @@ const font = (size: number, weight: number, family = "'Montserrat', sans-serif")
   ({ fontFamily: family, fontSize: size, fontWeight: weight, color: C.textPrimary } as const)
 
 /* ─── Types ─── */
+export interface MobilePreviewBlock {
+  type: string
+  contentRu?: Record<string, any>
+}
+
 interface MobilePreviewProps {
   open: boolean
   onClose: () => void
-  block: { type: string; contentRu?: Record<string, any> } | null
+  block: MobilePreviewBlock | null
 }
 
 const BLOCK_LABELS: Record<string, string> = {
@@ -66,17 +71,9 @@ const BLOCK_LABELS: Record<string, string> = {
 
 /* ─── Main Component ─── */
 export default function MobilePreview({ open, onClose, block }: MobilePreviewProps) {
-  const [modelId, setModelId] = useState<PhoneModelId>('iphone-14')
-  const model = PHONE_MODELS.find((m) => m.id === modelId) || PHONE_MODELS[1]
-  const isTablet = model.w > 500
-  const nd = useNarrowDialogProps(isTablet ? 'md' : 'sm')
+  const nd = useNarrowDialogProps('sm')
 
   if (!block) return null
-  const cr = block.contentRu || {}
-
-  // Scale phone to fit dialog (max visible height ~80vh)
-  const maxFrameH = 600
-  const scale = model.h > maxFrameH ? maxFrameH / model.h : 1
 
   return (
     <Dialog
@@ -102,7 +99,6 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
           pb: { xs: 'max(12px, env(safe-area-inset-bottom, 0px))', sm: 2 },
         }}
       >
-        {/* Header row */}
         <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
           <Typography sx={{ ...font(14, 600), color: C.textSecondary }}>
             {BLOCK_LABELS[block.type] || block.type}
@@ -111,28 +107,48 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
             <Close fontSize="small" />
           </IconButton>
         </Box>
+        <MobilePreviewFrame block={block} maxFrameH={600} />
+      </DialogContent>
+    </Dialog>
+  )
+}
 
-        {/* Phone model selector */}
-        <ToggleButtonGroup
-          value={modelId}
-          exclusive
-          onChange={(_, v) => { if (v) setModelId(v as PhoneModelId) }}
-          size="small"
-          sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'center' }}
-        >
-          {PHONE_MODELS.map((m) => (
-            <ToggleButton
-              key={m.id}
-              value={m.id}
-              sx={{ textTransform: 'none', fontSize: 11, px: 1.5, py: 0.5, gap: 0.5 }}
-            >
-              {m.w > 500 ? <TabletMac sx={{ fontSize: 14 }} /> : <PhoneIphone sx={{ fontSize: 14 }} />}
-              {m.label}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+export function MobilePreviewFrame({
+  block,
+  maxFrameH = 600,
+  compact = false,
+}: {
+  block: MobilePreviewBlock
+  maxFrameH?: number
+  compact?: boolean
+}) {
+  const [modelId, setModelId] = useState<PhoneModelId>('iphone-14')
+  const model = PHONE_MODELS.find((m) => m.id === modelId) || PHONE_MODELS[1]
+  const cr = block.contentRu || {}
+  const scale = model.h > maxFrameH ? maxFrameH / model.h : 1
 
-        {/* Device size label */}
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+        {!compact && (
+          <ToggleButtonGroup
+            value={modelId}
+            exclusive
+            onChange={(_, v) => { if (v) setModelId(v as PhoneModelId) }}
+            size="small"
+            sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'center' }}
+          >
+            {PHONE_MODELS.map((m) => (
+              <ToggleButton
+                key={m.id}
+                value={m.id}
+                sx={{ textTransform: 'none', fontSize: 11, px: 1.5, py: 0.5, gap: 0.5 }}
+              >
+                {m.w > 500 ? <TabletMac sx={{ fontSize: 14 }} /> : <PhoneIphone sx={{ fontSize: 14 }} />}
+                {m.label}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        )}
         <Typography sx={{ ...font(11, 400), color: C.textDisabled, mb: 1 }}>
           {model.w} × {model.h}pt
           {scale < 1 && ` (масштаб ${Math.round(scale * 100)}%)`}
@@ -200,8 +216,7 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
             </Box>
           </Box>
         </Box>
-      </DialogContent>
-    </Dialog>
+      </Box>
   )
 }
 

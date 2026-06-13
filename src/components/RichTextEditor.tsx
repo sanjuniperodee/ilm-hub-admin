@@ -1,37 +1,52 @@
-import { Box, CircularProgress, IconButton, MenuItem, Paper, Select, Stack, Tooltip, Typography } from '@mui/material'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Alert,
+  Box,
+  CircularProgress,
+  IconButton,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Tooltip,
+  Typography,
+} from '@mui/material'
+import {
+  Audiotrack,
+  Clear,
+  DeleteOutline,
   FormatBold,
   FormatItalic,
-  FormatUnderlined,
   FormatListBulleted,
   FormatListNumbered,
-  Link as LinkIcon,
-  Title,
-  Clear,
-  Image as ImageIcon,
+  FormatUnderlined,
   GifBox,
-  Audiotrack,
-  VideoLibrary,
-  DeleteOutline,
-  ZoomOutMap,
-  ZoomInMap,
-  TableChart,
+  Image as ImageIcon,
+  Link as LinkIcon,
   LooksOne,
+  TableChart,
+  Title,
+  UploadFile,
+  VideoLibrary,
   ViewColumn,
+  ZoomInMap,
+  ZoomOutMap,
 } from '@mui/icons-material'
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ClipboardEvent as ReactClipboardEvent,
-  type DragEvent as ReactDragEvent,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-} from 'react'
+import { EditorContent, ReactNodeViewRenderer, NodeViewWrapper, useEditor, type NodeViewProps } from '@tiptap/react'
+import { Extension, mergeAttributes, Node as TiptapNode } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import Link from '@tiptap/extension-link'
+import Image from '@tiptap/extension-image'
+import Underline from '@tiptap/extension-underline'
+import { TextStyle } from '@tiptap/extension-text-style'
+import FontFamily from '@tiptap/extension-font-family'
+import Color from '@tiptap/extension-color'
+import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table'
+import { TextSelection } from '@tiptap/pm/state'
+import type { Editor } from '@tiptap/core'
 import {
   ILM_RICHTEXT_TABLE_WRAP_CLASS,
-  ILM_RICHTEXT_TABLE_WRAP_STYLE,
-  wrapBareTablesInContainer,
+  wrapRichTextTables,
 } from '../utils/wrapRichTextTables'
 
 const FONT_FAMILIES = [
@@ -48,212 +63,20 @@ const FONT_FAMILIES = [
   { value: 'noto-600', label: 'Noto Sans Regular', family: 'Noto Sans Arabic', weight: '600' },
 ]
 
-// execCommand fontSize uses 1–7; we map to human-readable px labels
 const FONT_SIZES = [
   { value: '', label: 'Размер' },
-  { value: '1', label: '10px' },
-  { value: '2', label: '13px' },
-  { value: '3', label: '16px' },
-  { value: '4', label: '18px' },
-  { value: '5', label: '24px' },
-  { value: '6', label: '32px' },
-  { value: '7', label: '48px' },
+  { value: '10px', label: '10px' },
+  { value: '13px', label: '13px' },
+  { value: '16px', label: '16px' },
+  { value: '18px', label: '18px' },
+  { value: '24px', label: '24px' },
+  { value: '32px', label: '32px' },
+  { value: '48px', label: '48px' },
 ]
 
-/** Marker classes — mirrored in `MobilePreview` / `theory_block_widget` (customStyles). */
 const ILM_RICHTEXT_AUDIO_CLASS = 'ilm-richtext-audio'
 const ILM_RICHTEXT_AUDIO_COMPACT_CLASS = 'ilm-richtext-audio--compact'
 const ILM_RICHTEXT_AUDIO_TD_CLASS = 'ilm-richtext-td-audio'
-
-/** Compact chip player only in the dedicated «аудио» column (see insertTextAndAudioTable). */
-function shouldUseCompactAudioForInsertion(root: HTMLElement, range: Range | null): boolean {
-  if (!range) return false
-  if (!isRangeInsideTableCell(range, root)) return false
-  const cell = findTableCellInEditor(range.commonAncestorContainer, root)
-  return cell ? cell.classList.contains(ILM_RICHTEXT_AUDIO_TD_CLASS) : false
-}
-
-function findTableCellInEditor(anchor: Node | null, root: HTMLElement): HTMLTableCellElement | null {
-  let n: Node | null = anchor
-  while (n) {
-    if (n === root) return null
-    if (n.nodeType === Node.ELEMENT_NODE) {
-      const t = (n as Element).tagName
-      if (t === 'TD' || t === 'TH') {
-        if (root.contains(n)) return n as HTMLTableCellElement
-        return null
-      }
-    }
-    n = n.parentNode
-  }
-  return null
-}
-
-function isRangeInsideTableCell(range: Range, root: HTMLElement): boolean {
-  return findTableCellInEditor(range.commonAncestorContainer, root) != null
-}
-
-/** Finds <audio> / <video> / <img> in event path (incl. shadow roots for media controls). */
-function findMediaInComposedPath(event: { composedPath: () => EventTarget[] }, root: HTMLElement): HTMLElement | null {
-  for (const n of event.composedPath()) {
-    if (!(n instanceof HTMLElement)) continue
-    const tag = n.tagName
-    if (tag === 'AUDIO' || tag === 'VIDEO' || tag === 'IMG') {
-      if (root.contains(n)) return n
-    }
-    if (tag === 'SOURCE') {
-      const media = n.parentElement
-      if (media && (media.tagName === 'AUDIO' || media.tagName === 'VIDEO') && root.contains(media)) {
-        return media
-      }
-    }
-  }
-  return null
-}
-
-function findMediaFromTarget(target: EventTarget | null, root: HTMLElement): HTMLElement | null {
-  if (target instanceof HTMLAudioElement || target instanceof HTMLVideoElement || target instanceof HTMLImageElement) {
-    return root.contains(target) ? target : null
-  }
-  if (!(target instanceof Element)) return null
-  const matched = target.closest('audio,img,video,source') as HTMLElement | null
-  if (!matched || !root.contains(matched)) return null
-  if (matched.tagName === 'SOURCE') {
-    const media = matched.parentElement
-    return media && root.contains(media) ? media as HTMLElement : null
-  }
-  return matched
-}
-
-function resolveMediaFromEvent(options: {
-  nativeEvent: Event
-  root: HTMLElement
-  target: EventTarget | null
-}): HTMLElement | null {
-  const { nativeEvent, root, target } = options
-  if (typeof nativeEvent.composedPath === 'function') {
-    const fromPath = findMediaInComposedPath(nativeEvent, root)
-    if (fromPath) return fromPath
-  }
-  return findMediaFromTarget(target, root)
-}
-
-function mediaIdForElement(el: HTMLElement): string | null {
-  return el.getAttribute('data-media-id') || el.querySelector('source[data-media-id]')?.getAttribute('data-media-id') || null
-}
-
-function collectComparableMediaUrls(el: Element | null): string[] {
-  if (!el || typeof window === 'undefined') return []
-  const urls = new Set<string>()
-  const addUrl = (value?: string | null) => {
-    const next = value?.trim()
-    if (!next) return
-    urls.add(next)
-    try {
-      const absolute = new URL(next, window.location.href)
-      urls.add(absolute.href)
-      absolute.search = ''
-      absolute.hash = ''
-      urls.add(absolute.href)
-    } catch {
-      // Ignore malformed URLs; raw string comparison above still helps.
-    }
-  }
-
-  if (el instanceof HTMLImageElement) {
-    addUrl(el.getAttribute('src'))
-    addUrl(el.currentSrc)
-    addUrl(el.src)
-    return Array.from(urls)
-  }
-
-  if (el instanceof HTMLSourceElement) {
-    addUrl(el.getAttribute('src'))
-    addUrl(el.src)
-    return Array.from(urls)
-  }
-
-  if (el instanceof HTMLAudioElement || el instanceof HTMLVideoElement) {
-    addUrl(el.getAttribute('src'))
-    addUrl(el.currentSrc)
-    addUrl(el.src)
-    el.querySelectorAll('source').forEach((source) => {
-      addUrl(source.getAttribute('src'))
-      addUrl((source as HTMLSourceElement).src)
-    })
-    return Array.from(urls)
-  }
-
-  if (el instanceof HTMLElement) {
-    addUrl(el.getAttribute('src'))
-  }
-
-  return Array.from(urls)
-}
-
-function removeMatchingMediaFromHtml(html: string, mediaEl: HTMLElement): { html: string; removed: boolean } {
-  const template = document.createElement('template')
-  template.innerHTML = html
-
-  const tagName = mediaEl.tagName
-  const mediaId = mediaIdForElement(mediaEl)
-  const comparableUrls = new Set(collectComparableMediaUrls(mediaEl))
-  const targetOuterHtml = mediaEl.outerHTML
-
-  const candidates = Array.from(template.content.querySelectorAll(tagName.toLowerCase()))
-  let removed = false
-
-  if (mediaId) {
-    for (const candidate of candidates) {
-      if (!(candidate instanceof HTMLElement)) continue
-      if (mediaIdForElement(candidate) !== mediaId) continue
-      candidate.remove()
-      removed = true
-    }
-    return { html: template.innerHTML, removed }
-  }
-
-  const exactMatch = candidates.find(
-    (candidate) => candidate instanceof HTMLElement && candidate.outerHTML === targetOuterHtml,
-  ) as HTMLElement | undefined
-  if (exactMatch) {
-    exactMatch.remove()
-    return { html: template.innerHTML, removed: true }
-  }
-
-  if (comparableUrls.size > 0) {
-    const urlMatch = candidates.find((candidate) => {
-      const candidateUrls = collectComparableMediaUrls(candidate)
-      return candidateUrls.some((url) => comparableUrls.has(url))
-    })
-    if (urlMatch instanceof HTMLElement) {
-      urlMatch.remove()
-      return { html: template.innerHTML, removed: true }
-    }
-  }
-
-  return { html: template.innerHTML, removed }
-}
-
-function cssEscapeAttr(value: string): string {
-  if (typeof (window as any).CSS !== 'undefined' && typeof (window as any).CSS.escape === 'function') {
-    return (window as any).CSS.escape(value)
-  }
-  return value.replace(/["\\]/g, '\\$&')
-}
-
-function buildAudioHtml(options: { url: string; mediaId?: string; compact: boolean }): string {
-  const { url, mediaId, compact } = options
-  const idAttr = mediaId ? ` data-media-id="${mediaId}"` : ''
-  const cls = compact
-    ? `${ILM_RICHTEXT_AUDIO_CLASS} ${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}`
-    : ILM_RICHTEXT_AUDIO_CLASS
-  // Compact: in-table mini player. Full width otherwise (paragraph-level).
-  const style = compact
-    ? 'max-width:min(220px,100%);min-width:120px;height:40px;vertical-align:middle;display:inline-block;border-radius:8px;'
-    : 'width:100%;max-width:100%;min-height:40px;vertical-align:middle;border-radius:10px;'
-  return `<audio class="${cls}"${idAttr} controls="" preload="metadata" style="${style}"><source${idAttr} src="${url}" /></audio>`
-}
 
 interface RichTextEditorProps {
   value: string
@@ -264,9 +87,301 @@ interface RichTextEditorProps {
   onRemoveMedia?: (mediaId: string) => Promise<void>
 }
 
-function toolbarAction(command: string, value?: string) {
-  document.execCommand(command, false, value)
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType
+      unsetFontSize: () => ReturnType
+    }
+  }
 }
+
+function escapeHtmlAttr(value: string) {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+}
+
+function normalizeHtmlForEditor(html: string) {
+  const template = document.createElement('template')
+  template.innerHTML = html || ''
+  template.content.querySelectorAll(`.${ILM_RICHTEXT_TABLE_WRAP_CLASS}`).forEach((wrap) => {
+    const table = wrap.querySelector('table')
+    if (table) wrap.replaceWith(table)
+  })
+  template.content.querySelectorAll('audio').forEach((audio) => {
+    const source = audio.querySelector('source')
+    const src = audio.getAttribute('src') || source?.getAttribute('src')
+    if (src && !audio.getAttribute('src')) audio.setAttribute('src', src)
+    const mediaId = audio.getAttribute('data-media-id') || source?.getAttribute('data-media-id')
+    if (mediaId && !audio.getAttribute('data-media-id')) audio.setAttribute('data-media-id', mediaId)
+  })
+  template.content.querySelectorAll('video').forEach((video) => {
+    const source = video.querySelector('source')
+    const src = video.getAttribute('src') || source?.getAttribute('src')
+    if (src && !video.getAttribute('src')) video.setAttribute('src', src)
+    const mediaId = video.getAttribute('data-media-id') || source?.getAttribute('data-media-id')
+    if (mediaId && !video.getAttribute('data-media-id')) video.setAttribute('data-media-id', mediaId)
+  })
+  return template.innerHTML
+}
+
+function editorHtmlForSave(editor: Editor) {
+  return wrapRichTextTables(editor.getHTML())
+}
+
+function buildAudioHtml(options: { url: string; mediaId?: string; compact: boolean }) {
+  const { url, mediaId, compact } = options
+  const idAttr = mediaId ? ` data-media-id="${escapeHtmlAttr(mediaId)}"` : ''
+  const cls = compact
+    ? `${ILM_RICHTEXT_AUDIO_CLASS} ${ILM_RICHTEXT_AUDIO_COMPACT_CLASS}`
+    : ILM_RICHTEXT_AUDIO_CLASS
+  const style = compact
+    ? 'max-width:min(220px,100%);min-width:120px;height:40px;vertical-align:middle;display:inline-block;border-radius:8px;'
+    : 'width:100%;max-width:100%;min-height:40px;vertical-align:middle;border-radius:10px;'
+  const safeUrl = escapeHtmlAttr(url)
+  return `<audio class="${cls}"${idAttr} controls preload="metadata" style="${style}" src="${safeUrl}"><source${idAttr} src="${safeUrl}" /></audio>`
+}
+
+function isInAudioColumn(editor: Editor) {
+  const attrs = editor.getAttributes('tableCell')
+  return typeof attrs.class === 'string' && attrs.class.includes(ILM_RICHTEXT_AUDIO_TD_CLASS)
+}
+
+function mediaAttrsFromElement(element: HTMLElement) {
+  const source = element.querySelector('source')
+  return {
+    src: element.getAttribute('src') || source?.getAttribute('src') || '',
+    mediaId: element.getAttribute('data-media-id') || source?.getAttribute('data-media-id') || '',
+    class: element.getAttribute('class') || '',
+    style: element.getAttribute('style') || '',
+  }
+}
+
+function getSelectedMediaAttrs(editor: Editor): { type: 'image' | 'audio' | 'video'; mediaId?: string; widthPct?: number } | null {
+  const { selection } = editor.state
+  const node = (selection as any).node
+  if (!node || !['image', 'audio', 'video'].includes(node.type.name)) return null
+  return {
+    type: node.type.name,
+    mediaId: node.attrs.mediaId || undefined,
+    widthPct: Number(node.attrs.widthPct) || 100,
+  }
+}
+
+const FontSize = Extension.create({
+  name: 'fontSize',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['textStyle'],
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (element) => element.style.fontSize || null,
+            renderHTML: (attributes) => {
+              if (!attributes.fontSize) return {}
+              return { style: `font-size: ${attributes.fontSize}` }
+            },
+          },
+        },
+      },
+    ]
+  },
+  addCommands() {
+    return {
+      setFontSize:
+        (fontSize: string) =>
+        ({ chain }) =>
+          chain().setMark('textStyle', { fontSize }).run(),
+      unsetFontSize:
+        () =>
+        ({ chain }) =>
+          chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run(),
+    }
+  },
+})
+
+const PreserveImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      mediaId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-media-id'),
+        renderHTML: (attributes) => attributes.mediaId ? { 'data-media-id': attributes.mediaId } : {},
+      },
+      class: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('class'),
+        renderHTML: (attributes) => attributes.class ? { class: attributes.class } : {},
+      },
+      style: {
+        default: 'max-width:100%;height:auto;border-radius:8px;vertical-align:middle;',
+        parseHTML: (element) => element.getAttribute('style'),
+        renderHTML: (attributes) => attributes.style ? { style: attributes.style } : {},
+      },
+      widthPct: {
+        default: 100,
+        parseHTML: (element) => Number(element.getAttribute('data-width-pct')) || 100,
+        renderHTML: (attributes) => attributes.widthPct ? { 'data-width-pct': attributes.widthPct } : {},
+      },
+    }
+  },
+}).configure({ allowBase64: true })
+
+function MediaNodeView({ node, selected }: NodeViewProps) {
+  const attrs = node.attrs as Record<string, string>
+  if (node.type.name === 'audio') {
+    return (
+      <NodeViewWrapper as="span" data-selected={selected ? 'true' : undefined}>
+        <audio
+          className={attrs.class}
+          data-media-id={attrs.mediaId || undefined}
+          controls
+          preload="metadata"
+          src={attrs.src}
+          style={attrs.style ? undefined : { width: '100%' }}
+        >
+          <source data-media-id={attrs.mediaId || undefined} src={attrs.src} />
+        </audio>
+      </NodeViewWrapper>
+    )
+  }
+  return (
+    <NodeViewWrapper as="span" data-selected={selected ? 'true' : undefined}>
+      <video
+        data-media-id={attrs.mediaId || undefined}
+        controls
+        preload="metadata"
+        src={attrs.src}
+        style={attrs.style ? undefined : { maxWidth: '100%' }}
+      >
+        <source src={attrs.src} />
+      </video>
+    </NodeViewWrapper>
+  )
+}
+
+const AudioNode = TiptapNode.create({
+  name: 'audio',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: '', parseHTML: (element) => mediaAttrsFromElement(element as HTMLElement).src },
+      mediaId: { default: null, parseHTML: (element) => mediaAttrsFromElement(element as HTMLElement).mediaId },
+      class: { default: ILM_RICHTEXT_AUDIO_CLASS, parseHTML: (element) => mediaAttrsFromElement(element as HTMLElement).class || ILM_RICHTEXT_AUDIO_CLASS },
+      style: { default: '', parseHTML: (element) => mediaAttrsFromElement(element as HTMLElement).style },
+      widthPct: {
+        default: 100,
+        parseHTML: (element) => Number((element as HTMLElement).getAttribute('data-width-pct')) || 100,
+      },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'audio' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const { mediaId, widthPct, ...attrs } = HTMLAttributes
+    const src = attrs.src || ''
+    return [
+      'audio',
+      mergeAttributes(
+        {
+          controls: '',
+          preload: 'metadata',
+          class: ILM_RICHTEXT_AUDIO_CLASS,
+        },
+        attrs,
+        mediaId ? { 'data-media-id': mediaId } : {},
+        widthPct ? { 'data-width-pct': widthPct } : {},
+      ),
+      ['source', mergeAttributes({ src }, mediaId ? { 'data-media-id': mediaId } : {})],
+    ]
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(MediaNodeView)
+  },
+})
+
+const VideoNode = TiptapNode.create({
+  name: 'video',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+  addAttributes() {
+    return {
+      src: { default: '', parseHTML: (element) => mediaAttrsFromElement(element as HTMLElement).src },
+      mediaId: { default: null, parseHTML: (element) => mediaAttrsFromElement(element as HTMLElement).mediaId },
+      style: { default: 'max-width:100%;border-radius:8px;vertical-align:middle;', parseHTML: (element) => mediaAttrsFromElement(element as HTMLElement).style },
+      widthPct: {
+        default: 100,
+        parseHTML: (element) => Number((element as HTMLElement).getAttribute('data-width-pct')) || 100,
+      },
+    }
+  },
+  parseHTML() {
+    return [{ tag: 'video' }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    const { mediaId, widthPct, ...attrs } = HTMLAttributes
+    const src = attrs.src || ''
+    return [
+      'video',
+      mergeAttributes(
+        { controls: '', preload: 'metadata' },
+        attrs,
+        mediaId ? { 'data-media-id': mediaId } : {},
+        widthPct ? { 'data-width-pct': widthPct } : {},
+      ),
+      ['source', { src }],
+    ]
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(MediaNodeView)
+  },
+})
+
+function preserveElementAttrs() {
+  return {
+    class: {
+      default: null,
+      parseHTML: (element: HTMLElement) => element.getAttribute('class'),
+      renderHTML: (attributes: Record<string, string>) => attributes.class ? { class: attributes.class } : {},
+    },
+    style: {
+      default: null,
+      parseHTML: (element: HTMLElement) => element.getAttribute('style'),
+      renderHTML: (attributes: Record<string, string>) => attributes.style ? { style: attributes.style } : {},
+    },
+  }
+}
+
+const PreserveTable = Table.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...preserveElementAttrs() }
+  },
+})
+
+const PreserveTableRow = TableRow.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...preserveElementAttrs() }
+  },
+})
+
+const PreserveTableCell = TableCell.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...preserveElementAttrs() }
+  },
+})
+
+const PreserveTableHeader = TableHeader.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...preserveElementAttrs() }
+  },
+})
 
 export default function RichTextEditor({
   value,
@@ -276,245 +391,158 @@ export default function RichTextEditor({
   onUploadFile,
   onRemoveMedia,
 }: RichTextEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null)
-  const selectionRef = useRef<Range | null>(null)
-  /** Cloned before async `onUploadFile` so insertion returns to the right cell after upload. */
-  const insertRangeRef = useRef<Range | null>(null)
-  /** Last media clicked in the editor (native <audio> controls do not set document selection). */
-  const lastMediaInEditorRef = useRef<HTMLElement | null>(null)
-  /** Marks that capture-phase media selection already happened for the current pointer interaction. */
-  const pendingMediaSelectionRef = useRef(false)
   const currentHtmlRef = useRef(value || '')
-  const [currentFontFamily, setCurrentFontFamily] = useState('')
-  const [currentFontSize, setCurrentFontSize] = useState('')
-  const [selectedMediaOverlay, setSelectedMediaOverlay] = useState<{
-    top: number
-    left: number
-    title: string
-  } | null>(null)
   const [uploadingFileName, setUploadingFileName] = useState('')
   const [draggingFileOverEditor, setDraggingFileOverEditor] = useState(false)
+  const [currentFontFamily, setCurrentFontFamily] = useState('')
+  const [currentFontSize, setCurrentFontSize] = useState('')
 
-  const emitChange = (html: string) => {
-    currentHtmlRef.current = html
-    onChange(html)
-  }
+  const extensions = useMemo(
+    () => [
+      StarterKit.configure({ heading: { levels: [2, 3] } }),
+      Underline,
+      Link.configure({ openOnClick: false, autolink: true }),
+      TextStyle,
+      FontFamily,
+      FontSize,
+      Color,
+      PreserveImage,
+      AudioNode,
+      VideoNode,
+      PreserveTable.configure({ resizable: false, HTMLAttributes: { style: 'width:100%;border-collapse:collapse;' } }),
+      PreserveTableRow,
+      PreserveTableCell,
+      PreserveTableHeader,
+    ],
+    [],
+  )
 
-  const rememberSelection = () => {
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) return
-    selectionRef.current = selection.getRangeAt(0)
-    // Read current font state at caret position
-    const fontName = document.queryCommandValue('fontName')
-    const fontSize = document.queryCommandValue('fontSize')
-    setCurrentFontFamily(fontName || '')
-    setCurrentFontSize(fontSize || '')
-  }
-
-  const restoreSelection = () => {
-    const range = selectionRef.current
-    if (!range) return
-    const selection = window.getSelection()
-    if (!selection) return
-    selection.removeAllRanges()
-    selection.addRange(range)
-  }
-
-  const updateSelectedMediaOverlay = (media: HTMLElement | null) => {
-    const root = editorRef.current
-    if (!root || !media || !root.contains(media)) {
-      setSelectedMediaOverlay(null)
-      return
-    }
-    const rootRect = root.getBoundingClientRect()
-    const mediaRect = media.getBoundingClientRect()
-    const overlaySize = 30
-    const padding = 8
-    const top = Math.max(
-      padding,
-      mediaRect.top - rootRect.top + root.scrollTop + padding,
-    )
-    const left = Math.max(
-      padding,
-      Math.min(
-        root.scrollWidth - overlaySize - padding,
-        mediaRect.right - rootRect.left + root.scrollLeft - overlaySize - padding,
-      ),
-    )
-    const title =
-      media.tagName === 'AUDIO'
-        ? 'Удалить аудио'
-        : media.tagName === 'VIDEO'
-          ? 'Удалить видео'
-          : 'Удалить изображение'
-    setSelectedMediaOverlay({ top, left, title })
-  }
-
-  const clearSelectedMediaState = () => {
-    lastMediaInEditorRef.current?.removeAttribute('data-media-selected')
-    lastMediaInEditorRef.current = null
-    pendingMediaSelectionRef.current = false
-    setSelectedMediaOverlay(null)
-  }
-
-  const selectMediaInEditor = (media: HTMLElement) => {
-    if (lastMediaInEditorRef.current && lastMediaInEditorRef.current !== media) {
-      lastMediaInEditorRef.current.removeAttribute('data-media-selected')
-    }
-    lastMediaInEditorRef.current = media
-    media.setAttribute('data-media-selected', 'true')
-    const r = document.createRange()
-    r.selectNode(media)
-    const sel = window.getSelection()
-    if (!sel) return
-    sel.removeAllRanges()
-    try {
-      sel.addRange(r)
-    } catch {
-      // ignore
-    }
-    try {
-      selectionRef.current = r.cloneRange()
-    } catch {
-      // ignore
-    }
-    updateSelectedMediaOverlay(media)
-  }
-
-  const rememberMediaFromEvent = (nativeEvent: Event, target: EventTarget | null): boolean => {
-    const root = editorRef.current
-    if (!root) return false
-    const media = resolveMediaFromEvent({ nativeEvent, root, target })
-    if (!media) return false
-    selectMediaInEditor(media)
-    return true
-  }
-
-  const getSelectedMedia = (): { el: HTMLElement; mediaId: string | null } | null => {
-    const root = editorRef.current
-    if (!root) return null
-    const sel = window.getSelection()
-    if (sel?.rangeCount) {
-      const a = sel.anchorNode
-      if (a) {
-        const p = a instanceof Element ? a : a.parentElement
-        const m = p?.closest('audio,img,video,source') as HTMLElement | null
-        if (m && root.contains(m)) {
-          const media = m.tagName === 'SOURCE' ? m.parentElement : m
-          if (media && (media.tagName === 'AUDIO' || media.tagName === 'VIDEO' || media.tagName === 'IMG')) {
-            return { el: media, mediaId: mediaIdForElement(media) }
-          }
+  const editor = useEditor({
+    extensions,
+    content: normalizeHtmlForEditor(value || ''),
+    editorProps: {
+      attributes: {
+        class: 'ilm-tiptap-editor',
+      },
+      handlePaste(_view, event) {
+        if (!onUploadFile) return false
+        const files = Array.from(event.clipboardData?.files || []).filter((file) => /^(image|audio|video)\//.test(file.type || ''))
+        if (files.length === 0) return false
+        event.preventDefault()
+        void uploadFilesToEditor(files)
+        return true
+      },
+      handleDrop(view, event) {
+        if (!onUploadFile) return false
+        const files = Array.from(event.dataTransfer?.files || []).filter((file) => /^(image|audio|video)\//.test(file.type || ''))
+        if (files.length === 0) return false
+        event.preventDefault()
+        setDraggingFileOverEditor(false)
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })
+        if (pos) {
+          view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos.pos)))
         }
-      }
+        void uploadFilesToEditor(files)
+        return true
+      },
+    },
+    onUpdate({ editor }) {
+      const next = editorHtmlForSave(editor)
+      currentHtmlRef.current = next
+      onChange(next)
+    },
+    onSelectionUpdate({ editor }) {
+      const attrs = editor.getAttributes('textStyle')
+      setCurrentFontFamily(attrs.fontFamily || '')
+      setCurrentFontSize(attrs.fontSize || '')
+    },
+  })
+
+  useEffect(() => {
+    if (!editor) return
+    const nextValue = value || ''
+    if (nextValue !== currentHtmlRef.current) {
+      editor.commands.setContent(normalizeHtmlForEditor(nextValue), { emitUpdate: false })
+      currentHtmlRef.current = nextValue
     }
-    const last = lastMediaInEditorRef.current
-    if (last && root.contains(last)) {
-      return { el: last, mediaId: mediaIdForElement(last) }
-    }
-    return null
+  }, [editor, value])
+
+  const emitCurrentHtml = () => {
+    if (!editor) return
+    const next = editorHtmlForSave(editor)
+    currentHtmlRef.current = next
+    onChange(next)
   }
 
-  const handleEditorPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (rememberMediaFromEvent(e.nativeEvent, e.target)) {
-      pendingMediaSelectionRef.current = false
-      return
-    }
-    if (pendingMediaSelectionRef.current) {
-      pendingMediaSelectionRef.current = false
-      return
-    }
-    clearSelectedMediaState()
-    rememberSelection()
-  }
-
-  const handleEditorPointerDownCapture = (e: ReactPointerEvent<HTMLDivElement>) => {
-    pendingMediaSelectionRef.current = rememberMediaFromEvent(e.nativeEvent, e.target)
-  }
-
-  const handleEditorClickCapture = (e: ReactMouseEvent<HTMLDivElement>) => {
-    void rememberMediaFromEvent(e.nativeEvent, e.target)
+  const askForUrl = (title: string) => {
+    const url = window.prompt(title)
+    return url?.trim() || ''
   }
 
   const insertHtmlAtCursor = (html: string) => {
-    const root = editorRef.current
-    if (!root) return
-    root.focus()
-    restoreSelection()
-    const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0) {
-      const wrap = document.createElement('div')
-      wrap.innerHTML = html
-      const frag = document.createDocumentFragment()
-      while (wrap.firstChild) frag.appendChild(wrap.firstChild)
-      root.appendChild(frag)
-      emitChange(root.innerHTML)
-      return
-    }
-
-    const range = sel.getRangeAt(0)
-    const inCell = isRangeInsideTableCell(range, root)
-
-    if (inCell) {
-      const tpl = document.createElement('template')
-      tpl.innerHTML = html.trim()
-      const frag = tpl.content
-      const lastBeforeInsert = frag.lastChild
-      try {
-        range.deleteContents()
-        range.insertNode(frag)
-        if (lastBeforeInsert) {
-          range.setStartAfter(lastBeforeInsert)
-          range.collapse(true)
-        }
-        sel.removeAllRanges()
-        sel.addRange(range)
-      } catch {
-        document.execCommand('insertHTML', false, html)
-      }
-    } else {
-      document.execCommand('insertHTML', false, html)
-    }
-
-    if (sel.rangeCount > 0) {
-      selectionRef.current = sel.getRangeAt(0).cloneRange()
-    }
-    emitChange(root.innerHTML)
+    editor?.chain().focus().insertContent(html).run()
   }
 
-  const askForUrl = (title: string): string | null => {
-    const url = window.prompt(title)
-    if (!url || !url.trim()) return null
-    return url.trim()
+  const uploadFileToEditor = async (file: File) => {
+    if (!editor || !onUploadFile) return
+    try {
+      setUploadingFileName(file.name)
+      const uploaded = await onUploadFile(file)
+      if (uploaded.type === 'audio') {
+        insertHtmlAtCursor(buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: isInAudioColumn(editor) }))
+      } else if (uploaded.type === 'video') {
+        insertHtmlAtCursor(
+          `<video data-media-id="${escapeHtmlAttr(uploaded.id)}" controls preload="metadata" style="max-width:100%;border-radius:8px;vertical-align:middle;" src="${escapeHtmlAttr(uploaded.url)}"><source src="${escapeHtmlAttr(uploaded.url)}" /></video>`,
+        )
+      } else {
+        insertHtmlAtCursor(
+          `<img data-media-id="${escapeHtmlAttr(uploaded.id)}" src="${escapeHtmlAttr(uploaded.url)}" alt="${escapeHtmlAttr(file.name)}" style="max-width:100%;height:auto;border-radius:8px;vertical-align:middle;" />`,
+        )
+      }
+    } catch (e: any) {
+      window.alert(e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить файл')
+    } finally {
+      setUploadingFileName('')
+    }
+  }
+
+  const uploadFilesToEditor = async (files: File[]) => {
+    for (const file of files) {
+      await uploadFileToEditor(file)
+    }
+  }
+
+  const pickAndUpload = (accept: string) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = accept
+    input.multiple = true
+    input.onchange = (event) => {
+      void uploadFilesToEditor(Array.from((event.target as HTMLInputElement).files || []))
+    }
+    input.click()
   }
 
   const insertTable = () => {
-    const rowsInput = window.prompt('Количество строк', '3')
-    const colsInput = window.prompt('Количество столбцов', '3')
-    const rows = Math.max(1, Math.min(20, Number(rowsInput || 0)))
-    const cols = Math.max(1, Math.min(10, Number(colsInput || 0)))
-    if (!rows || !cols) return
-
-    const body = Array.from({ length: rows })
-            .map(
-        () =>
-          `<tr>${Array.from({ length: cols })
-            .map(() => '<td style="border:1px solid #c9bcad;padding:10px 12px;">&nbsp;</td>')
-            .join('')}</tr>`,
-      )
-      .join('')
-
-    insertHtmlAtCursor(
-      `<div class="${ILM_RICHTEXT_TABLE_WRAP_CLASS}" style="${ILM_RICHTEXT_TABLE_WRAP_STYLE}">` +
-        `<table style="width:100%;border-collapse:collapse;"><tbody>${body}</tbody></table></div><p></p>`,
-    )
+    const rows = Math.max(1, Math.min(20, Number(window.prompt('Количество строк', '3') || 0)))
+    const cols = Math.max(1, Math.min(10, Number(window.prompt('Количество столбцов', '3') || 0)))
+    if (!editor || !rows || !cols) return
+    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: false }).run()
+    emitCurrentHtml()
   }
 
-  /** Two columns: text / labels + a narrow column for one audio per row. */
-  const insertTextAndAudioTable = () => {
-    const rowsInput = window.prompt('Количество строк (например, по одной на каждую огласовку)', '3')
-    const rows = Math.max(1, Math.min(20, Number(rowsInput || 0)))
+  const insertNumberedTable = () => {
+    const rows = Math.max(1, Math.min(30, Number(window.prompt('Количество нумерованных строк', '4') || 0)))
     if (!rows) return
+    const body = Array.from({ length: rows })
+      .map((_, idx) => `<tr><td style="width:56px;border:1px solid #c9bcad;padding:10px 8px;text-align:center;">${idx + 1}.</td><td style="border:1px solid #c9bcad;padding:10px 12px;">&nbsp;</td></tr>`)
+      .join('')
+    insertHtmlAtCursor(`<table style="width:100%;border-collapse:collapse;"><tbody>${body}</tbody></table><p></p>`)
+  }
 
+  const insertTextAndAudioTable = () => {
+    const rows = Math.max(1, Math.min(20, Number(window.prompt('Количество строк (например, по одной на каждую огласовку)', '3') || 0)))
+    if (!rows) return
     const body = Array.from({ length: rows })
       .map(
         () =>
@@ -524,303 +552,75 @@ export default function RichTextEditor({
           '</tr>',
       )
       .join('')
-
-    insertHtmlAtCursor(
-      `<div class="${ILM_RICHTEXT_TABLE_WRAP_CLASS}" style="${ILM_RICHTEXT_TABLE_WRAP_STYLE}">` +
-        '<table style="width:100%;border-collapse:collapse;table-layout:fixed;">' +
-        `<tbody>${body}</tbody></table></div><p></p>`,
-    )
+    insertHtmlAtCursor(`<table style="width:100%;border-collapse:collapse;table-layout:fixed;"><tbody>${body}</tbody></table><p></p>`)
   }
 
-  const insertNumberedTable = () => {
-    const rowsInput = window.prompt('Количество нумерованных строк', '4')
-    const rows = Math.max(1, Math.min(30, Number(rowsInput || 0)))
-    if (!rows) return
-
-    const body = Array.from({ length: rows })
-      .map(
-        (_, idx) =>
-          `<tr><td style="width:56px;border:1px solid #c9bcad;padding:10px 8px;text-align:center;">${idx + 1}.</td><td style="border:1px solid #c9bcad;padding:10px 12px;">&nbsp;</td></tr>`,
-      )
-      .join('')
-
-    insertHtmlAtCursor(
-      `<div class="${ILM_RICHTEXT_TABLE_WRAP_CLASS}" style="${ILM_RICHTEXT_TABLE_WRAP_STYLE}">` +
-        `<table style="width:100%;border-collapse:collapse;"><tbody>${body}</tbody></table></div><p></p>`,
-    )
-  }
-
-  const getCurrentRangeForInsertion = (): Range | null => {
-    const s0 = window.getSelection()
-    if (s0?.rangeCount) {
-      try {
-        return s0.getRangeAt(0).cloneRange()
-      } catch {
-        // fall through
-      }
-    }
-    if (selectionRef.current) {
-      try {
-        return selectionRef.current.cloneRange()
-      } catch {
-        return null
-      }
-    }
-    return null
-  }
-
-  const getCaretRangeFromPoint = (x: number, y: number): Range | null => {
-    const doc = document as Document & {
-      caretRangeFromPoint?: (x: number, y: number) => Range | null
-      caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
-    }
-    const legacyRange = doc.caretRangeFromPoint?.(x, y)
-    if (legacyRange) return legacyRange
-    const position = doc.caretPositionFromPoint?.(x, y)
-    if (!position) return null
-    const range = document.createRange()
-    range.setStart(position.offsetNode, position.offset)
-    range.collapse(true)
-    return range
-  }
-
-  const restoreInsertionRange = (range: Range | null) => {
-    if (!range) return
-    const sel = window.getSelection()
-    if (!sel) return
-    sel.removeAllRanges()
-    try {
-      sel.addRange(range)
-      selectionRef.current = range.cloneRange()
-    } catch {
-      // ignore invalid stale ranges
-    }
-  }
-
-  const uploadFileToEditor = async (file: File, rangeOverride?: Range | null) => {
-    if (!onUploadFile || !editorRef.current) return
-    const root = editorRef.current
-    root.focus()
-    if (rangeOverride) {
-      restoreInsertionRange(rangeOverride)
-    } else {
-      restoreSelection()
-    }
-    insertRangeRef.current = rangeOverride || getCurrentRangeForInsertion()
-    try {
-      setUploadingFileName(file.name)
-      const uploaded = await onUploadFile(file)
-      if (insertRangeRef.current) {
-        restoreInsertionRange(insertRangeRef.current)
-      }
-      const inTableCell = !!(
-        insertRangeRef.current && isRangeInsideTableCell(insertRangeRef.current, root)
-      )
-      const audioCompact = shouldUseCompactAudioForInsertion(root, insertRangeRef.current)
-      if (uploaded.type === 'audio') {
-        insertHtmlAtCursor(
-          buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: audioCompact }),
-        )
-        return
-      }
-      if (uploaded.type === 'video') {
-        const vStyle = inTableCell
-          ? 'max-width:min(100%,360px);max-height:200px;border-radius:8px;vertical-align:middle;display:inline-block;'
-          : 'max-width:100%;border-radius:8px;vertical-align:middle;'
-        insertHtmlAtCursor(
-          `<video data-media-id="${uploaded.id}" controls="" preload="metadata" style="${vStyle}"><source src="${uploaded.url}" /></video>`,
-        )
-        return
-      }
-      const iStyle = inTableCell
-        ? 'max-width:100%;height:auto;max-height:200px;border-radius:8px;vertical-align:middle;'
-        : 'max-width:100%;height:auto;border-radius:8px;vertical-align:middle;'
-      insertHtmlAtCursor(
-        `<img data-media-id="${uploaded.id}" src="${uploaded.url}" alt="${file.name}" style="${iStyle}" />`,
-      )
-    } catch (e: any) {
-      const message = e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить файл'
-      window.alert(message)
-    } finally {
-      insertRangeRef.current = null
-      setUploadingFileName('')
-    }
-  }
-
-  const uploadFilesToEditor = async (files: File[], rangeOverride?: Range | null) => {
-    for (const file of files) {
-      await uploadFileToEditor(file, rangeOverride)
-      rangeOverride = getCurrentRangeForInsertion()
-    }
-  }
-
-  const pickAndUpload = (accept: string) => {
-    if (!onUploadFile) return
+  const bulkUploadAudioToTable = () => {
+    if (!editor || !onUploadFile) return
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = accept
+    input.accept = 'audio/*'
     input.multiple = true
-    input.onchange = (event) => {
-      const files = Array.from((event.target as HTMLInputElement).files || [])
-      void uploadFilesToEditor(files)
+    input.onchange = async (event) => {
+      const files = Array.from((event.target as HTMLInputElement).files || []).filter((file) => file.type.startsWith('audio/'))
+      if (files.length === 0) return
+      const template = document.createElement('template')
+      template.innerHTML = editor.getHTML()
+      const cells = Array.from(template.content.querySelectorAll(`td.${ILM_RICHTEXT_AUDIO_TD_CLASS}`)) as HTMLTableCellElement[]
+      if (cells.length === 0) {
+        window.alert('Сначала вставьте таблицу «текст + аудио».')
+        return
+      }
+      try {
+        for (let i = 0; i < Math.min(files.length, cells.length); i += 1) {
+          setUploadingFileName(files[i].name)
+          const uploaded = await onUploadFile(files[i])
+          cells[i].innerHTML = buildAudioHtml({ url: uploaded.url, mediaId: uploaded.id, compact: true })
+        }
+        editor.commands.setContent(template.innerHTML, { emitUpdate: true })
+      } catch (e: any) {
+        window.alert(e?.response?.data?.message?.[0] || e?.message || 'Не удалось загрузить аудио')
+      } finally {
+        setUploadingFileName('')
+      }
     }
     input.click()
   }
 
   const removeCurrentMedia = async () => {
-    const root = editorRef.current
-    if (!root) return
-    const resolved = getSelectedMedia()
-    if (!resolved) {
-      window.alert(
-        'Кликните по аудио, видео или изображению в тексте, затем нажмите «Удалить выбранное медиа» на панели инструментов.',
-      )
+    if (!editor) return
+    const media = getSelectedMediaAttrs(editor)
+    if (!media) {
+      window.alert('Выберите аудио, видео или изображение в тексте, затем нажмите корзину.')
       return
     }
-    const { el: mediaEl, mediaId } = resolved
-    const tag = mediaEl.tagName
-    if (tag === 'AUDIO') {
-      if (!window.confirm('Удалить эту аудио-дорожку из текста? Файл будет откреплён от блока.')) {
-        return
-      }
-    } else if (tag === 'VIDEO') {
-      if (!window.confirm('Удалить это видео из текста?')) return
-    } else if (tag === 'IMG') {
-      if (!window.confirm('Удалить это изображение из текста?')) return
-    }
-    clearSelectedMediaState()
-    let removedAny = false
-    if (mediaId) {
-      const escaped = cssEscapeAttr(mediaId)
-      const linked = Array.from(root.querySelectorAll(`[data-media-id="${escaped}"]`)) as HTMLElement[]
-      for (const node of linked) {
-        const candidate =
-          node.tagName === 'SOURCE'
-            ? (node.parentElement as HTMLElement | null)
-            : node
-        if (candidate && (candidate.tagName === 'AUDIO' || candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG')) {
-          candidate.remove()
-          removedAny = true
-        } else {
-          node.remove()
-          removedAny = true
-        }
-      }
-    }
-    if (!removedAny) {
-      const removedFromHtml = removeMatchingMediaFromHtml(root.innerHTML, mediaEl)
-      if (removedFromHtml.removed) {
-        root.innerHTML = removedFromHtml.html
-        removedAny = true
-      }
-    }
-    if (!removedAny) {
-      mediaEl.remove()
-    }
-    const nextHtml = root.innerHTML
-    emitChange(nextHtml)
-    if (mediaId && onRemoveMedia) {
+    if (!window.confirm('Удалить выбранное медиа из текста?')) return
+    editor.chain().focus().deleteSelection().run()
+    if (media.mediaId && onRemoveMedia) {
       try {
-        await onRemoveMedia(mediaId)
+        await onRemoveMedia(media.mediaId)
       } catch (e: any) {
-        const message = e?.response?.data?.message?.[0] || e?.message || 'Не удалось удалить медиа'
-        window.alert(message)
+        window.alert(e?.response?.data?.message?.[0] || e?.message || 'Не удалось удалить медиа')
       }
     }
   }
 
   const resizeCurrentMedia = (direction: 'smaller' | 'larger') => {
-    if (!editorRef.current) return
-    const resolved = getSelectedMedia()
-    if (!resolved) {
-      window.alert(
-        'Кликните по изображению, видео или аудио в тексте, затем снова нажмите уменьшение или увеличение.',
-      )
+    if (!editor) return
+    const media = getSelectedMediaAttrs(editor)
+    if (!media) {
+      window.alert('Выберите изображение, видео или аудио в тексте, затем нажмите увеличение или уменьшение.')
       return
     }
-    const mediaEl = resolved.el
-
-    const current = Number(mediaEl.getAttribute('data-width-pct')) || 100
-    const step = 25
-    let next = direction === 'larger' ? current + step : current - step
-    next = Math.min(100, Math.max(25, next))
-
-    mediaEl.style.maxWidth = `${next}%`
-    mediaEl.style.height = 'auto'
-    mediaEl.setAttribute('data-width-pct', String(next))
-
-    if (editorRef.current) {
-      emitChange(editorRef.current.innerHTML)
-    }
+    const next = Math.min(100, Math.max(25, (media.widthPct || 100) + (direction === 'larger' ? 25 : -25)))
+    const style =
+      media.type === 'audio'
+        ? `width:${next}%;max-width:100%;min-height:40px;vertical-align:middle;border-radius:10px;`
+        : `max-width:${next}%;height:auto;border-radius:8px;vertical-align:middle;`
+    editor.chain().focus().updateAttributes(media.type, { widthPct: next, style }).run()
   }
 
-  useEffect(() => {
-    const el = editorRef.current
-    if (!el) return
-    const nextValue = value || ''
-    if (nextValue !== currentHtmlRef.current && el.innerHTML !== nextValue) {
-      el.innerHTML = nextValue
-      currentHtmlRef.current = nextValue
-    }
-    wrapBareTablesInContainer(el)
-  }, [value])
-
-  useEffect(() => {
-    const refreshOverlay = () => {
-      const media = lastMediaInEditorRef.current
-      if (!media || !editorRef.current?.contains(media)) {
-        setSelectedMediaOverlay(null)
-        return
-      }
-      updateSelectedMediaOverlay(media)
-    }
-
-    window.addEventListener('resize', refreshOverlay)
-    window.addEventListener('scroll', refreshOverlay, true)
-    return () => {
-      window.removeEventListener('resize', refreshOverlay)
-      window.removeEventListener('scroll', refreshOverlay, true)
-    }
-  }, [])
-
-  const handleEditorPaste = (e: ReactClipboardEvent<HTMLDivElement>) => {
-    if (!onUploadFile) return
-    const files = Array.from(e.clipboardData.files || []).filter((file) =>
-      /^(image|audio|video)\//.test(file.type || ''),
-    )
-    if (files.length === 0) return
-    e.preventDefault()
-    void uploadFilesToEditor(files, getCurrentRangeForInsertion())
-  }
-
-  const handleEditorDragOver = (e: ReactDragEvent<HTMLDivElement>) => {
-    if (!onUploadFile || e.dataTransfer.types?.includes('Files') !== true) return
-    e.preventDefault()
-    setDraggingFileOverEditor(true)
-  }
-
-  const handleEditorDragLeave = (e: ReactDragEvent<HTMLDivElement>) => {
-    if (!editorRef.current?.contains(e.relatedTarget as Node | null)) {
-      setDraggingFileOverEditor(false)
-    }
-  }
-
-  const handleEditorDrop = (e: ReactDragEvent<HTMLDivElement>) => {
-    if (!onUploadFile) return
-    const files = Array.from(e.dataTransfer.files || []).filter((file) =>
-      /^(image|audio|video)\//.test(file.type || ''),
-    )
-    if (files.length === 0) return
-    e.preventDefault()
-    setDraggingFileOverEditor(false)
-    const range = getCaretRangeFromPoint(e.clientX, e.clientY)
-    const root = editorRef.current
-    const safeRange =
-      range && root && root.contains(range.commonAncestorContainer)
-        ? range
-        : getCurrentRangeForInsertion()
-    void uploadFilesToEditor(files, safeRange)
-  }
+  if (!editor) return null
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
@@ -831,7 +631,7 @@ export default function RichTextEditor({
           p: 1,
           borderBottom: '1px solid',
           borderColor: 'divider',
-          backgroundColor: '#fafafa',
+          bgcolor: '#fafafa',
           flexWrap: 'wrap',
           position: 'sticky',
           top: 0,
@@ -839,109 +639,66 @@ export default function RichTextEditor({
         }}
       >
         <Tooltip title="Заголовок">
-          <IconButton size="small" onClick={() => toolbarAction('formatBlock', '<h2>')}>
+          <IconButton size="small" color={editor.isActive('heading') ? 'primary' : 'default'} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
             <Title fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Жирный">
-          <IconButton size="small" onClick={() => toolbarAction('bold')}>
+          <IconButton size="small" color={editor.isActive('bold') ? 'primary' : 'default'} onClick={() => editor.chain().focus().toggleBold().run()}>
             <FormatBold fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Курсив">
-          <IconButton size="small" onClick={() => toolbarAction('italic')}>
+          <IconButton size="small" color={editor.isActive('italic') ? 'primary' : 'default'} onClick={() => editor.chain().focus().toggleItalic().run()}>
             <FormatItalic fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Подчеркнутый">
-          <IconButton size="small" onClick={() => toolbarAction('underline')}>
+          <IconButton size="small" color={editor.isActive('underline') ? 'primary' : 'default'} onClick={() => editor.chain().focus().toggleUnderline().run()}>
             <FormatUnderlined fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Маркированный список">
-          <IconButton size="small" onClick={() => toolbarAction('insertUnorderedList')}>
+          <IconButton size="small" onClick={() => editor.chain().focus().toggleBulletList().run()}>
             <FormatListBulleted fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Нумерованный список">
-          <IconButton size="small" onClick={() => toolbarAction('insertOrderedList')}>
+          <IconButton size="small" onClick={() => editor.chain().focus().toggleOrderedList().run()}>
             <FormatListNumbered fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Ссылка">
           <IconButton
             size="small"
+            color={editor.isActive('link') ? 'primary' : 'default'}
             onClick={() => {
-              const url = window.prompt('Введите URL')
-              if (url?.trim()) toolbarAction('createLink', url.trim())
+              const url = askForUrl('Введите URL')
+              if (url) editor.chain().focus().setLink({ href: url }).run()
             }}
           >
             <LinkIcon fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title={onUploadFile ? 'Загрузить фото' : 'Фото по URL'}>
-          <IconButton
-            size="small"
-            onMouseUp={rememberSelection}
-            onClick={() => {
-              if (onUploadFile) {
-                pickAndUpload('image/*')
-              } else {
-                const url = askForUrl('Вставьте URL изображения')
-                if (!url) return
-                insertHtmlAtCursor(
-                  `<img src="${url}" alt="image" style="max-width:100%;height:auto;border-radius:8px;vertical-align:middle;" />`,
-                )
-              }
-            }}
-          >
+          <IconButton size="small" onClick={() => onUploadFile ? pickAndUpload('image/*') : insertHtmlAtCursor(`<img src="${escapeHtmlAttr(askForUrl('Вставьте URL изображения'))}" style="max-width:100%;height:auto;border-radius:8px;" />`)}>
             <ImageIcon fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title={onUploadFile ? 'Загрузить GIF' : 'GIF по URL'}>
-          <IconButton
-            size="small"
-            onMouseUp={rememberSelection}
-            onClick={() => {
-              if (onUploadFile) {
-                pickAndUpload('image/gif,image/*')
-              } else {
-                const url = askForUrl('Вставьте URL GIF')
-                if (!url) return
-                insertHtmlAtCursor(
-                  `<img src="${url}" alt="gif" style="max-width:100%;height:auto;border-radius:8px;vertical-align:middle;" />`,
-                )
-              }
-            }}
-          >
+          <IconButton size="small" onClick={() => onUploadFile ? pickAndUpload('image/gif,image/*') : insertHtmlAtCursor(`<img src="${escapeHtmlAttr(askForUrl('Вставьте URL GIF'))}" style="max-width:100%;height:auto;border-radius:8px;" />`)}>
             <GifBox fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip
-          title={
-            onUploadFile
-              ? 'Загрузить аудио. В таблице «текст+аудио» поставьте курсор в правую ячейку — вставится компактный плеер.'
-              : 'Аудио по URL. В колонке «аудио» — компактный плеер; в ячейке с текстом — полноширинный.'
-          }
-        >
+        <Tooltip title="Загрузить аудио или вставить URL">
           <IconButton
             size="small"
-            onMouseUp={rememberSelection}
             onClick={() => {
-              if (onUploadFile) {
-                pickAndUpload('audio/*')
-                return
+              if (onUploadFile) pickAndUpload('audio/*')
+              else {
+                const url = askForUrl('Вставьте URL аудио')
+                if (url) insertHtmlAtCursor(buildAudioHtml({ url, compact: isInAudioColumn(editor) }))
               }
-              editorRef.current?.focus()
-              restoreSelection()
-              const s = window.getSelection()
-              const compact =
-                s && s.rangeCount > 0 && editorRef.current
-                  ? shouldUseCompactAudioForInsertion(editorRef.current, s.getRangeAt(0))
-                  : false
-              const url = askForUrl('Вставьте URL аудио (mp3/ogg/m4a и т.д.)')
-              if (!url) return
-              insertHtmlAtCursor(buildAudioHtml({ url, compact }))
             }}
           >
             <Audiotrack fontSize="small" />
@@ -950,16 +707,14 @@ export default function RichTextEditor({
         <Tooltip title={onUploadFile ? 'Загрузить видео' : 'Видео по URL'}>
           <IconButton
             size="small"
-            onMouseUp={rememberSelection}
             onClick={() => {
               if (onUploadFile) {
                 pickAndUpload('video/*')
-              } else {
-                const url = askForUrl('Вставьте URL видео (mp4/webm и т.д.)')
-                if (!url) return
-                insertHtmlAtCursor(
-                  `<video controls preload="metadata" style="max-width:100%;border-radius:8px;vertical-align:middle;"><source src="${url}" /></video>`,
-                )
+                return
+              }
+              const url = askForUrl('Вставьте URL видео')
+              if (url) {
+                insertHtmlAtCursor(`<video controls preload="metadata" src="${escapeHtmlAttr(url)}" style="max-width:100%;border-radius:8px;"><source src="${escapeHtmlAttr(url)}" /></video>`)
               }
             }}
           >
@@ -967,99 +722,57 @@ export default function RichTextEditor({
           </IconButton>
         </Tooltip>
         <Tooltip title="Вставить таблицу">
-          <IconButton
-            size="small"
-            onMouseDown={rememberSelection}
-            onClick={insertTable}
-          >
+          <IconButton size="small" onClick={insertTable}>
             <TableChart fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="Вставить нумерованную таблицу">
-          <IconButton
-            size="small"
-            onMouseDown={rememberSelection}
-            onClick={insertNumberedTable}
-          >
+          <IconButton size="small" onClick={insertNumberedTable}>
             <LooksOne fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Таблица: колонка текста + колонка под аудио (по строке)">
-          <IconButton
-            size="small"
-            onMouseDown={rememberSelection}
-            onClick={insertTextAndAudioTable}
-          >
+        <Tooltip title="Таблица: колонка текста + колонка под аудио">
+          <IconButton size="small" onClick={insertTextAndAudioTable}>
             <ViewColumn fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Уменьшить выбранное медиа">
+        <Tooltip title="Bulk: загрузить аудио и привязать к строкам таблицы «текст + аудио»">
           <span>
-            <IconButton
-              size="small"
-              onClick={() => resizeCurrentMedia('smaller')}
-            >
-              <ZoomOutMap fontSize="small" />
+            <IconButton size="small" onClick={bulkUploadAudioToTable} disabled={!onUploadFile}>
+              <UploadFile fontSize="small" />
             </IconButton>
           </span>
+        </Tooltip>
+        <Tooltip title="Уменьшить выбранное медиа">
+          <IconButton size="small" onClick={() => resizeCurrentMedia('smaller')}>
+            <ZoomOutMap fontSize="small" />
+          </IconButton>
         </Tooltip>
         <Tooltip title="Увеличить выбранное медиа">
-          <span>
-            <IconButton
-              size="small"
-              onClick={() => resizeCurrentMedia('larger')}
-            >
-              <ZoomInMap fontSize="small" />
-            </IconButton>
-          </span>
+          <IconButton size="small" onClick={() => resizeCurrentMedia('larger')}>
+            <ZoomInMap fontSize="small" />
+          </IconButton>
         </Tooltip>
-        <Tooltip title="Удалить встроенное фото, аудио или видео: сначала кликните по нему в тексте, затем сюда. Для вставок по URL медиа только убирается из текста.">
-          <span>
-            <IconButton
-              size="small"
-              onClick={() => {
-                void removeCurrentMedia()
-              }}
-              color="error"
-            >
-              <DeleteOutline fontSize="small" />
-            </IconButton>
-          </span>
+        <Tooltip title="Удалить выбранное медиа">
+          <IconButton size="small" color="error" onClick={() => void removeCurrentMedia()}>
+            <DeleteOutline fontSize="small" />
+          </IconButton>
         </Tooltip>
         <Tooltip title="Очистить форматирование">
-          <IconButton size="small" onClick={() => toolbarAction('removeFormat')}>
+          <IconButton size="small" onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>
             <Clear fontSize="small" />
           </IconButton>
         </Tooltip>
 
-        {/* Font Family selector */}
         <Select
           size="small"
           value={currentFontFamily}
           displayEmpty
-          onMouseDown={rememberSelection}
           onChange={(e) => {
             const val = e.target.value as string
-            setCurrentFontFamily(val)
-            editorRef.current?.focus()
-            restoreSelection()
             const entry = FONT_FAMILIES.find((f) => f.value === val)
-            if (entry && entry.family) {
-              toolbarAction('styleWithCSS', 'true')
-              toolbarAction('fontName', entry.family)
-              // Apply font-weight on spans created by fontName command
-              const container = editorRef.current
-              if (container) {
-                const spans = container.querySelectorAll('span[style*="font-family"]')
-                spans.forEach((span: Element) => {
-                  const htmlSpan = span as HTMLElement
-                  if (htmlSpan.style.fontFamily.includes(entry.family)) {
-                    htmlSpan.style.fontWeight = entry.weight
-                  }
-                })
-              }
-            }
-            if (editorRef.current) emitChange(editorRef.current.innerHTML)
+            setCurrentFontFamily(val)
+            if (entry?.family) editor.chain().focus().setFontFamily(entry.family).run()
           }}
           sx={{ height: 32, minWidth: 170, fontSize: 13 }}
         >
@@ -1070,22 +783,14 @@ export default function RichTextEditor({
           ))}
         </Select>
 
-        {/* Font Size selector */}
         <Select
           size="small"
           value={currentFontSize}
           displayEmpty
-          onMouseDown={rememberSelection}
           onChange={(e) => {
-            const sz = e.target.value as string
-            setCurrentFontSize(sz)
-            editorRef.current?.focus()
-            restoreSelection()
-            if (sz) {
-              toolbarAction('styleWithCSS', 'true')
-              toolbarAction('fontSize', sz)
-            }
-            if (editorRef.current) emitChange(editorRef.current.innerHTML)
+            const size = e.target.value as string
+            setCurrentFontSize(size)
+            if (size) editor.chain().focus().setFontSize(size).run()
           }}
           sx={{ height: 32, width: 90, fontSize: 13 }}
         >
@@ -1098,18 +803,7 @@ export default function RichTextEditor({
       </Stack>
 
       {uploadingFileName ? (
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
-          sx={{
-            px: 1.5,
-            py: 1,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'action.hover',
-          }}
-        >
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ px: 1.5, py: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
           <CircularProgress size={16} />
           <Typography variant="caption" color="text.secondary" noWrap>
             Загрузка медиа: {uploadingFileName}
@@ -1117,65 +811,58 @@ export default function RichTextEditor({
         </Stack>
       ) : null}
 
-      <Box sx={{ position: 'relative' }}>
-        <Box
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          onPointerDownCapture={handleEditorPointerDownCapture}
-          onClickCapture={handleEditorClickCapture}
-          onPointerUp={handleEditorPointerUp}
-          onKeyUp={rememberSelection}
-          onPaste={handleEditorPaste}
-          onDragOver={handleEditorDragOver}
-          onDragLeave={handleEditorDragLeave}
-          onDrop={handleEditorDrop}
-          onInput={(e) => emitChange((e.target as HTMLDivElement).innerHTML)}
-          sx={{
+      <Box
+        sx={{
+          position: 'relative',
+          '& .ilm-tiptap-editor': {
             p: 2,
             minHeight,
             outline: 'none',
-            '&:empty:before': {
-              content: `"${placeholder}"`,
-              color: 'text.disabled',
-            },
-            '& h1, & h2, & h3': { margin: '8px 0' },
-            '& p': { margin: '6px 0' },
-            '& ul, & ol': { margin: '8px 0 8px 20px' },
-            '& a': { color: 'primary.main' },
-            '& [data-media-selected="true"]': {
-              outline: '2px solid #d14343',
-              outlineOffset: 2,
-            },
-            // WYSIWYG: do not draw a «card» border/shadow here — that looked like boxes around
-            // every block when tables/Word layout nest oddly. Rounded table shell + cell lines
-            // come from inline HTML; final look is in MobilePreview & app.
-            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS}`]: {
-              borderRadius: '14px',
-              overflow: 'hidden',
-              my: 1,
-              width: '100%',
-              maxWidth: '100%',
-              boxSizing: 'border-box',
-            },
-            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} table`]: {
-              width: '100%',
-              borderCollapse: 'collapse',
-              borderSpacing: 0,
-              margin: 0,
-            },
-            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} th`]: {
-              bgcolor: '#f0ebe4',
-              fontWeight: 600,
-            },
-            // Layout hints only; avoid heavy chrome that reads as extra «frames» on <audio>
-            [`& .${ILM_RICHTEXT_TABLE_WRAP_CLASS} .${ILM_RICHTEXT_AUDIO_TD_CLASS}`]: {
-              verticalAlign: 'middle',
-              textAlign: 'center',
-              whiteSpace: 'nowrap',
-            },
-          }}
-        />
+          },
+          '& .ilm-tiptap-editor h2, & .ilm-tiptap-editor h3': { margin: '8px 0' },
+          '& .ilm-tiptap-editor p': { margin: '6px 0' },
+          '& .ilm-tiptap-editor ul, & .ilm-tiptap-editor ol': { margin: '8px 0 8px 20px' },
+          '& .ilm-tiptap-editor a': { color: 'primary.main' },
+          '& .ilm-tiptap-editor table': {
+            width: '100%',
+            borderCollapse: 'collapse',
+            borderSpacing: 0,
+            margin: '8px 0',
+          },
+          '& .ilm-tiptap-editor td, & .ilm-tiptap-editor th': {
+            border: '1px solid #c9bcad',
+            padding: '10px 12px',
+            verticalAlign: 'middle',
+          },
+          [`& .ilm-tiptap-editor .${ILM_RICHTEXT_AUDIO_TD_CLASS}`]: {
+            textAlign: 'center',
+            whiteSpace: 'nowrap',
+            bgcolor: '#faf8f5',
+          },
+          '& .ilm-tiptap-editor img, & .ilm-tiptap-editor video': {
+            maxWidth: '100%',
+          },
+          '& .ilm-tiptap-editor .ProseMirror-selectednode, & [data-selected="true"]': {
+            outline: '2px solid #d14343',
+            outlineOffset: 2,
+          },
+        }}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('Files')) {
+            e.preventDefault()
+            setDraggingFileOverEditor(true)
+          }
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as globalThis.Node | null)) setDraggingFileOverEditor(false)
+        }}
+      >
+        <EditorContent editor={editor} />
+        {editor.isEmpty ? (
+          <Typography variant="body2" color="text.disabled" sx={{ position: 'absolute', top: 16, left: 16, pointerEvents: 'none' }}>
+            {placeholder}
+          </Typography>
+        ) : null}
         {draggingFileOverEditor ? (
           <Box
             sx={{
@@ -1197,39 +884,11 @@ export default function RichTextEditor({
             </Typography>
           </Box>
         ) : null}
-        {selectedMediaOverlay ? (
-          <Tooltip title={selectedMediaOverlay.title}>
-            <IconButton
-              size="small"
-              color="error"
-              onMouseDown={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-              }}
-              onClick={() => {
-                void removeCurrentMedia()
-              }}
-              sx={{
-                position: 'absolute',
-                top: selectedMediaOverlay.top,
-                left: selectedMediaOverlay.left,
-                zIndex: 2,
-                width: 30,
-                height: 30,
-                bgcolor: '#fff',
-                border: '1px solid',
-                borderColor: 'error.light',
-                boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
-                '&:hover': {
-                  bgcolor: '#fff4f4',
-                },
-              }}
-            >
-              <DeleteOutline fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        ) : null}
       </Box>
+
+      <Alert severity="info" sx={{ borderRadius: 0 }}>
+        Новый редактор работает на TipTap/ProseMirror. Можно перетаскивать медиа в текст, а bulk-аудио привяжет файлы к строкам таблицы «текст + аудио».
+      </Alert>
     </Paper>
   )
 }

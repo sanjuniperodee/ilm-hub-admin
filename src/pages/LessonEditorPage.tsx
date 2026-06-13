@@ -98,7 +98,7 @@ import {
   ImageWordMatchConfigEditor,
   getConfigTemplate,
 } from '../components/QuestionConfigEditors'
-import MobilePreview from '../components/MobilePreview'
+import MobilePreview, { MobilePreviewFrame, type MobilePreviewBlock } from '../components/MobilePreview'
 import GridBlockEditor, { newGridItemRow, type GridItemRow } from '../components/GridBlockEditor'
 import { wrapRichTextTables } from '../utils/wrapRichTextTables'
 import { editorMaxWidthSx, pageTitleH4Sx } from '../utils/responsivePageSx'
@@ -222,6 +222,17 @@ function getBlockDisplayTitle(block: StudioBlock) {
     stripHtml((block.contentRu?.html as string) || (block.contentRu?.text as string) || '').slice(0, 72) ||
     'Без заголовка'
   )
+}
+
+function formatDraftSavedAt(value: string) {
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function parseGridBlockForDraft(block: StudioBlock): {
@@ -569,6 +580,33 @@ function mapExerciseConfigToContent(config: any, type: BlockType): { contentRu: 
   }
 }
 
+type BlockDraft = {
+  id?: string
+  type: BlockType
+  orderIndex: number
+  titleRu: string
+  textRuHtml: string
+  titleKz: string
+  textKz: string
+  arabicWord: string
+  transcription: string
+  translationRu: string
+  translationKz: string
+  exerciseConfig?: any
+  messageRu?: string
+  messageKz?: string
+  summaryRu?: string
+  summaryKz?: string
+  nextActionRu?: string
+  nextActionKz?: string
+  nextActionButtonRu?: string
+  nextActionButtonKz?: string
+  gridItemRows: GridItemRow[]
+  gridColumnMode: '2' | '3' | '4' | 'auto'
+  gridShowCaption: boolean
+  gridInteractive: boolean
+}
+
 export default function LessonEditorPage() {
   const { lessonId, courseId: urlCourseId, moduleId: urlModuleId } = useParams<{
     lessonId: string
@@ -597,36 +635,16 @@ export default function LessonEditorPage() {
   const [newTestTitle, setNewTestTitle] = useState('')
   const [newTestPassing, setNewTestPassing] = useState(70)
   const [addQuestionMenuAnchor, setAddQuestionMenuAnchor] = useState<null | HTMLElement>(null)
-  const [previewBlock, setPreviewBlock] = useState<StudioBlock | null>(null)
+  const [previewBlock, setPreviewBlock] = useState<MobilePreviewBlock | null>(null)
   const [deleteBlockConfirm, setDeleteBlockConfirm] = useState<StudioBlock | null>(null)
   const [confirmLeaveBlockEditor, setConfirmLeaveBlockEditor] = useState(false)
+  const [availableDraft, setAvailableDraft] = useState<{
+    key: string
+    savedAt: string
+    draft: BlockDraft
+  } | null>(null)
 
-  const [blockDraft, setBlockDraft] = useState<{
-    id?: string
-    type: BlockType
-    orderIndex: number
-    titleRu: string
-    textRuHtml: string
-    titleKz: string
-    textKz: string
-    arabicWord: string
-    transcription: string
-    translationRu: string
-    translationKz: string
-    exerciseConfig?: any
-    messageRu?: string
-    messageKz?: string
-    summaryRu?: string
-    summaryKz?: string
-    nextActionRu?: string
-    nextActionKz?: string
-    nextActionButtonRu?: string
-    nextActionButtonKz?: string
-    gridItemRows: GridItemRow[]
-    gridColumnMode: '2' | '3' | '4' | 'auto'
-    gridShowCaption: boolean
-    gridInteractive: boolean
-  }>({
+  const [blockDraft, setBlockDraft] = useState<BlockDraft>({
     type: 'theory',
     orderIndex: 1,
     titleRu: '',
@@ -644,7 +662,12 @@ export default function LessonEditorPage() {
   })
   const [blockDraftBaseline, setBlockDraftBaseline] = useState('')
 
-  const snapshotBlockDraft = (draft: typeof blockDraft) => JSON.stringify(draft)
+  const snapshotBlockDraft = (draft: BlockDraft) => JSON.stringify(draft)
+
+  const blockDraftStorageKey = useMemo(
+    () => lessonId ? `ilmhub:lesson-block-draft:${lessonId}:${blockDraft.id || 'new'}` : '',
+    [lessonId, blockDraft.id],
+  )
 
   const hasUnsavedBlockChanges = useMemo(() => {
     if (!blockDraftBaseline) return false
@@ -756,6 +779,59 @@ export default function LessonEditorPage() {
     }
   }, [blockDraft, blockDraftBaseline])
 
+  useEffect(() => {
+    if (!blockDraftStorageKey || typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem(blockDraftStorageKey)
+      if (!raw) {
+        setAvailableDraft(null)
+        return
+      }
+      const parsed = JSON.parse(raw) as { savedAt?: string; draft?: BlockDraft }
+      if (!parsed?.draft) {
+        setAvailableDraft(null)
+        return
+      }
+      if (snapshotBlockDraft(parsed.draft) === snapshotBlockDraft(blockDraft)) {
+        setAvailableDraft(null)
+        return
+      }
+      setAvailableDraft({
+        key: blockDraftStorageKey,
+        savedAt: parsed.savedAt || '',
+        draft: parsed.draft,
+      })
+    } catch {
+      setAvailableDraft(null)
+    }
+  }, [blockDraftStorageKey])
+
+  useEffect(() => {
+    if (!blockDraftStorageKey || !blockDraftBaseline || typeof window === 'undefined') return
+    const timer = window.setTimeout(() => {
+      try {
+        if (!hasUnsavedBlockChanges) return
+        window.localStorage.setItem(
+          blockDraftStorageKey,
+          JSON.stringify({ savedAt: new Date().toISOString(), draft: blockDraft }),
+        )
+      } catch {
+        // localStorage may be unavailable; editing should continue.
+      }
+    }, 900)
+    return () => window.clearTimeout(timer)
+  }, [blockDraft, blockDraftBaseline, blockDraftStorageKey, hasUnsavedBlockChanges])
+
+  const clearBlockDraftStorage = (key = blockDraftStorageKey) => {
+    if (!key || typeof window === 'undefined') return
+    try {
+      window.localStorage.removeItem(key)
+    } catch {
+      // ignore
+    }
+    if (availableDraft?.key === key) setAvailableDraft(null)
+  }
+
   const saveLessonMeta = async () => {
     if (!lessonDraft?.id) return
     try {
@@ -779,8 +855,9 @@ export default function LessonEditorPage() {
   }
 
   const resetBlockDraft = () => {
+    clearBlockDraftStorage()
     const nextOrder = (blocks[blocks.length - 1]?.orderIndex || 0) + 1
-    const nextDraft: typeof blockDraft = {
+    const nextDraft: BlockDraft = {
       type: 'theory',
       orderIndex: nextOrder,
       titleRu: '',
@@ -815,7 +892,7 @@ export default function LessonEditorPage() {
     const isLessonComplete = block.type === 'lesson_complete'
     const isGridLike = block.type === 'grid' || block.type === 'element_grid'
     const gridDraft = isGridLike ? parseGridBlockForDraft(block) : null
-    const nextDraft: typeof blockDraft = {
+    const nextDraft: BlockDraft = {
       id: block.id,
       type: (isGridLike ? 'grid' : block.type) as BlockType,
       orderIndex: block.orderIndex,
@@ -987,6 +1064,17 @@ export default function LessonEditorPage() {
     return includeLessonId && lessonId ? { lessonId, ...basePayload } : basePayload
   }
 
+  const draftPreviewBlock = useMemo<MobilePreviewBlock>(() => {
+    const payload = buildBlockPayload(false, { allowDraftGridWithoutAudio: true }) as {
+      type?: string
+      contentRu?: Record<string, any>
+    }
+    return {
+      type: payload.type || blockDraft.type,
+      contentRu: payload.contentRu || {},
+    }
+  }, [blockDraft, mediaFiles])
+
   const ensureBlockIdForMedia = async (): Promise<string> => {
     let blockId = blockDraft.id
     if (!blockId && lessonId) {
@@ -1054,6 +1142,7 @@ export default function LessonEditorPage() {
       }
       await loadLessonAndContext()
       notifySuccess(blockDraft.id ? 'Блок обновлен' : 'Блок создан')
+      clearBlockDraftStorage()
       resetBlockDraft()
     } catch (e) {
       notifyError(e, 'Не удалось сохранить блок')
@@ -1450,7 +1539,7 @@ export default function LessonEditorPage() {
 
       {activeTab === 'blocks' && (
         <Grid container spacing={2} alignItems="flex-start">
-          <Grid item xs={12} md={4} lg={3}>
+          <Grid item xs={12} md={4} lg={2}>
           <Card
             variant="outlined"
             sx={{
@@ -1534,7 +1623,7 @@ export default function LessonEditorPage() {
           </Card>
           </Grid>
 
-          <Grid item xs={12} md={8} lg={9}>
+          <Grid item xs={12} md={8} lg={7}>
           <Card variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Stack
@@ -1559,6 +1648,32 @@ export default function LessonEditorPage() {
                     Сбросить выбор
                   </Button>
                 </Stack>
+                {availableDraft ? (
+                  <Alert
+                    severity="warning"
+                    sx={{ mb: 2 }}
+                    action={
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          size="small"
+                          color="inherit"
+                          onClick={() => {
+                            setBlockDraft(availableDraft.draft)
+                            setAvailableDraft(null)
+                          }}
+                        >
+                          Восстановить
+                        </Button>
+                        <Button size="small" color="inherit" onClick={() => clearBlockDraftStorage(availableDraft.key)}>
+                          Удалить
+                        </Button>
+                      </Stack>
+                    }
+                  >
+                    Найден автосохранённый черновик
+                    {availableDraft.savedAt ? ` от ${formatDraftSavedAt(availableDraft.savedAt)}` : ''}.
+                  </Alert>
+                ) : null}
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <FormControl fullWidth size="small">
@@ -1934,6 +2049,34 @@ export default function LessonEditorPage() {
                     </Stack>
                   </Grid>
                 </Grid>
+              </CardContent>
+          </Card>
+          </Grid>
+          <Grid item xs={12} lg={3}>
+            <Card
+              variant="outlined"
+              sx={{
+                borderRadius: 2,
+                position: { lg: 'sticky' },
+                top: { lg: 16 },
+                overflow: 'hidden',
+              }}
+            >
+              <CardContent sx={{ p: 1.5 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Live mobile preview
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Обновляется из текущей формы
+                    </Typography>
+                  </Box>
+                  <Button size="small" onClick={() => setPreviewBlock(draftPreviewBlock)}>
+                    Открыть
+                  </Button>
+                </Stack>
+                <MobilePreviewFrame block={draftPreviewBlock} maxFrameH={520} compact />
               </CardContent>
             </Card>
           </Grid>
