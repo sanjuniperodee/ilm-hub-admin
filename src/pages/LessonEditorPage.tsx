@@ -47,7 +47,6 @@ import {
   CheckCircle,
   RadioButtonUnchecked,
   QuizOutlined,
-  HelpOutline,
   SchoolOutlined,
   TuneOutlined,
   ViewListOutlined,
