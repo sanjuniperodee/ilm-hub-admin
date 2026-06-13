@@ -30,6 +30,9 @@ import {
   AccordionSummary,
   Menu,
   Paper,
+  Collapse,
+  Divider,
+  Tooltip,
 } from '@mui/material'
 import {
   Add,
@@ -38,8 +41,16 @@ import {
   DragIndicator,
   EditOutlined,
   ExpandMore,
+  ExpandLess,
   SaveOutlined,
   VisibilityOutlined,
+  CheckCircle,
+  RadioButtonUnchecked,
+  QuizOutlined,
+  HelpOutline,
+  SchoolOutlined,
+  TuneOutlined,
+  ViewListOutlined,
 } from '@mui/icons-material'
 import {
   createLessonBlock,
@@ -1419,7 +1430,7 @@ export default function LessonEditorPage() {
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ xs: 'flex-start', sm: 'center' }}
         spacing={1}
-        sx={{ mb: 1, gap: { xs: 0.5, sm: 0 } }}
+        sx={{ mb: 1.5, gap: { xs: 0.5, sm: 0 } }}
       >
         <Button startIcon={<ArrowBack />} onClick={backToContent} size="small" variant="text">
           К контенту
@@ -1432,20 +1443,83 @@ export default function LessonEditorPage() {
       {!!error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {!!success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-      <Typography variant="h4" sx={{ ...pageTitleH4Sx, mb: 2 }}>
-        {lesson.titleRu}
-      </Typography>
+      <Paper
+        variant="outlined"
+        sx={{
+          borderRadius: 3,
+          p: { xs: 2, md: 2.5 },
+          mb: 2.5,
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(129,140,248,0.03) 100%)',
+          borderColor: 'rgba(99,102,241,0.2)',
+        }}
+      >
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: 2,
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'primary.main',
+              bgcolor: 'rgba(99,102,241,0.1)',
+            }}
+          >
+            <SchoolOutlined />
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h5" sx={{ ...pageTitleH4Sx, mb: 0.25, fontSize: { xs: 20, md: 24 } }}>
+              {lesson.titleRu}
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+              <Chip size="small" icon={<ViewListOutlined sx={{ fontSize: '16px !important' }} />} label={`${blocks.length} блоков`} sx={{ height: 24 }} />
+              <Chip
+                size="small"
+                color={lessonTest ? 'success' : 'default'}
+                variant={lessonTest ? 'filled' : 'outlined'}
+                icon={<QuizOutlined sx={{ fontSize: '16px !important' }} />}
+                label={lessonTest ? `Тест: ${(lessonTest.questions || []).length} вопр.` : 'Тест не создан'}
+                sx={{ height: 24 }}
+              />
+              {lessonDraft.isPremium ? <Chip size="small" color="warning" label="Premium" sx={{ height: 24 }} /> : null}
+            </Stack>
+          </Box>
+        </Stack>
+      </Paper>
 
-      <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} variant="scrollable" scrollButtons="auto" sx={{ mb: 3, minHeight: 44 }}>
-        <Tab value="meta" label="Метаданные" />
-        <Tab value="blocks" label="Блоки" />
-        <Tab value="test" label="Тест урока" />
+      <Tabs
+        value={activeTab}
+        onChange={(_, v) => setActiveTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{
+          mb: 3,
+          minHeight: 48,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          '& .MuiTab-root': { minHeight: 48, fontWeight: 600, textTransform: 'none', fontSize: 15 },
+        }}
+      >
+        <Tab value="meta" iconPosition="start" icon={<TuneOutlined sx={{ fontSize: 20 }} />} label="Метаданные" />
+        <Tab value="blocks" iconPosition="start" icon={<ViewListOutlined sx={{ fontSize: 20 }} />} label="Блоки" />
+        <Tab value="test" iconPosition="start" icon={<QuizOutlined sx={{ fontSize: 20 }} />} label="Тест урока" />
       </Tabs>
 
       {activeTab === 'meta' && (
         <Card sx={{ borderRadius: 3 }}>
-          <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
-            <Grid container spacing={2}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+              <TuneOutlined fontSize="small" color="primary" />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Размещение и описание
+              </Typography>
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+              Укажите, к какому курсу и модулю относится урок, и заполните основную информацию.
+            </Typography>
+            <Grid container spacing={2.5}>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Курс</InputLabel>
@@ -1478,6 +1552,7 @@ export default function LessonEditorPage() {
               <Grid item xs={12} md={8}>
                 <TextField
                   fullWidth
+                  size="small"
                   label="Название урока (RU)"
                   value={lessonDraft.titleRu || ''}
                   onChange={(e) => setLessonDraft((p) => ({ ...p, titleRu: e.target.value }))}
@@ -1486,8 +1561,10 @@ export default function LessonEditorPage() {
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
+                  size="small"
                   type="number"
                   label="Порядок"
+                  helperText="Позиция урока в списке"
                   value={lessonDraft.orderIndex ?? 0}
                   onChange={(e) => setLessonDraft((p) => ({ ...p, orderIndex: Number(e.target.value) || 0 }))}
                 />
@@ -1495,6 +1572,7 @@ export default function LessonEditorPage() {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
+                  size="small"
                   multiline
                   minRows={3}
                   label="Описание урока (RU)"
@@ -1505,36 +1583,65 @@ export default function LessonEditorPage() {
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
+                  size="small"
                   type="number"
                   label="Длительность (мин)"
                   value={lessonDraft.estimatedMinutes ?? 10}
                   onChange={(e) => setLessonDraft((p) => ({ ...p, estimatedMinutes: Number(e.target.value) || 10 }))}
                 />
               </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={!!lessonDraft.isPremium}
-                      onChange={(e) => setLessonDraft((p) => ({ ...p, isPremium: e.target.checked }))}
-                    />
-                  }
-                  label="Premium урок"
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={!!lessonDraft.isTest}
-                      onChange={(e) => setLessonDraft((p) => ({ ...p, isTest: e.target.checked }))}
-                    />
-                  }
-                  label="Тестовый урок"
-                />
+              <Grid item xs={12}>
+                <Divider sx={{ my: 0.5 }} />
               </Grid>
               <Grid item xs={12}>
-                <Button variant="contained" startIcon={<SaveOutlined />} onClick={saveLessonMeta}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Параметры доступа
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                  <Paper
+                    variant="outlined"
+                    sx={{ borderRadius: 2, px: 2, py: 1, flex: 1, borderColor: lessonDraft.isPremium ? 'warning.main' : 'divider' }}
+                  >
+                    <FormControlLabel
+                      sx={{ m: 0, width: '100%' }}
+                      control={
+                        <Switch
+                          checked={!!lessonDraft.isPremium}
+                          onChange={(e) => setLessonDraft((p) => ({ ...p, isPremium: e.target.checked }))}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>Premium урок</Typography>
+                          <Typography variant="caption" color="text.secondary">Доступен только по подписке</Typography>
+                        </Box>
+                      }
+                    />
+                  </Paper>
+                  <Paper
+                    variant="outlined"
+                    sx={{ borderRadius: 2, px: 2, py: 1, flex: 1, borderColor: lessonDraft.isTest ? 'primary.main' : 'divider' }}
+                  >
+                    <FormControlLabel
+                      sx={{ m: 0, width: '100%' }}
+                      control={
+                        <Switch
+                          checked={!!lessonDraft.isTest}
+                          onChange={(e) => setLessonDraft((p) => ({ ...p, isTest: e.target.checked }))}
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>Тестовый урок</Typography>
+                          <Typography variant="caption" color="text.secondary">Урок-проверка знаний</Typography>
+                        </Box>
+                      }
+                    />
+                  </Paper>
+                </Stack>
+              </Grid>
+              <Grid item xs={12}>
+                <Button variant="contained" size="large" startIcon={<SaveOutlined />} onClick={saveLessonMeta} sx={{ width: { xs: '100%', sm: 'auto' } }}>
                   Сохранить урок
                 </Button>
               </Grid>
@@ -1560,15 +1667,18 @@ export default function LessonEditorPage() {
           >
             <CardContent sx={{ p: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    Блоки урока
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {blocks.length ? `${blocks.length} блоков` : 'Пока пусто'}
-                  </Typography>
-                </Box>
-                <Button size="small" onClick={resetBlockDraft} startIcon={<Add />}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <ViewListOutlined fontSize="small" color="primary" />
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                      Блоки урока
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {blocks.length ? `${blocks.length} блоков · перетащите для сортировки` : 'Пока пусто'}
+                    </Typography>
+                  </Box>
+                </Stack>
+                <Button size="small" variant="contained" onClick={resetBlockDraft} startIcon={<Add />} sx={{ width: { xs: '100%', sm: 'auto' } }}>
                   Новый
                 </Button>
               </Stack>
@@ -1621,9 +1731,15 @@ export default function LessonEditorPage() {
                   </Paper>
                 ))}
                 {blocks.length === 0 && (
-                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                    Блоки не созданы.
-                  </Typography>
+                  <Stack alignItems="center" spacing={1} sx={{ py: 4, px: 2, textAlign: 'center' }}>
+                    <ViewListOutlined sx={{ fontSize: 36, color: 'text.disabled' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Блоки ещё не созданы
+                    </Typography>
+                    <Button size="small" variant="outlined" startIcon={<Add />} onClick={resetBlockDraft}>
+                      Создать первый блок
+                    </Button>
+                  </Stack>
                 )}
               </Stack>
             </CardContent>
@@ -2099,30 +2215,51 @@ export default function LessonEditorPage() {
         <Box>
           {!lessonTest ? (
             <Card sx={{ borderRadius: 3, minWidth: 0 }}>
-              <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>
-                  Для этого урока тест ещё не создан
-                </Typography>
-                <Grid container spacing={2}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 }, minWidth: 0 }}>
+                <Stack alignItems="center" spacing={1} sx={{ mb: 3, textAlign: 'center' }}>
+                  <Box
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'primary.main',
+                      bgcolor: 'rgba(99,102,241,0.1)',
+                    }}
+                  >
+                    <QuizOutlined sx={{ fontSize: 28 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    Тест для этого урока ещё не создан
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 420 }}>
+                    Задайте название и проходной балл — после создания вы сможете добавлять вопросы и медиа.
+                  </Typography>
+                </Stack>
+                <Grid container spacing={2} sx={{ maxWidth: 640, mx: 'auto' }}>
                   <Grid item xs={12} md={8}>
                     <TextField
                       fullWidth
+                      size="small"
                       label="Название теста (RU)"
                       value={newTestTitle}
                       onChange={(e) => setNewTestTitle(e.target.value)}
                     />
                   </Grid>
-                  <Grid item xs={12} md={2}>
+                  <Grid item xs={6} md={2}>
                     <TextField
                       fullWidth
+                      size="small"
                       type="number"
                       label="Проходной %"
                       value={newTestPassing}
                       onChange={(e) => setNewTestPassing(Number(e.target.value) || 70)}
                     />
                   </Grid>
-                  <Grid item xs={12} md={2}>
-                    <Button fullWidth variant="contained" onClick={createLessonTest}>
+                  <Grid item xs={6} md={2}>
+                    <Button fullWidth variant="contained" startIcon={<Add />} onClick={createLessonTest} sx={{ height: 40 }}>
                       Создать
                     </Button>
                   </Grid>
@@ -2186,18 +2323,29 @@ export default function LessonEditorPage() {
 
               <Card variant="outlined" sx={{ borderRadius: 3, minWidth: 0 }}>
                 <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 }, minWidth: 0 }}>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                      Вопросы и ответы
-                    </Typography>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 2, gap: 1 }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <QuizOutlined fontSize="small" color="primary" />
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                          Вопросы и ответы
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {(lessonTest.questions || []).length
+                            ? `${(lessonTest.questions || []).length} вопросов в тесте`
+                            : 'Добавьте первый вопрос'}
+                        </Typography>
+                      </Box>
+                    </Stack>
                     <>
                       <Button
                         size="small"
                         variant="contained"
+                        startIcon={<Add />}
                         onClick={(e) => setAddQuestionMenuAnchor(e.currentTarget)}
                         sx={{ width: { xs: '100%', sm: 'auto' } }}
                       >
-                        + Добавить вопрос
+                        Добавить вопрос
                       </Button>
                       <Menu
                         anchorEl={addQuestionMenuAnchor}
@@ -2222,9 +2370,10 @@ export default function LessonEditorPage() {
                     </>
                   </Stack>
                   <Stack spacing={2}>
-                    {(lessonTest.questions || []).map((q: any) => (
+                    {(lessonTest.questions || []).map((q: any, idx: number) => (
                       <TestQuestionCard
                         key={q.id}
+                        index={idx}
                         question={q}
                         onSave={saveQuestion}
                         onDelete={() => removeQuestion(q.id)}
@@ -2297,6 +2446,7 @@ export default function LessonEditorPage() {
 }
 
 function TestQuestionCard({
+  index,
   question,
   onSave,
   onDelete,
@@ -2304,6 +2454,7 @@ function TestQuestionCard({
   onSaveAnswer,
   onDeleteAnswer,
 }: {
+  index: number
   question: any
   onSave: (q: any) => void
   onDelete: () => void
@@ -2314,6 +2465,11 @@ function TestQuestionCard({
   const [q, setQ] = useState<any>(question)
   const [configText, setConfigText] = useState(JSON.stringify(question.config || {}, null, 2))
   const [questionMediaFiles, setQuestionMediaFiles] = useState<any[]>([])
+  const [expanded, setExpanded] = useState(false)
+
+  const typeLabel = QUESTION_TYPES.find((t) => t.type === (q.type || 'multiple_choice'))?.shortLabel || 'Вопрос'
+  const answerCount = (q.answers || []).length
+  const correctCount = (q.answers || []).filter((a: any) => a.isCorrect).length
 
   const QUESTION_MEDIA_TYPES = [
     'match_pairs', 'audio_multiple_choice', 'image_word_match',
@@ -2373,8 +2529,72 @@ function TestQuestionCard({
   }
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: 2, minWidth: 0 }}>
-      <CardContent sx={{ p: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
+    <Card
+      variant="outlined"
+      sx={{
+        borderRadius: 2,
+        minWidth: 0,
+        overflow: 'hidden',
+        borderColor: expanded ? 'primary.main' : 'divider',
+        transition: 'border-color 120ms ease',
+      }}
+    >
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={1}
+        onClick={() => setExpanded((v) => !v)}
+        sx={{
+          p: { xs: 1.25, sm: 1.5 },
+          cursor: 'pointer',
+          bgcolor: expanded ? 'rgba(99,102,241,0.04)' : 'transparent',
+          '&:hover': { bgcolor: 'rgba(99,102,241,0.04)' },
+        }}
+      >
+        <Box
+          sx={{
+            width: 28,
+            height: 28,
+            borderRadius: 1.5,
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 13,
+            fontWeight: 700,
+            color: 'primary.main',
+            bgcolor: 'rgba(99,102,241,0.1)',
+          }}
+        >
+          {index + 1}
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+            {q.questionRu?.text || 'Без текста вопроса'}
+          </Typography>
+          <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap" sx={{ mt: 0.25 }}>
+            <Chip size="small" variant="outlined" color="primary" label={typeLabel} sx={{ height: 20 }} />
+            {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
+              <Chip
+                size="small"
+                variant="outlined"
+                color={correctCount ? 'success' : 'default'}
+                label={`${answerCount} отв. · ${correctCount} верн.`}
+                sx={{ height: 20 }}
+              />
+            )}
+          </Stack>
+        </Box>
+        <Tooltip title="Удалить вопрос">
+          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); onDelete() }}>
+            <DeleteOutline fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <IconButton size="small">{expanded ? <ExpandLess /> : <ExpandMore />}</IconButton>
+      </Stack>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <Divider />
+        <CardContent sx={{ p: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
         <Grid container spacing={{ xs: 1.25, sm: 1.5 }}>
           <Grid item xs={12} md={2}>
             <FormControl fullWidth size="small">
@@ -2481,6 +2701,7 @@ function TestQuestionCard({
             </Accordion>
           </Grid>
           <Grid item xs={12}>
+            <Divider sx={{ mb: 1.5 }} />
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               spacing={1}
@@ -2490,22 +2711,27 @@ function TestQuestionCard({
                 '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } },
               }}
             >
-              <Button variant="contained" size="small" onClick={() => onSave(q)}>Сохранить</Button>
+              <Button variant="contained" size="small" startIcon={<SaveOutlined />} onClick={() => onSave(q)}>Сохранить вопрос</Button>
               {(q.type === 'multiple_choice' || q.type === 'single_choice') && (
-                <Button variant="outlined" size="small" onClick={onAddAnswer}>Добавить ответ</Button>
+                <Button variant="outlined" size="small" startIcon={<Add />} onClick={onAddAnswer}>Добавить ответ</Button>
               )}
-              <Button variant="outlined" color="error" size="small" onClick={onDelete}>Удалить</Button>
             </Stack>
           </Grid>
-          <Grid item xs={12}>
-            <Stack spacing={1}>
-              {(q.answers || []).map((a: any) => (
-                <TestAnswerRow key={a.id} answer={a} onSave={onSaveAnswer} onDelete={onDeleteAnswer} />
-              ))}
-            </Stack>
-          </Grid>
+          {(q.answers || []).length > 0 && (
+            <Grid item xs={12}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Варианты ответов
+              </Typography>
+              <Stack spacing={1} sx={{ mt: 1 }}>
+                {(q.answers || []).map((a: any) => (
+                  <TestAnswerRow key={a.id} answer={a} onSave={onSaveAnswer} onDelete={onDeleteAnswer} />
+                ))}
+              </Stack>
+            </Grid>
+          )}
         </Grid>
-      </CardContent>
+        </CardContent>
+      </Collapse>
     </Card>
   )
 }
@@ -2526,19 +2752,41 @@ function TestAnswerRow({
   }, [answer])
 
   return (
-    <Card variant="outlined" sx={{ borderRadius: 1.5, minWidth: 0 }}>
+    <Card
+      variant="outlined"
+      sx={{
+        borderRadius: 1.5,
+        minWidth: 0,
+        borderColor: a.isCorrect ? 'success.main' : 'divider',
+        borderLeft: '4px solid',
+        borderLeftColor: a.isCorrect ? 'success.main' : 'divider',
+        bgcolor: a.isCorrect ? 'rgba(16,185,129,0.04)' : 'background.paper',
+        transition: 'border-color 120ms ease, background-color 120ms ease',
+      }}
+    >
       <CardContent sx={{ p: { xs: 1, sm: 1.5 }, '&:last-child': { pb: { xs: 1, sm: 1.5 } } }}>
         <Grid container spacing={{ xs: 1, sm: 1.25 }} alignItems="center">
-          <Grid item xs={12} md={7}>
+          <Grid item xs="auto">
+            <Tooltip title={a.isCorrect ? 'Правильный ответ' : 'Отметить правильным'}>
+              <IconButton
+                size="small"
+                color={a.isCorrect ? 'success' : 'default'}
+                onClick={() => setA({ ...a, isCorrect: !a.isCorrect })}
+              >
+                {a.isCorrect ? <CheckCircle fontSize="small" /> : <RadioButtonUnchecked fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          </Grid>
+          <Grid item xs>
             <TextField
               fullWidth
               size="small"
-              label="Ответ"
+              placeholder="Текст ответа"
               value={a.answerRu || ''}
               onChange={(e) => setA({ ...a, answerRu: e.target.value })}
             />
           </Grid>
-          <Grid item xs={12} md={2}>
+          <Grid item xs={4} sm={2}>
             <TextField
               fullWidth
               size="small"
@@ -2548,24 +2796,18 @@ function TestAnswerRow({
               onChange={(e) => setA({ ...a, orderIndex: Number(e.target.value) || 1 })}
             />
           </Grid>
-          <Grid item xs={12} md={1.5}>
-            <FormControlLabel
-              control={<Switch checked={!!a.isCorrect} onChange={(e) => setA({ ...a, isCorrect: e.target.checked })} />}
-              label="Верно"
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Stack
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={0.5}
-              sx={{
-                flexWrap: 'wrap',
-                gap: 1,
-                '& .MuiButton-root': { width: { xs: '100%', sm: 'auto' } },
-              }}
-            >
-              <Button size="small" variant="contained" onClick={() => onSave(a)}>Сохранить</Button>
-              <Button size="small" color="error" variant="outlined" onClick={() => onDelete(a.id)}>Удалить</Button>
+          <Grid item xs="auto">
+            <Stack direction="row" spacing={0.5}>
+              <Tooltip title="Сохранить ответ">
+                <IconButton size="small" color="primary" onClick={() => onSave(a)}>
+                  <SaveOutlined fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Удалить ответ">
+                <IconButton size="small" color="error" onClick={() => onDelete(a.id)}>
+                  <DeleteOutline fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Stack>
           </Grid>
         </Grid>
