@@ -899,20 +899,8 @@ export default function LessonEditorPage() {
     }
     setBlockDraft(nextDraft)
     setBlockDraftBaseline(snapshotBlockDraft(nextDraft))
-    if (
-      block.type === 'illustration' ||
-      block.type === 'audio_multiple_choice' ||
-      block.type === 'listen_repeat' ||
-      block.type === 'image_word_match' ||
-      block.type === 'match_pairs' ||
-      block.type === 'grid' ||
-      block.type === 'element_grid'
-    ) {
-      setMediaFiles([])
-      void loadBlockMedia(block.id)
-    } else {
-      setMediaFiles([])
-    }
+    setMediaFiles([])
+    void loadBlockMedia(block.id)
   }
 
   const handleBackFromBlockEditor = () => {
@@ -1076,10 +1064,49 @@ export default function LessonEditorPage() {
     return blockId
   }
 
+  const refreshHtmlWithMedia = (html: string | undefined, media: any[]) => {
+    if (!html || media.length === 0) return html || ''
+    const template = document.createElement('template')
+    template.innerHTML = html
+    media.forEach((m) => {
+      const els = template.content.querySelectorAll(`[data-media-id="${m.id}"]`)
+      els.forEach((el) => {
+        if (['IMG', 'AUDIO', 'VIDEO', 'SOURCE'].includes(el.tagName)) el.setAttribute('src', m.url)
+      })
+      if (m.url) {
+        const baseUrl = m.url.split('?')[0]
+        if (baseUrl) {
+          const allEls = template.content.querySelectorAll('img, audio, video, source')
+          allEls.forEach((el) => {
+            const src = el.getAttribute('src')
+            if (src && src.startsWith(baseUrl)) {
+              el.setAttribute('src', m.url)
+              el.setAttribute('data-media-id', m.id)
+            }
+          })
+        }
+      }
+    })
+    return template.innerHTML
+  }
+
   const loadBlockMedia = async (blockId: string) => {
     try {
       const { data } = await getBlockMedia(blockId)
-      setMediaFiles(Array.isArray(data) ? data : [])
+      const media = Array.isArray(data) ? data : []
+      setMediaFiles(media)
+      if (media.length > 0) {
+        setBlockDraft((prev) => {
+          if (prev.id !== blockId) return prev
+          const updated = {
+            ...prev,
+            textRuHtml: refreshHtmlWithMedia(prev.textRuHtml, media),
+            textKz: refreshHtmlWithMedia(prev.textKz, media),
+          }
+          setBlockDraftBaseline(snapshotBlockDraft(updated))
+          return updated
+        })
+      }
     } catch (e) {
       console.error('Failed to load block media', e)
     }
