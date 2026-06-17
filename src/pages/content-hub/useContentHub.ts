@@ -38,14 +38,54 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
   };
 
   const loadCourses = async () => {
-    const { data } = await getCourses();
-    const mapped = (Array.isArray(data) ? data : []).map((c: any) => ({
+    const [coursesRes, modulesRes, lessonsRes] = await Promise.all([
+      getCourses(),
+      getModules(),
+      getLessons()
+    ]);
+    const coursesData = Array.isArray(coursesRes.data) ? coursesRes.data : [];
+    const modulesData = Array.isArray(modulesRes.data) ? modulesRes.data : [];
+    const lessonsData = Array.isArray(lessonsRes.data) ? lessonsRes.data : [];
+
+    const mapped = coursesData.map((c: any) => ({
       id: c.id,
       code: c.code,
       titleRu: c.titleRu,
       orderIndex: c.orderIndex ?? 0,
     }));
     setCourses(mapped.sort((a, b) => a.orderIndex - b.orderIndex));
+
+    const newMods: Record<string, HubModule[]> = {};
+    const newLess: Record<string, HubLesson[]> = {};
+
+    mapped.forEach((c: any) => {
+      newMods[c.id] = [];
+      newLess[c.id] = [];
+    });
+
+    modulesData.forEach((m: any) => {
+      if (!newMods[m.courseId]) newMods[m.courseId] = [];
+      newMods[m.courseId].push({
+        id: m.id,
+        courseId: m.courseId,
+        titleRu: m.titleRu,
+        orderIndex: m.orderIndex ?? 0,
+      });
+    });
+
+    lessonsData.forEach((l: any) => {
+      if (!newLess[l.courseId]) newLess[l.courseId] = [];
+      newLess[l.courseId].push({
+        id: l.id,
+        courseId: l.courseId,
+        moduleId: l.moduleId ?? undefined,
+        titleRu: l.titleRu,
+        orderIndex: l.orderIndex ?? 0,
+      });
+    });
+
+    setModulesByCourse(newMods);
+    setLessonsByCourse(newLess);
   };
 
   const loadHierarchy = async (cid: string) => {
