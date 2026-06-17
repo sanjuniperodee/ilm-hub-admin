@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Alert,
@@ -474,9 +474,48 @@ export default function ContentHubPage() {
   const [newModule, setNewModule] = useState({ titleRu: '', orderIndex: 0, descriptionRu: '' })
   const [newLesson, setNewLesson] = useState({ titleRu: '', orderIndex: 0, descriptionRu: '', estimatedMinutes: 10 })
 
-  const moduleListForContextCourse = (modulesByCourse[contextCourseId] || []).sort(
-    (a, b) => a.orderIndex - b.orderIndex,
-  )
+  const sortedModulesByCourse = useMemo(() => {
+    return Object.fromEntries(
+      Object.entries(modulesByCourse).map(([courseId, modules]) => [
+        courseId,
+        [...modules].sort((a, b) => a.orderIndex - b.orderIndex),
+      ]),
+    ) as Record<string, HubModule[]>
+  }, [modulesByCourse])
+
+  const sortedLessonsByCourse = useMemo(() => {
+    return Object.fromEntries(
+      Object.entries(lessonsByCourse).map(([courseId, lessons]) => [
+        courseId,
+        [...lessons].sort((a, b) => a.orderIndex - b.orderIndex),
+      ]),
+    ) as Record<string, HubLesson[]>
+  }, [lessonsByCourse])
+
+  const lessonGroupsByCourse = useMemo(() => {
+    const grouped: Record<string, { byModule: Record<string, HubLesson[]>; loose: HubLesson[] }> = {}
+
+    Object.entries(sortedLessonsByCourse).forEach(([courseId, lessons]) => {
+      const byModule: Record<string, HubLesson[]> = {}
+      const loose: HubLesson[] = []
+
+      lessons.forEach((lesson) => {
+        if (!lesson.moduleId) {
+          loose.push(lesson)
+          return
+        }
+
+        if (!byModule[lesson.moduleId]) byModule[lesson.moduleId] = []
+        byModule[lesson.moduleId].push(lesson)
+      })
+
+      grouped[courseId] = { byModule, loose }
+    })
+
+    return grouped
+  }, [sortedLessonsByCourse])
+
+  const moduleListForContextCourse = sortedModulesByCourse[contextCourseId] || []
 
   const notifyError = (e: any, fallback: string) => {
     const msg = e?.response?.data?.message?.[0] || e?.message || fallback
@@ -504,7 +543,7 @@ export default function ContentHubPage() {
 
     if (activeData.type === 'module' && activeData.courseId) {
       const courseId = String(activeData.courseId)
-      const mods = (modulesByCourse[courseId] || []).sort((a, b) => a.orderIndex - b.orderIndex)
+      const mods = sortedModulesByCourse[courseId] || []
       const oldIndex = mods.findIndex((m) => m.id === active.id)
       const newIndex = mods.findIndex((m) => m.id === over.id)
       if (oldIndex === -1 || newIndex === -1) return
@@ -522,9 +561,7 @@ export default function ContentHubPage() {
     } else if (activeData.type === 'lesson' && activeData.moduleId && activeData.courseId) {
       const courseId = String(activeData.courseId)
       const moduleId = String(activeData.moduleId)
-      const les = (lessonsByCourse[courseId] || [])
-        .filter((l) => l.moduleId === moduleId)
-        .sort((a, b) => a.orderIndex - b.orderIndex)
+      const les = lessonGroupsByCourse[courseId]?.byModule[moduleId] || []
       const oldIndex = les.findIndex((l) => l.id === active.id)
       const newIndex = les.findIndex((l) => l.id === over.id)
       if (oldIndex === -1 || newIndex === -1) return
@@ -1040,8 +1077,10 @@ export default function ContentHubPage() {
           ) : (
             courses.map((c) => {
                 const courseExpanded = expandedCourses.has(c.id)
-                const mods = (modulesByCourse[c.id] || []).sort((a, b) => a.orderIndex - b.orderIndex)
-                const les = (lessonsByCourse[c.id] || []).sort((a, b) => a.orderIndex - b.orderIndex)
+                const mods = sortedModulesByCourse[c.id] || []
+                const totalLessons = sortedLessonsByCourse[c.id]?.length || 0
+                const looseLessons = lessonGroupsByCourse[c.id]?.loose || []
+                const lessonsByModule = lessonGroupsByCourse[c.id]?.byModule || {}
                 const levelCode = levelCodeFromCourseCode(c.code)
 
                 return (
@@ -1117,7 +1156,7 @@ export default function ContentHubPage() {
                           </Typography>
                           <Typography sx={{ ...HIG.caption1, color: HIG.tertiaryLabel }}>·</Typography>
                           <Typography sx={{ ...HIG.caption1, color: HIG.secondaryLabel }}>
-                            {les.length} {ruLessonWord(les.length)}
+                            {totalLessons} {ruLessonWord(totalLessons)}
                           </Typography>
                         </Stack>
                       </Stack>
@@ -1278,7 +1317,7 @@ export default function ContentHubPage() {
                           <InsetGrouped header="Модули и уроки">
                             <SortableContext items={mods.map((m) => m.id)} strategy={verticalListSortingStrategy}>
                               {mods.map((m, modIdx) => {
-                                const moduleLessons = les.filter((l) => l.moduleId === m.id)
+                                const moduleLessons = lessonsByModule[m.id] || []
                                 const isLastMod = modIdx === mods.length - 1
                                 return (
                                   <SortableModuleRow
@@ -1320,12 +1359,9 @@ export default function ContentHubPage() {
                             </SortableContext>
                           </InsetGrouped>
 
-                          {les.filter((l) => !l.moduleId).length > 0 && (
+                          {looseLessons.length > 0 && (
                             <InsetGrouped header="Уроки вне модуля">
-                              {les
-                                .filter((l) => !l.moduleId)
-                                .sort((a, b) => a.orderIndex - b.orderIndex)
-                                .map((l, oi, oa) => {
+                              {looseLessons.map((l, oi, oa) => {
                                   const pathLoose = `/content/courses/${c.id}/lessons/${l.id}`
                                   return (
                                     <Stack

@@ -1,32 +1,36 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
+import Box from '@mui/material/Box'
+import CircularProgress from '@mui/material/CircularProgress'
 import { AuthProvider } from './contexts/AuthContext'
 import { PrivateRoute } from './components/PrivateRoute'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import UsersPage from './pages/UsersPage'
-import UserDetailPage from './pages/UserDetailPage'
-import ContentHubPage from './pages/ContentHubPage'
-import LessonEditorPage from './pages/LessonEditorPage'
-import CourseEditorPage from './pages/CourseEditorPage'
-import ModuleEditorPage from './pages/ModuleEditorPage'
-import ModuleTestPage from './pages/ModuleTestPage'
-import LevelTestPage from './pages/LevelTestPage'
-import OnboardingPlacementTestPage from './pages/OnboardingPlacementTestPage'
 import Layout from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import WordsAlphabetPage from './pages/WordsAlphabetPage'
-import WordsDictionaryPage from './pages/WordsDictionaryPage'
-import WordsCardsPage from './pages/WordsCardsPage'
-import IslamAllahNamesPage from './pages/IslamAllahNamesPage'
-import IslamQuranPage from './pages/IslamQuranPage'
-import IslamHajjGuidePage from './pages/IslamHajjGuidePage'
-import AuditPage from './pages/AuditPage'
-import AdminManagementPage from './pages/AdminManagementPage'
-import CustomRolesPage from './pages/CustomRolesPage'
-import PushNotificationsPage from './pages/PushNotificationsPage'
-import AcceptInvitationPage from './pages/AcceptInvitationPage'
+
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const UsersPage = lazy(() => import('./pages/UsersPage'))
+const UserDetailPage = lazy(() => import('./pages/UserDetailPage'))
+const ContentHubPage = lazy(() => import('./pages/ContentHubPage'))
+const LessonEditorPage = lazy(() => import('./pages/LessonEditorPage'))
+const CourseEditorPage = lazy(() => import('./pages/CourseEditorPage'))
+const ModuleEditorPage = lazy(() => import('./pages/ModuleEditorPage'))
+const ModuleTestPage = lazy(() => import('./pages/ModuleTestPage'))
+const LevelTestPage = lazy(() => import('./pages/LevelTestPage'))
+const OnboardingPlacementTestPage = lazy(() => import('./pages/OnboardingPlacementTestPage'))
+const WordsAlphabetPage = lazy(() => import('./pages/WordsAlphabetPage'))
+const WordsDictionaryPage = lazy(() => import('./pages/WordsDictionaryPage'))
+const WordsCardsPage = lazy(() => import('./pages/WordsCardsPage'))
+const IslamAllahNamesPage = lazy(() => import('./pages/IslamAllahNamesPage'))
+const IslamQuranPage = lazy(() => import('./pages/IslamQuranPage'))
+const IslamHajjGuidePage = lazy(() => import('./pages/IslamHajjGuidePage'))
+const AuditPage = lazy(() => import('./pages/AuditPage'))
+const AdminManagementPage = lazy(() => import('./pages/AdminManagementPage'))
+const CustomRolesPage = lazy(() => import('./pages/CustomRolesPage'))
+const PushNotificationsPage = lazy(() => import('./pages/PushNotificationsPage'))
+const AcceptInvitationPage = lazy(() => import('./pages/AcceptInvitationPage'))
 
 const theme = createTheme({
   palette: {
@@ -488,81 +492,91 @@ const theme = createTheme({
   },
 })
 
+function RouteFallback() {
+  return (
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="320px">
+      <CircularProgress sx={{ color: '#6366F1' }} />
+    </Box>
+  )
+}
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-            <Route
-              path="/"
-              element={
-                <PrivateRoute>
-                  <Layout />
-                </PrivateRoute>
-              }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="content" element={<ContentHubPage />} />
-              <Route path="content/courses/:courseId" element={<ContentHubPage />} />
-              <Route path="content/courses/:courseId/modules/:moduleId" element={<ContentHubPage />} />
-              <Route path="content/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonEditorPage />} />
-              <Route path="content/courses/:courseId/lessons/:lessonId" element={<LessonEditorPage />} />
-              <Route path="content/courses/:courseId/edit" element={<CourseEditorPage />} />
-              <Route path="content/courses/:courseId/modules/:moduleId/edit" element={<ModuleEditorPage />} />
-              <Route path="content/courses/:courseId/modules/:moduleId/test" element={<ModuleTestPage />} />
-              <Route path="content/level-tests/:levelCode" element={<LevelTestPage />} />
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
               <Route
-                path="content/onboarding-placement/:slot"
-                element={<OnboardingPlacementTestPage />}
-              />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="users/:id" element={<UserDetailPage />} />
-              <Route
-                path="push-notifications"
+                path="/"
                 element={
-                  <ProtectedRoute requiredRoles={['admin']}>
-                    <PushNotificationsPage />
-                  </ProtectedRoute>
+                  <PrivateRoute>
+                    <Layout />
+                  </PrivateRoute>
                 }
-              />
-              <Route
-                path="admin-management"
-                element={
-                  <ProtectedRoute requiredRoles={['admin']}>
-                    <AdminManagementPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="custom-roles"
-                element={
-                  <ProtectedRoute requiredRoles={['admin']}>
-                    <CustomRolesPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="audit"
-                element={
-                  <ProtectedRoute requiredRoles={['admin']}>
-                    <AuditPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="words-alphabet" element={<WordsAlphabetPage />} />
-              <Route path="words-dictionary" element={<WordsDictionaryPage />} />
-              <Route path="words-cards" element={<WordsCardsPage />} />
-              <Route path="islam-names" element={<IslamAllahNamesPage />} />
-              <Route path="islam-quran" element={<IslamQuranPage />} />
-              <Route path="islam-hajj" element={<IslamHajjGuidePage />} />
-              <Route path="*" element={<Navigate to="/dashboard" replace />} />
-            </Route>
-          </Routes>
+              >
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="content" element={<ContentHubPage />} />
+                <Route path="content/courses/:courseId" element={<ContentHubPage />} />
+                <Route path="content/courses/:courseId/modules/:moduleId" element={<ContentHubPage />} />
+                <Route path="content/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonEditorPage />} />
+                <Route path="content/courses/:courseId/lessons/:lessonId" element={<LessonEditorPage />} />
+                <Route path="content/courses/:courseId/edit" element={<CourseEditorPage />} />
+                <Route path="content/courses/:courseId/modules/:moduleId/edit" element={<ModuleEditorPage />} />
+                <Route path="content/courses/:courseId/modules/:moduleId/test" element={<ModuleTestPage />} />
+                <Route path="content/level-tests/:levelCode" element={<LevelTestPage />} />
+                <Route
+                  path="content/onboarding-placement/:slot"
+                  element={<OnboardingPlacementTestPage />}
+                />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="users/:id" element={<UserDetailPage />} />
+                <Route
+                  path="push-notifications"
+                  element={
+                    <ProtectedRoute requiredRoles={['admin']}>
+                      <PushNotificationsPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="admin-management"
+                  element={
+                    <ProtectedRoute requiredRoles={['admin']}>
+                      <AdminManagementPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="custom-roles"
+                  element={
+                    <ProtectedRoute requiredRoles={['admin']}>
+                      <CustomRolesPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="audit"
+                  element={
+                    <ProtectedRoute requiredRoles={['admin']}>
+                      <AuditPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="words-alphabet" element={<WordsAlphabetPage />} />
+                <Route path="words-dictionary" element={<WordsDictionaryPage />} />
+                <Route path="words-cards" element={<WordsCardsPage />} />
+                <Route path="islam-names" element={<IslamAllahNamesPage />} />
+                <Route path="islam-quran" element={<IslamQuranPage />} />
+                <Route path="islam-hajj" element={<IslamHajjGuidePage />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Route>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
