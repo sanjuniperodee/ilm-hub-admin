@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import {
   getCourses,
   getModules,
@@ -12,127 +14,112 @@ import {
 import { HubCourse, HubModule, HubLesson } from './types';
 import { arrayMove } from '@dnd-kit/sortable';
 
-export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+export function useContentHub() {
+  const queryClient = useQueryClient();
 
-  const [courses, setCourses] = useState<HubCourse[]>([]);
-  const [modulesByCourse, setModulesByCourse] = useState<Record<string, HubModule[]>>({});
-  const [lessonsByCourse, setLessonsByCourse] = useState<Record<string, HubLesson[]>>({});
-  
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
-
   const [deletingLessonId, setDeletingLessonId] = useState<string | null>(null);
   const [exportingCourseId, setExportingCourseId] = useState<string | null>(null);
+  
+  // Queries
+  const { data: coursesData, isLoading: loadingCourses } = useQuery({
+    queryKey: ['hub', 'courses'],
+    queryFn: getCourses,
+  });
 
-  const notifyError = (e: any, fallback: string) => {
-    const msg = e?.response?.data?.message?.[0] || e?.message || fallback;
-    setError(msg);
-  };
+  const { data: modulesData, isLoading: loadingModules } = useQuery({
+    queryKey: ['hub', 'modules'],
+    queryFn: () => getModules(),
+  });
 
-  const notifySuccess = (msg: string) => {
-    setSuccess(msg);
-    setError('');
-  };
+  const { data: lessonsData, isLoading: loadingLessons } = useQuery({
+    queryKey: ['hub', 'lessons'],
+    queryFn: () => getLessons(),
+  });
 
-  const loadCourses = async () => {
-    const [coursesRes, modulesRes, lessonsRes] = await Promise.all([
-      getCourses(),
-      getModules(),
-      getLessons()
-    ]);
-    const coursesData = Array.isArray(coursesRes.data) ? coursesRes.data : [];
-    const modulesData = Array.isArray(modulesRes.data) ? modulesRes.data : [];
-    const lessonsData = Array.isArray(lessonsRes.data) ? lessonsRes.data : [];
+  const loading = loadingCourses || loadingModules || loadingLessons;
 
-    const mapped = coursesData.map((c: any) => ({
+  // Computed state
+  const courses = useMemo(() => {
+    const arr = Array.isArray(coursesData?.data) ? coursesData.data : [];
+    return arr.map((c: any) => ({
       id: c.id,
       code: c.code,
       titleRu: c.titleRu,
       orderIndex: c.orderIndex ?? 0,
-    }));
-    setCourses(mapped.sort((a, b) => a.orderIndex - b.orderIndex));
+    })).sort((a: HubCourse, b: HubCourse) => a.orderIndex - b.orderIndex);
+  }, [coursesData]);
 
-    const newMods: Record<string, HubModule[]> = {};
-    const newLess: Record<string, HubLesson[]> = {};
-
-    mapped.forEach((c: any) => {
-      newMods[c.id] = [];
-      newLess[c.id] = [];
-    });
-
-    modulesData.forEach((m: any) => {
-      if (!newMods[m.courseId]) newMods[m.courseId] = [];
-      newMods[m.courseId].push({
-        id: m.id,
-        courseId: m.courseId,
-        titleRu: m.titleRu,
-        orderIndex: m.orderIndex ?? 0,
-      });
-    });
-
-    lessonsData.forEach((l: any) => {
-      if (!newLess[l.courseId]) newLess[l.courseId] = [];
-      newLess[l.courseId].push({
-        id: l.id,
-        courseId: l.courseId,
-        moduleId: l.moduleId ?? undefined,
-        titleRu: l.titleRu,
-        orderIndex: l.orderIndex ?? 0,
-      });
-    });
-
-    setModulesByCourse(newMods);
-    setLessonsByCourse(newLess);
-  };
-
-  const loadHierarchy = async (cid: string) => {
-    const [modulesRes, lessonsRes] = await Promise.all([getModules(cid), getLessons(cid)]);
-    const modulesData = Array.isArray(modulesRes.data) ? modulesRes.data : [];
-    const lessonsData = Array.isArray(lessonsRes.data) ? lessonsRes.data : [];
-
-    setModulesByCourse((prev) => ({
-      ...prev,
-      [cid]: modulesData.map((m: any) => ({
-        id: m.id,
-        courseId: m.courseId,
-        titleRu: m.titleRu,
-        orderIndex: m.orderIndex ?? 0,
-      })),
-    }));
-    setLessonsByCourse((prev) => ({
-      ...prev,
-      [cid]: lessonsData.map((l: any) => ({
-        id: l.id,
-        courseId: l.courseId,
-        moduleId: l.moduleId ?? undefined,
-        titleRu: l.titleRu,
-        orderIndex: l.orderIndex ?? 0,
-      })),
-    }));
-  };
-
-  useEffect(() => {
-    setLoading(true);
-    loadCourses()
-      .catch((e) => notifyError(e, 'Не удалось загрузить курсы'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (urlCourseId) {
-      setExpandedCourses((prev) => new Set([...prev, urlCourseId]));
-      if (!modulesByCourse[urlCourseId]) {
-        loadHierarchy(urlCourseId).catch((e) => notifyError(e, 'Не удалось загрузить иерархию'));
+  const { sortedModulesByCourse } = useMemo(() => {
+    const map: Record<string, HubModule[]> = {};
+    const sortedMap: Record<string, HubModule[]> = {};
+    courses.forEach((c: HubCourse) => { map[c.id] = []; sortedMap[c.id] = []; });
+    
+    const arr = Array.isArray(modulesData?.data) ? modulesData.data : [];
+    arr.forEach((m: any) => {
+      if (!map[m.courseId]) {
+        map[m.courseId] = [];
+        sortedMap[m.courseId] = [];
       }
-    }
-    if (urlModuleId) {
-      setExpandedModules((prev) => new Set([...prev, urlModuleId]));
-    }
-  }, [urlCourseId, urlModuleId]);
+      map[m.courseId].push({
+        id: m.id,
+        courseId: m.courseId,
+        titleRu: m.titleRu,
+        orderIndex: m.orderIndex ?? 0,
+      });
+    });
 
+    Object.keys(map).forEach(cid => {
+      sortedMap[cid] = [...map[cid]].sort((a, b) => a.orderIndex - b.orderIndex);
+    });
+
+    return { sortedModulesByCourse: sortedMap };
+  }, [courses, modulesData]);
+
+  const { sortedLessonsByCourse, lessonGroupsByCourse } = useMemo(() => {
+    const map: Record<string, HubLesson[]> = {};
+    const sortedMap: Record<string, HubLesson[]> = {};
+    courses.forEach((c: HubCourse) => { map[c.id] = []; sortedMap[c.id] = []; });
+
+    const arr = Array.isArray(lessonsData?.data) ? lessonsData.data : [];
+    arr.forEach((l: any) => {
+      if (!map[l.courseId]) {
+        map[l.courseId] = [];
+        sortedMap[l.courseId] = [];
+      }
+      map[l.courseId].push({
+        id: l.id,
+        courseId: l.courseId,
+        moduleId: l.moduleId ?? undefined,
+        titleRu: l.titleRu,
+        orderIndex: l.orderIndex ?? 0,
+      });
+    });
+
+    const groups: Record<string, { byModule: Record<string, HubLesson[]>; loose: HubLesson[] }> = {};
+
+    Object.keys(map).forEach(cid => {
+      const sorted = [...map[cid]].sort((a, b) => a.orderIndex - b.orderIndex);
+      sortedMap[cid] = sorted;
+
+      const byModule: Record<string, HubLesson[]> = {};
+      const loose: HubLesson[] = [];
+      sorted.forEach((lesson) => {
+        if (!lesson.moduleId) {
+          loose.push(lesson);
+          return;
+        }
+        if (!byModule[lesson.moduleId]) byModule[lesson.moduleId] = [];
+        byModule[lesson.moduleId].push(lesson);
+      });
+      groups[cid] = { byModule, loose };
+    });
+
+    return { sortedLessonsByCourse: sortedMap, lessonGroupsByCourse: groups };
+  }, [courses, lessonsData]);
+
+  // Expand logic
   const toggleCourse = (cid: string) => {
     setExpandedCourses((prev) => {
       const next = new Set(prev);
@@ -140,7 +127,6 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
       else next.add(cid);
       return next;
     });
-    if (!modulesByCourse[cid]) loadHierarchy(cid).catch(() => {});
   };
 
   const toggleModule = (mid: string) => {
@@ -152,41 +138,15 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
     });
   };
 
-  const sortedModulesByCourse = useMemo(() => {
-    return Object.fromEntries(
-      Object.entries(modulesByCourse).map(([courseId, modules]) => [
-        courseId,
-        [...modules].sort((a, b) => a.orderIndex - b.orderIndex),
-      ]),
-    ) as Record<string, HubModule[]>;
-  }, [modulesByCourse]);
-
-  const sortedLessonsByCourse = useMemo(() => {
-    return Object.fromEntries(
-      Object.entries(lessonsByCourse).map(([courseId, lessons]) => [
-        courseId,
-        [...lessons].sort((a, b) => a.orderIndex - b.orderIndex),
-      ]),
-    ) as Record<string, HubLesson[]>;
-  }, [lessonsByCourse]);
-
-  const lessonGroupsByCourse = useMemo(() => {
-    const grouped: Record<string, { byModule: Record<string, HubLesson[]>; loose: HubLesson[] }> = {};
-    Object.entries(sortedLessonsByCourse).forEach(([courseId, lessons]) => {
-      const byModule: Record<string, HubLesson[]> = {};
-      const loose: HubLesson[] = [];
-      lessons.forEach((lesson) => {
-        if (!lesson.moduleId) {
-          loose.push(lesson);
-          return;
-        }
-        if (!byModule[lesson.moduleId]) byModule[lesson.moduleId] = [];
-        byModule[lesson.moduleId].push(lesson);
-      });
-      grouped[courseId] = { byModule, loose };
-    });
-    return grouped;
-  }, [sortedLessonsByCourse]);
+  // Mutations
+  const reorderModulesMutation = useMutation({
+    mutationFn: ({ courseId, moduleIds }: { courseId: string; moduleIds: string[] }) => reorderModules(courseId, moduleIds),
+    onSuccess: () => {
+      toast.success('Порядок модулей обновлён');
+      queryClient.invalidateQueries({ queryKey: ['hub', 'modules'] });
+    },
+    onError: () => toast.error('Не удалось изменить порядок модулей'),
+  });
 
   const handleDragModule = async (courseId: string, activeId: string, overId: string) => {
     const mods = sortedModulesByCourse[courseId] || [];
@@ -194,18 +154,19 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
     const newIndex = mods.findIndex((m) => m.id === overId);
     if (oldIndex === -1 || newIndex === -1) return;
     
+    // Optimistic UI could be implemented here via queryClient.setQueryData, but refetching is fine for admin
     const reordered = arrayMove(mods, oldIndex, newIndex);
-    try {
-      await reorderModules(courseId, reordered.map((m) => m.id));
-      setModulesByCourse((prev) => ({
-        ...prev,
-        [courseId]: reordered.map((m, i) => ({ ...m, orderIndex: i })),
-      }));
-      notifySuccess('Порядок модулей обновлён');
-    } catch (e) {
-      notifyError(e, 'Не удалось изменить порядок модулей');
-    }
+    reorderModulesMutation.mutate({ courseId, moduleIds: reordered.map(m => m.id) });
   };
+
+  const reorderLessonsMutation = useMutation({
+    mutationFn: ({ moduleId, lessonIds }: { moduleId: string; lessonIds: string[] }) => reorderLessons(moduleId, lessonIds),
+    onSuccess: () => {
+      toast.success('Порядок уроков обновлён');
+      queryClient.invalidateQueries({ queryKey: ['hub', 'lessons'] });
+    },
+    onError: () => toast.error('Не удалось изменить порядок уроков'),
+  });
 
   const handleDragLesson = async (courseId: string, moduleId: string, activeId: string, overId: string) => {
     const les = lessonGroupsByCourse[courseId]?.byModule[moduleId] || [];
@@ -214,26 +175,23 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reordered = arrayMove(les, oldIndex, newIndex);
-    try {
-      await reorderLessons(moduleId, reordered.map((l) => l.id));
-      setLessonsByCourse((prev) => {
-        const list = prev[courseId] || [];
-        return {
-          ...prev,
-          [courseId]: list.map((l) => {
-            if (l.moduleId !== moduleId) return l;
-            const idx = reordered.findIndex((r) => r.id === l.id);
-            return idx >= 0 ? { ...l, orderIndex: idx } : l;
-          }),
-        };
-      });
-      notifySuccess('Порядок уроков обновлён');
-    } catch (e) {
-      notifyError(e, 'Не удалось изменить порядок уроков');
-    }
+    reorderLessonsMutation.mutate({ moduleId, lessonIds: reordered.map(l => l.id) });
   };
 
-  const handleDeleteLesson = async (lesson: HubLesson, courseId: string) => {
+  const deleteLessonMutation = useMutation({
+    mutationFn: deleteLesson,
+    onSuccess: () => {
+      toast.success('Урок удалён');
+      queryClient.invalidateQueries({ queryKey: ['hub', 'lessons'] });
+      setDeletingLessonId(null);
+    },
+    onError: () => {
+      toast.error('Не удалось удалить урок');
+      setDeletingLessonId(null);
+    },
+  });
+
+  const handleDeleteLesson = async (lesson: HubLesson) => {
     try {
       const { data } = await getLessonDeletionImpact(lesson.id);
       const n = data?.distinctUserCount ?? 0;
@@ -248,17 +206,17 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
         ? `\n\nВнимание: у ${n} ${ruUsersWord(n)} есть прогресс по уроку или мини-тесту. Эти данные будут удалены.` 
         : '';
         
-      if (!window.confirm(`Удалить урок «${lesson.titleRu}»? Действие нельзя отменить.${progressHint}`)) {
+      const userInput = window.prompt(`Введите слово DELETE для удаления урока «${lesson.titleRu}». Действие нельзя отменить.${progressHint}`);
+      
+      if (userInput !== 'DELETE') {
+        if (userInput !== null) toast.error('Удаление отменено: неверное слово подтверждения');
         return;
       }
+
       setDeletingLessonId(lesson.id);
-      await deleteLesson(lesson.id);
-      await loadHierarchy(courseId);
-      notifySuccess('Урок удалён');
+      deleteLessonMutation.mutate(lesson.id);
     } catch (e) {
-      notifyError(e, 'Не удалось удалить урок');
-    } finally {
-      setDeletingLessonId(null);
+      toast.error('Не удалось получить информацию об уроке');
     }
   };
 
@@ -283,9 +241,9 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      notifySuccess(`Экспорт «${course.titleRu}» готов`);
+      toast.success(`Экспорт «${course.titleRu}» готов`);
     } catch (e) {
-      notifyError(e, 'Не удалось выгрузить контент курса');
+      toast.error('Не удалось выгрузить контент курса');
     } finally {
       setExportingCourseId(null);
     }
@@ -294,10 +252,6 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
   return {
     courses,
     loading,
-    error,
-    setError,
-    success,
-    setSuccess,
     expandedCourses,
     expandedModules,
     toggleCourse,
@@ -311,9 +265,7 @@ export function useContentHub(urlCourseId?: string, urlModuleId?: string) {
     deletingLessonId,
     handleExportCourse,
     exportingCourseId,
-    loadCourses,
-    loadHierarchy,
-    notifySuccess,
-    notifyError
+    setExpandedCourses,
+    setExpandedModules
   };
 }

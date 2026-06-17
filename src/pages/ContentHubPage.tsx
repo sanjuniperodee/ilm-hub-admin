@@ -1,28 +1,32 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Typography,
   Button,
   Stack,
-  Alert,
   LinearProgress,
   Breadcrumbs,
   Link,
+  TextField,
+  InputAdornment,
 } from '@mui/material';
-import { Add, ChevronRight, SchoolOutlined } from '@mui/icons-material';
+import { Add, ChevronRight, SchoolOutlined, Search } from '@mui/icons-material';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useContentHub } from './content-hub/useContentHub';
 import { CourseCard } from './content-hub/CourseCard';
 import { CreateCourseModal, CreateModuleModal, CreateLessonModal } from './content-hub/CreateModals';
 import { createCourse, createModule, createLesson } from '../api/adminApi';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 
 export default function ContentHubPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { courseId: urlCourseId, moduleId: urlModuleId } = useParams<{ courseId?: string; moduleId?: string }>();
 
-  const hub = useContentHub(urlCourseId, urlModuleId);
+  const hub = useContentHub();
 
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
   const [createModuleOpen, setCreateModuleOpen] = useState(false);
@@ -30,10 +34,8 @@ export default function ContentHubPage() {
 
   const [contextCourseId, setContextCourseId] = useState('');
   const [contextModuleId, setContextModuleId] = useState('');
-
-  const [newCourse, setNewCourse] = useState({ code: '', titleRu: '', orderIndex: 0, descriptionRu: '' });
-  const [newModule, setNewModule] = useState({ titleRu: '', orderIndex: 0, descriptionRu: '' });
-  const [newLesson, setNewLesson] = useState({ titleRu: '', orderIndex: 0, descriptionRu: '', estimatedMinutes: 10 });
+  
+  const [searchQuery, setSearchQuery] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -55,73 +57,58 @@ export default function ContentHubPage() {
     }
   };
 
-  const createCourseHandler = async () => {
-    if (!newCourse.code.trim() || !newCourse.titleRu.trim()) {
-      hub.setError('Заполните code и название курса');
-      return;
-    }
-    try {
-      await createCourse({ ...newCourse, orderIndex: Number(newCourse.orderIndex) || 0 });
+  const createCourseMutation = useMutation({
+    mutationFn: createCourse,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hub', 'courses'] });
       setCreateCourseOpen(false);
-      setNewCourse({ code: '', titleRu: '', orderIndex: 0, descriptionRu: '' });
-      await hub.loadCourses();
-      hub.notifySuccess('Курс создан');
-    } catch (e) {
-      hub.notifyError(e, 'Не удалось создать курс');
-    }
-  };
+      toast.success('Курс создан');
+    },
+    onError: () => toast.error('Не удалось создать курс'),
+  });
 
-  const createModuleHandler = async () => {
-    if (!contextCourseId) return;
-    if (!newModule.titleRu.trim()) {
-      hub.setError('Введите название модуля');
-      return;
-    }
-    try {
-      await createModule({
-        courseId: contextCourseId,
-        titleRu: newModule.titleRu,
-        descriptionRu: newModule.descriptionRu || undefined,
-        orderIndex: Number(newModule.orderIndex) || 0,
-      });
+  const createModuleMutation = useMutation({
+    mutationFn: createModule,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hub', 'modules'] });
       setCreateModuleOpen(false);
-      setNewModule({ titleRu: '', orderIndex: 0, descriptionRu: '' });
-      await hub.loadHierarchy(contextCourseId);
-      hub.notifySuccess('Модуль создан');
-    } catch (e) {
-      hub.notifyError(e, 'Не удалось создать модуль');
-    }
-  };
+      toast.success('Модуль создан');
+    },
+    onError: () => toast.error('Не удалось создать модуль'),
+  });
 
-  const createLessonHandler = async () => {
-    if (!contextCourseId) return;
-    if (!newLesson.titleRu.trim()) {
-      hub.setError('Введите название урока');
-      return;
-    }
-    try {
-      await createLesson({
-        courseId: contextCourseId,
-        moduleId: contextModuleId || undefined,
-        titleRu: newLesson.titleRu,
-        descriptionRu: newLesson.descriptionRu || undefined,
-        estimatedMinutes: Number(newLesson.estimatedMinutes) || 10,
-        orderIndex: Number(newLesson.orderIndex) || 0,
-        isPremium: false,
-        isTest: false,
-      });
+  const createLessonMutation = useMutation({
+    mutationFn: createLesson,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hub', 'lessons'] });
       setCreateLessonOpen(false);
-      setNewLesson({ titleRu: '', orderIndex: 0, descriptionRu: '', estimatedMinutes: 10 });
-      setContextModuleId('');
-      await hub.loadHierarchy(contextCourseId);
-      hub.notifySuccess('Урок создан');
-    } catch (e) {
-      hub.notifyError(e, 'Не удалось создать урок');
-    }
-  };
+      toast.success('Урок создан');
+    },
+    onError: () => toast.error('Не удалось создать урок'),
+  });
 
-  const urlCourse = hub.courses.find((c) => c.id === urlCourseId);
-  const urlModule = urlCourseId && urlModuleId ? (hub.sortedModulesByCourse[urlCourseId] || []).find((m) => m.id === urlModuleId) : null;
+  const filteredCourses = useMemo(() => {
+    if (!searchQuery.trim()) return hub.courses;
+    const lowerQuery = searchQuery.toLowerCase();
+    
+    return hub.courses.filter(c => {
+      const courseMatch = c.titleRu.toLowerCase().includes(lowerQuery) || c.code.toLowerCase().includes(lowerQuery);
+      const modules = hub.sortedModulesByCourse[c.id] || [];
+      const moduleMatch = modules.some(m => m.titleRu.toLowerCase().includes(lowerQuery));
+      const lessons = hub.sortedLessonsByCourse[c.id] || [];
+      const lessonMatch = lessons.some(l => l.titleRu.toLowerCase().includes(lowerQuery));
+      
+      // Auto-expand if child matched
+      if (!courseMatch && (moduleMatch || lessonMatch)) {
+        hub.setExpandedCourses(prev => new Set(prev).add(c.id));
+      }
+      
+      return courseMatch || moduleMatch || lessonMatch;
+    });
+  }, [hub.courses, hub.sortedModulesByCourse, hub.sortedLessonsByCourse, searchQuery, hub.setExpandedCourses]);
+
+  const urlCourse = hub.courses.find((c: any) => c.id === urlCourseId);
+  const urlModule = urlCourseId && urlModuleId ? (hub.sortedModulesByCourse[urlCourseId] || []).find((m: any) => m.id === urlModuleId) : null;
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -139,7 +126,7 @@ export default function ContentHubPage() {
               onClick={() => navigate(`/content/onboarding-placement/diagnostic`)}
               sx={{ borderRadius: 2 }}
             >
-              Онбординг: Диагностика
+              Онбординг
             </Button>
             <Button
               variant="contained"
@@ -156,10 +143,7 @@ export default function ContentHubPage() {
           <LinearProgress sx={{ mb: 3, borderRadius: 2 }} />
         )}
 
-        {hub.error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{hub.error}</Alert>}
-        {hub.success && <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>{hub.success}</Alert>}
-
-        <Box sx={{ mb: 4 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
           <Breadcrumbs separator={<ChevronRight fontSize="small" />}>
             <Link
               component="button"
@@ -181,20 +165,32 @@ export default function ContentHubPage() {
               <Typography color="text.primary" fontWeight="600">{urlModule.titleRu}</Typography>
             )}
           </Breadcrumbs>
-        </Box>
+
+          <TextField
+            placeholder="Поиск по курсам, модулям, урокам..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ width: { xs: '100%', md: '300px' }, mt: { xs: 2, md: 0 } }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment>,
+            }}
+          />
+        </Stack>
 
         <Stack spacing={3}>
-          {hub.courses.length === 0 && !hub.loading ? (
+          {filteredCourses.length === 0 && !hub.loading ? (
             <Box sx={{ textAlign: 'center', py: 8, px: 2, border: '1px dashed grey', borderRadius: 3, bgcolor: 'background.paper' }}>
               <SchoolOutlined sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
               <Typography variant="h6" sx={{ mb: 1 }}>Нет курсов</Typography>
-              <Typography color="text.secondary" sx={{ mb: 3 }}>Создайте свой первый курс, чтобы начать.</Typography>
-              <Button variant="contained" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)} sx={{ borderRadius: 2 }}>
-                Создать курс
-              </Button>
+              <Typography color="text.secondary" sx={{ mb: 3 }}>{searchQuery ? 'По вашему запросу ничего не найдено.' : 'Создайте свой первый курс, чтобы начать.'}</Typography>
+              {!searchQuery && (
+                <Button variant="contained" startIcon={<Add />} onClick={() => setCreateCourseOpen(true)} sx={{ borderRadius: 2 }}>
+                  Создать курс
+                </Button>
+              )}
             </Box>
           ) : (
-            hub.courses.map((course) => (
+            filteredCourses.map((course: any) => (
               <CourseCard
                 key={course.id}
                 course={course}
@@ -233,28 +229,21 @@ export default function ContentHubPage() {
         <CreateCourseModal
           open={createCourseOpen}
           onClose={() => setCreateCourseOpen(false)}
-          newCourse={newCourse}
-          setNewCourse={setNewCourse}
-          onSubmit={createCourseHandler}
+          onSubmit={(data: any) => createCourseMutation.mutate(data)}
         />
 
         <CreateModuleModal
           open={createModuleOpen}
           onClose={() => setCreateModuleOpen(false)}
-          newModule={newModule}
-          setNewModule={setNewModule}
-          onSubmit={createModuleHandler}
+          onSubmit={(data: any) => createModuleMutation.mutate({ courseId: contextCourseId, ...data })}
         />
 
         <CreateLessonModal
           open={createLessonOpen}
           onClose={() => setCreateLessonOpen(false)}
-          newLesson={newLesson}
-          setNewLesson={setNewLesson}
           contextModuleId={contextModuleId}
-          setContextModuleId={setContextModuleId}
           moduleListForContextCourse={hub.sortedModulesByCourse[contextCourseId] || []}
-          onSubmit={createLessonHandler}
+          onSubmit={(data: any) => createLessonMutation.mutate({ courseId: contextCourseId, isPremium: false, isTest: false, ...data })}
         />
       </Box>
     </DndContext>

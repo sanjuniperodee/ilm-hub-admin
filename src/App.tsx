@@ -8,7 +8,17 @@ import { AuthProvider } from './contexts/AuthContext'
 import { PrivateRoute } from './components/PrivateRoute'
 import Layout from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'react-hot-toast'
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const UsersPage = lazy(() => import('./pages/UsersPage'))
@@ -502,85 +512,87 @@ function RouteFallback() {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <AuthProvider>
-        <BrowserRouter>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
-              <Route
-                path="/"
-                element={
-                  <PrivateRoute>
-                    <Layout />
-                  </PrivateRoute>
-                }
-              >
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<DashboardPage />} />
-                <Route path="content" element={<ContentHubPage />} />
-                <Route path="content/courses/:courseId" element={<ContentHubPage />} />
-                <Route path="content/courses/:courseId/modules/:moduleId" element={<ContentHubPage />} />
-                <Route path="content/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonEditorPage />} />
-                <Route path="content/courses/:courseId/lessons/:lessonId" element={<LessonEditorPage />} />
-                <Route path="content/courses/:courseId/edit" element={<CourseEditorPage />} />
-                <Route path="content/courses/:courseId/modules/:moduleId/edit" element={<ModuleEditorPage />} />
-                <Route path="content/courses/:courseId/modules/:moduleId/test" element={<ModuleTestPage />} />
-                <Route path="content/level-tests/:levelCode" element={<LevelTestPage />} />
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Toaster position="top-right" toastOptions={{ duration: 4000, style: { borderRadius: '12px' } }} />
+        <AuthProvider>
+          <BrowserRouter>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
                 <Route
-                  path="content/onboarding-placement/:slot"
-                  element={<OnboardingPlacementTestPage />}
-                />
-                <Route path="users" element={<UsersPage />} />
-                <Route path="users/:id" element={<UserDetailPage />} />
-                <Route
-                  path="push-notifications"
+                  path="/"
                   element={
-                    <ProtectedRoute requiredRoles={['admin']}>
-                      <PushNotificationsPage />
-                    </ProtectedRoute>
+                    <PrivateRoute>
+                      <Layout />
+                    </PrivateRoute>
                   }
-                />
-                <Route
-                  path="admin-management"
-                  element={
-                    <ProtectedRoute requiredRoles={['admin']}>
-                      <AdminManagementPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="custom-roles"
-                  element={
-                    <ProtectedRoute requiredRoles={['admin']}>
-                      <CustomRolesPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="audit"
-                  element={
-                    <ProtectedRoute requiredRoles={['admin']}>
-                      <AuditPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="words-alphabet" element={<WordsAlphabetPage />} />
-                <Route path="words-dictionary" element={<WordsDictionaryPage />} />
-                <Route path="words-cards" element={<WordsCardsPage />} />
-                <Route path="islam-names" element={<IslamAllahNamesPage />} />
-                <Route path="islam-quran" element={<IslamQuranPage />} />
-                <Route path="islam-hajj" element={<IslamHajjGuidePage />} />
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Route>
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
-
+                >
+                  <Route index element={<Navigate to="/dashboard" replace />} />
+                  <Route path="dashboard" element={<DashboardPage />} />
+                  <Route path="content" element={<ContentHubPage />} />
+                  <Route path="content/courses/:courseId" element={<ContentHubPage />} />
+                  <Route path="content/courses/:courseId/modules/:moduleId" element={<ContentHubPage />} />
+                  <Route path="content/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonEditorPage />} />
+                  <Route path="content/courses/:courseId/lessons/:lessonId" element={<LessonEditorPage />} />
+                  <Route path="content/courses/:courseId/edit" element={<CourseEditorPage />} />
+                  <Route path="content/courses/:courseId/modules/:moduleId/edit" element={<ModuleEditorPage />} />
+                  <Route path="content/courses/:courseId/modules/:moduleId/test" element={<ModuleTestPage />} />
+                  <Route path="content/level-tests/:levelCode" element={<LevelTestPage />} />
+                  <Route
+                    path="content/onboarding-placement/:slot"
+                    element={<OnboardingPlacementTestPage />}
+                  />
+                  <Route path="users" element={<UsersPage />} />
+                  <Route path="users/:id" element={<UserDetailPage />} />
+                  <Route
+                    path="push-notifications"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin']}>
+                        <PushNotificationsPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="admin-management"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin']}>
+                        <AdminManagementPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="custom-roles"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin']}>
+                        <CustomRolesPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="audit"
+                    element={
+                      <ProtectedRoute requiredRoles={['admin']}>
+                        <AuditPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="words-alphabet" element={<WordsAlphabetPage />} />
+                  <Route path="words-dictionary" element={<WordsDictionaryPage />} />
+                  <Route path="words-cards" element={<WordsCardsPage />} />
+                  <Route path="islam-names" element={<IslamAllahNamesPage />} />
+                  <Route path="islam-quran" element={<IslamQuranPage />} />
+                  <Route path="islam-hajj" element={<IslamHajjGuidePage />} />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Route>
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   )
 }
 
