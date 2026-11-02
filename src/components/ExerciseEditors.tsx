@@ -1,1408 +1,1240 @@
-import { useState, useEffect, useRef } from 'react'
+/**
+ * Editors for in-lesson exercise blocks. Each editor receives the block's `exerciseConfig`
+ * and emits a new object (never mutates). The language tab lives in the lesson editor:
+ * `lang` decides which translation is edited; Arabic, media and correct answers are shared
+ * by both languages and are always visible.
+ *
+ * Config shapes are converted to the stored payload by
+ * `pages/lesson-editor/blockMapping.ts` — keep them in sync.
+ */
+import { useEffect, useRef, useState } from 'react'
 import {
-    Box,
-    TextField,
-    Button,
-    Chip,
-    Divider,
-    IconButton,
-    MenuItem,
-    Select,
-    Stack,
-    Typography,
-    Checkbox,
-    Tabs,
-    Tab,
-    Alert,
-    Paper,
-    Tooltip,
+  Alert,
+  Box,
+  Button,
+  MenuItem,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
 } from '@mui/material'
-import { Add, Delete, LinkOff } from '@mui/icons-material'
+import { Add, AudiotrackOutlined, ImageOutlined, NotesOutlined } from '@mui/icons-material'
+import { ArabicText, StatusChip, arabicInputProps } from './ui'
+import {
+  CorrectToggle,
+  EditorRow,
+  FieldIssues,
+  ListHeader,
+  RowActions,
+  SharedFieldsNote,
+  mixedInputProps,
+  mixedInputPropsFor,
+  moveItem,
+} from './lesson-editor/EditorPrimitives'
+import { MediaChoice, mediaDisplayName, type MediaChoiceFile } from './lesson-editor/MediaChoice'
+import { issuesFor, validateExerciseConfig } from './lesson-editor/exerciseValidation'
 
-interface EditorProps {
-    value: any
-    onChange: (value: any) => void
+export type EditorLang = 'ru' | 'kz'
+
+export interface EditorProps {
+  value: any
+  onChange: (value: any) => void
+  /** Language being edited (default RU). */
+  lang?: EditorLang
+  /** Show validation messages (after a save attempt or for saved blocks). */
+  showIssues?: boolean
+}
+
+const LANG_LABEL: Record<EditorLang, string> = { ru: 'RU', kz: 'KZ' }
+
+const isEmptyConfig = (v: any) => !v || (typeof v === 'object' && Object.keys(v).length === 0)
+
+/**
+ * New blocks start with an empty config object. Emit sensible defaults once on mount so
+ * what the editor shows is exactly what gets saved.
+ */
+function useEnsureDefaults(value: any, onChange: (v: any) => void, defaults: () => any) {
+  useEffect(() => {
+    if (isEmptyConfig(value)) onChange(defaults())
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once on mount
+  }, [])
+}
+
+function newId() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+/** Placeholder for a KZ field: the Russian text, so translators see what to translate. */
+function kzPlaceholder(lang: EditorLang, ru: string | undefined, fallback?: string) {
+  if (lang === 'kz' && ru?.trim()) return `RU: ${ru.trim()}`
+  return fallback
+}
+
+/** Placeholder props; the label is kept raised in KZ so the Russian original stays visible. */
+function kzProps(lang: EditorLang, ru: string | undefined, fallback?: string) {
+  const placeholder = kzPlaceholder(lang, ru, fallback)
+  return lang === 'kz' && ru?.trim() ? { placeholder, InputLabelProps: { shrink: true } } : { placeholder }
+}
+
+function InstructionField({
+  lang,
+  ru,
+  kz,
+  onChange,
+  placeholderRu,
+  placeholderKz,
+  label = 'Инструкция',
+}: {
+  lang: EditorLang
+  ru?: string
+  kz?: string
+  onChange: (lang: EditorLang, text: string) => void
+  placeholderRu?: string
+  placeholderKz?: string
+  label?: string
+}) {
+  return (
+    <TextField
+      fullWidth
+      multiline
+      minRows={1}
+      label={`${label} (${LANG_LABEL[lang]})`}
+      value={(lang === 'ru' ? ru : kz) ?? ''}
+      onChange={(e) => onChange(lang, e.target.value)}
+      {...(lang === 'ru' ? { placeholder: placeholderRu } : kzProps(lang, ru, placeholderKz))}
+      helperText="Короткая задача для ученика над упражнением"
+    />
+  )
 }
 
 // ----------------------------------------------------------------------
-// Multiple Choice Editor
+// Multiple / single choice
 // ----------------------------------------------------------------------
 
-export const MultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
-    const [activeTab, setActiveTab] = useState(0)
-    const content = value || {
-        question: { ru: '', kz: '' },
-        options: [{ text: { ru: '', kz: '' }, isCorrect: false }],
-    }
+const mcDefaults = () => ({
+  question: { ru: '', kz: '' },
+  options: [
+    { text: { ru: '', kz: '' }, isCorrect: false },
+    { text: { ru: '', kz: '' }, isCorrect: false },
+  ],
+})
 
-    // Helper getters/setters with fallbacks
-    const getQuestion = (lang: string) => content.question?.[lang] || ''
-    const getOptionText = (index: number, lang: string) => content.options?.[index]?.text?.[lang] || ''
+export const MultipleChoiceEditor = ({
+  value,
+  onChange,
+  lang = 'ru',
+  showIssues,
+  single = false,
+  validationType,
+}: EditorProps & {
+  /** Exactly one correct option (radio semantics). */
+  single?: boolean
+  /** Validation rules to apply; defaults to single/multiple choice. */
+  validationType?: string
+}) => {
+  useEnsureDefaults(value, onChange, mcDefaults)
+  const content = isEmptyConfig(value) ? mcDefaults() : value
+  const options: any[] = Array.isArray(content.options) ? content.options : []
+  const issues = showIssues ? validateExerciseConfig(validationType ?? (single ? 'single_choice' : 'multiple_choice'), content) : []
 
-    const updateQuestion = (text: string, lang: string) => {
-        const newContent = { ...content }
-        if (!newContent.question) newContent.question = {}
-        newContent.question[lang] = text
-        onChange(newContent)
-    }
+  const setQuestion = (text: string) => onChange({ ...content, question: { ...(content.question || {}), [lang]: text } })
+  const setOptions = (next: any[]) => onChange({ ...content, options: next })
+  const setOptionText = (index: number, text: string) =>
+    setOptions(options.map((o, i) => (i === index ? { ...o, text: { ...(typeof o.text === 'object' ? o.text : { ru: o.text ?? '' }), [lang]: text } } : o)))
+  const toggleCorrect = (index: number) =>
+    setOptions(options.map((o, i) => (single ? { ...o, isCorrect: i === index } : i === index ? { ...o, isCorrect: !o.isCorrect } : o)))
+  const optionTextOf = (o: any, l: EditorLang) => (typeof o.text === 'string' ? (l === 'ru' ? o.text : '') : o.text?.[l] ?? '')
 
-    const updateOptionText = (index: number, text: string, lang: string) => {
-        const newContent = { ...content }
-        if (!newContent.options) newContent.options = []
-        if (!newContent.options[index]) newContent.options[index] = { text: {} }
-        if (!newContent.options[index].text) newContent.options[index].text = {}
-        newContent.options[index].text[lang] = text
-        onChange(newContent)
-    }
+  return (
+    <Stack gap={2.5}>
+      <Box>
+        <TextField
+          fullWidth
+          multiline
+          minRows={2}
+          required={lang === 'ru'}
+          label={`Вопрос (${LANG_LABEL[lang]})`}
+          value={content.question?.[lang] || ''}
+          onChange={(e) => setQuestion(e.target.value)}
+          {...kzProps(lang, content.question?.ru, 'Что означает это слово?')}
+          error={lang === 'ru' && issuesFor(issues, 'question').length > 0}
+          inputProps={mixedInputProps}
+        />
+        {lang === 'ru' && <FieldIssues issues={issuesFor(issues, 'question')} sx={{ mt: 0.75 }} />}
+      </Box>
 
-    const toggleCorrectOption = (index: number) => {
-        const newContent = { ...content }
-        if (!newContent.options) return
-        newContent.options = newContent.options.map((opt: any, i: number) => ({
-            ...opt,
-            isCorrect: i === index ? !opt.isCorrect : opt.isCorrect
-        }))
-        onChange(newContent)
-    }
-
-    const addOption = () => {
-        const newContent = { ...content }
-        if (!newContent.options) newContent.options = []
-        newContent.options.push({ text: { ru: '', kz: '' }, isCorrect: false })
-        onChange(newContent)
-    }
-
-    const removeOption = (index: number) => {
-        const newContent = { ...content }
-        if (!newContent.options) return
-        newContent.options = newContent.options.filter((_: any, i: number) => i !== index)
-        onChange(newContent)
-    }
-
-    const langMap = ['ru', 'kz']
-    const langLabel = ['Русский', 'Казахский']
-    const currentLang = langMap[activeTab]
-
-    return (
-        <Box>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
-                <Tab label="Русский" />
-                <Tab label="Казахский" />
-            </Tabs>
-
-            <TextField
-                fullWidth
-                label={`Вопрос (${langLabel[activeTab]})`}
-                value={getQuestion(currentLang)}
-                onChange={(e) => updateQuestion(e.target.value, currentLang)}
-                multiline
-                rows={2}
-                sx={{ mb: 3 }}
-                inputProps={{ dir: 'ltr' }}
-            />
-
-            <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>
-                Варианты ответов
-            </Typography>
-
-            {content.options?.map((option: any, index: number) => (
-                <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
-                    <Checkbox
-                        checked={!!option.isCorrect}
-                        onChange={() => toggleCorrectOption(index)}
-                    />
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label={`Вариант ${index + 1}`}
-                        value={getOptionText(index, currentLang)}
-                        onChange={(e) => updateOptionText(index, e.target.value, currentLang)}
-                        inputProps={{ dir: 'ltr' }}
-                    />
-                    <IconButton onClick={() => removeOption(index)} color="error" disabled={content.options.length <= 2}>
-                        <Delete />
-                    </IconButton>
-                </Box>
-            ))}
-
-            <Button startIcon={<Add />} onClick={addOption} variant="outlined" size="small">
-                Добавить вариант
-            </Button>
-        </Box>
-    )
+      <Box>
+        <ListHeader
+          title="Варианты ответа"
+          hint={single ? 'Отметьте один верный вариант. Порядок — как в приложении.' : 'Отметьте все верные варианты. Порядок — как в приложении.'}
+        />
+        <Stack gap={1}>
+          {options.map((option, index) => (
+            <EditorRow key={index} tone={option.isCorrect ? 'correct' : 'default'}>
+              <Stack direction="row" alignItems="center" gap={1}>
+                <CorrectToggle
+                  checked={!!option.isCorrect}
+                  single={single}
+                  onChange={() => toggleCorrect(index)}
+                  label={`Вариант ${index + 1} — правильный`}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={`Вариант ${index + 1}`}
+                  value={optionTextOf(option, lang)}
+                  onChange={(e) => setOptionText(index, e.target.value)}
+                  {...kzProps(lang, optionTextOf(option, 'ru'))}
+                  inputProps={mixedInputPropsFor(optionTextOf(option, lang))}
+                />
+                <RowActions
+                  index={index}
+                  count={options.length}
+                  minCount={2}
+                  itemLabel={`вариант ${index + 1}`}
+                  onMove={(from, to) => setOptions(moveItem(options, from, to))}
+                  onRemove={() => setOptions(options.filter((_, i) => i !== index))}
+                />
+              </Stack>
+            </EditorRow>
+          ))}
+        </Stack>
+        <FieldIssues issues={[...issuesFor(issues, 'options'), ...issuesFor(issues, 'correct')]} sx={{ mt: 1 }} />
+        <Button
+          startIcon={<Add />}
+          onClick={() => setOptions([...options, { text: { ru: '', kz: '' }, isCorrect: false }])}
+          variant="outlined"
+          size="small"
+          sx={{ mt: 1.5 }}
+        >
+          Добавить вариант
+        </Button>
+      </Box>
+    </Stack>
+  )
 }
 
 // ----------------------------------------------------------------------
-// Audio Multiple Choice Editor (multiple_choice + audio upload)
+// Audio multiple choice (multiple_choice + block audio)
 // ----------------------------------------------------------------------
 
-export const AudioMultipleChoiceEditor = ({ value, onChange }: EditorProps) => {
-    const content = value || {
-        question: { ru: '', kz: '' },
-        options: [{ text: { ru: '', kz: '' }, isCorrect: false }],
-        audioUrl: '',
-    }
+export const AudioMultipleChoiceEditor = (props: EditorProps) => (
+  <Stack gap={2}>
+    <Alert severity="info" icon={<AudiotrackOutlined fontSize="small" />}>
+      Ученик сначала слушает запись, потом выбирает ответ. Аудио загружается в разделе «Медиа блока» ниже.
+    </Alert>
+    <MultipleChoiceEditor {...props} validationType="audio_multiple_choice" />
+  </Stack>
+)
 
-    return (
-        <Box>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Аудио для вопроса (загрузите в медиа блока после сохранения)
-            </Typography>
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                Создайте блок, сохраните его, затем загрузите аудио через «Медиа файлы» ниже. Пользователь сначала прослушает аудио, затем выберет ответ.
-            </Typography>
-            <MultipleChoiceEditor value={content} onChange={onChange} />
-        </Box>
-    )
+// ----------------------------------------------------------------------
+// Listen & repeat
+// ----------------------------------------------------------------------
+
+const listenRepeatDefaults = () => ({
+  instructionRu: 'Слушай и повторяй',
+  instructionKz: 'Тыңда және қайтала',
+  audioUrl: '',
+})
+
+export const ListenRepeatEditor = ({ value, onChange, lang = 'ru' }: EditorProps) => {
+  useEnsureDefaults(value, onChange, listenRepeatDefaults)
+  const content = isEmptyConfig(value) ? listenRepeatDefaults() : value
+  return (
+    <Stack gap={2}>
+      <InstructionField
+        lang={lang}
+        ru={content.instructionRu}
+        kz={content.instructionKz}
+        placeholderRu="Слушай и повторяй"
+        placeholderKz="Тыңда және қайтала"
+        onChange={(l, text) => onChange({ ...content, [l === 'ru' ? 'instructionRu' : 'instructionKz']: text })}
+      />
+      <Alert severity="info" icon={<AudiotrackOutlined fontSize="small" />}>
+        Запись для повторения загружается в разделе «Медиа блока» ниже.
+      </Alert>
+    </Stack>
+  )
 }
 
 // ----------------------------------------------------------------------
-// Listen Repeat Editor
+// Match pairs
 // ----------------------------------------------------------------------
 
-export const ListenRepeatEditor = ({ value, onChange }: EditorProps) => {
-    const content = value || {
-        instructionRu: 'Слушай и повторяй',
-        instructionKz: 'Тыңда және қайтала',
-        audioUrl: '',
-    }
-
-    const updateInstructionRu = (text: string) => {
-        onChange({ ...content, instructionRu: text })
-    }
-
-    const updateInstructionKz = (text: string) => {
-        onChange({ ...content, instructionKz: text })
-    }
-
-    return (
-        <Box>
-            <TextField
-                fullWidth
-                label="Инструкция (RU)"
-                value={content.instructionRu || 'Слушай и повторяй'}
-                onChange={(e) => updateInstructionRu(e.target.value)}
-                multiline
-                rows={2}
-                sx={{ mb: 2 }}
-                placeholder="Слушай и повторяй"
-            />
-            <TextField
-                fullWidth
-                label="Инструкция (KZ)"
-                value={content.instructionKz || 'Тыңда және қайтала'}
-                onChange={(e) => updateInstructionKz(e.target.value)}
-                multiline
-                rows={2}
-                sx={{ mb: 2 }}
-                placeholder="Тыңда және қайтала"
-            />
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                Загрузите аудио через «Медиа файлы» после сохранения блока.
-            </Typography>
-        </Box>
-    )
-}
-
-// ----------------------------------------------------------------------
-// Match Pairs Editor
-// ----------------------------------------------------------------------
-
-interface MatchPairsMediaFileItem {
-    id: string
-    url: string
-    type: string
-    filename?: string
-    description?: string
-}
-
-function blockMediaDisplayName(f: MatchPairsMediaFileItem): string {
-    const d = f.description?.trim()
-    if (d) return d
-    const n = f.filename?.trim()
-    if (n) return n
-    return f.id.slice(0, 8)
-}
-
-// MatchPairsEditor supports distractors (more right items than left)
-// Data shape: { leftItems, rightItems, correctPairs, instructionRu }
-// Compatible with leftColumn/rightColumn on mobile
-// Media references use imageMediaId / audioMediaId (picked from uploaded media)
+// Supports distractors (more right items than left).
+// Data shape: { leftItems, rightItems, correctPairs, instructionRu, instructionKz }
+// Media references use imageMediaId / audioMediaId (picked from uploaded block media).
 
 type MatchItemType = 'text' | 'audio' | 'image'
 
 type MatchItem = {
-    id: string
-    text: { ru: string; kz: string }
-    imageUrl: string
-    imageMediaId?: string
-    itemType?: MatchItemType
-    audioUrl?: string
-    audioMediaId?: string
-    /** Admin-only label in the audio picker (not used by the mobile app). */
-    audioLabel?: string
+  id: string
+  text: { ru: string; kz: string }
+  imageUrl: string
+  imageMediaId?: string
+  itemType?: MatchItemType
+  audioUrl?: string
+  audioMediaId?: string
+  /** Admin-only label in the audio picker (not used by the mobile app). */
+  audioLabel?: string
 }
 type CorrectPair = { leftId: string; rightId: string }
 
 /** Compare stored URLs to block media list (query tokens / signing may differ). */
 function urlsProbablyMatch(a: string | undefined, b: string | undefined): boolean {
-    if (!a || !b) return false
-    if (a === b) return true
-    const strip = (u: string) => u.split('?')[0].replace(/\/$/, '')
-    return strip(a) === strip(b)
+  if (!a || !b) return false
+  if (a === b) return true
+  const strip = (u: string) => u.split('?')[0].replace(/\/$/, '')
+  return strip(a) === strip(b)
 }
 
 function inferMatchItemType(item: MatchItem): MatchItemType {
-    if (item.itemType === 'audio' || item.itemType === 'image' || item.itemType === 'text') {
-        return item.itemType
-    }
-    if (item.audioUrl || item.audioMediaId) return 'audio'
-    if (item.imageUrl || item.imageMediaId) return 'image'
-    return 'text'
+  if (item.itemType === 'audio' || item.itemType === 'image' || item.itemType === 'text') {
+    return item.itemType
+  }
+  if (item.audioUrl || item.audioMediaId) return 'audio'
+  if (item.imageUrl || item.imageMediaId) return 'image'
+  return 'text'
 }
 
-function migrateMatchPairsValue(value: any): { leftItems: MatchItem[]; rightItems: MatchItem[]; correctPairs: CorrectPair[]; instructionRu: string; instructionKz: string } {
-    // Old format: { pairs: [{left:{ru,kz,ar}, right:{ru,kz,ar}, leftImageUrl, rightImageUrl}] }
-    if (Array.isArray(value?.pairs) && value.pairs.length > 0 && value.pairs[0]?.left) {
-        const leftItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
-            id: `l${i + 1}`,
-            text: { ru: p.left?.ru ?? '', kz: p.left?.kz ?? '' },
-            imageUrl: p.leftImageUrl ?? '',
-        }))
-        const rightItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
-            id: `r${i + 1}`,
-            text: { ru: p.right?.ru ?? '', kz: p.right?.kz ?? '' },
-            imageUrl: p.rightImageUrl ?? '',
-        }))
-        const correctPairs: CorrectPair[] = value.pairs.map((_: any, i: number) => ({ leftId: `l${i + 1}`, rightId: `r${i + 1}` }))
-        return { leftItems, rightItems, correctPairs, instructionRu: value.instructionRu ?? '', instructionKz: value.instructionKz ?? '' }
+function migrateMatchPairsValue(value: any): {
+  leftItems: MatchItem[]
+  rightItems: MatchItem[]
+  correctPairs: CorrectPair[]
+  instructionRu: string
+  instructionKz: string
+} {
+  // Old format: { pairs: [{left:{ru,kz,ar}, right:{ru,kz,ar}, leftImageUrl, rightImageUrl}] }
+  if (Array.isArray(value?.pairs) && value.pairs.length > 0 && value.pairs[0]?.left) {
+    const leftItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
+      id: `l${i + 1}`,
+      text: { ru: p.left?.ru ?? '', kz: p.left?.kz ?? '' },
+      imageUrl: p.leftImageUrl ?? '',
+    }))
+    const rightItems: MatchItem[] = value.pairs.map((p: any, i: number) => ({
+      id: `r${i + 1}`,
+      text: { ru: p.right?.ru ?? '', kz: p.right?.kz ?? '' },
+      imageUrl: p.rightImageUrl ?? '',
+    }))
+    const correctPairs: CorrectPair[] = value.pairs.map((_: any, i: number) => ({ leftId: `l${i + 1}`, rightId: `r${i + 1}` }))
+    return { leftItems, rightItems, correctPairs, instructionRu: value.instructionRu ?? '', instructionKz: value.instructionKz ?? '' }
+  }
+  // New format: { leftItems, rightItems, correctPairs }
+  if (Array.isArray(value?.leftItems)) {
+    const mapRow = (item: any): MatchItem => {
+      const rawText = item.text
+      const text = typeof rawText === 'string' ? { ru: rawText, kz: '' } : { ru: rawText?.ru ?? '', kz: rawText?.kz ?? '' }
+      const base: MatchItem = {
+        id: item.id,
+        text,
+        imageUrl: item.imageUrl ?? '',
+        imageMediaId: item.imageMediaId ?? '',
+        itemType: item.itemType,
+        audioUrl: item.audioUrl ?? '',
+        audioMediaId: item.audioMediaId ?? '',
+        audioLabel: item.audioLabel ?? '',
+      }
+      base.itemType = inferMatchItemType(base)
+      return base
     }
-    // New format: { leftItems, rightItems, correctPairs }
-    if (Array.isArray(value?.leftItems)) {
-        const mapRow = (item: any): MatchItem => {
-            const rawText = item.text
-            const text =
-                typeof rawText === 'string'
-                    ? { ru: rawText, kz: '' }
-                    : { ru: rawText?.ru ?? '', kz: rawText?.kz ?? '' }
-            const base: MatchItem = {
-                id: item.id,
-                text,
-                imageUrl: item.imageUrl ?? '',
-                imageMediaId: item.imageMediaId ?? '',
-                itemType: item.itemType,
-                audioUrl: item.audioUrl ?? '',
-                audioMediaId: item.audioMediaId ?? '',
-                audioLabel: item.audioLabel ?? '',
-            }
-            base.itemType = inferMatchItemType(base)
-            return base
-        }
-        return {
-            leftItems: value.leftItems.map(mapRow),
-            rightItems: (value.rightItems ?? []).map(mapRow),
-            correctPairs: value.correctPairs ?? [],
-            instructionRu: value.instructionRu ?? '',
-            instructionKz: value.instructionKz ?? '',
-        }
+    return {
+      leftItems: value.leftItems.map(mapRow),
+      rightItems: (value.rightItems ?? []).map(mapRow),
+      correctPairs: value.correctPairs ?? [],
+      instructionRu: value.instructionRu ?? '',
+      instructionKz: value.instructionKz ?? '',
     }
-    return { leftItems: [], rightItems: [], correctPairs: [], instructionRu: '', instructionKz: '' }
+  }
+  return { leftItems: [], rightItems: [], correctPairs: [], instructionRu: '', instructionKz: '' }
 }
+
+const emptyMatchItem = (id: string): MatchItem => ({
+  id,
+  text: { ru: '', kz: '' },
+  imageUrl: '',
+  imageMediaId: '',
+  itemType: 'text',
+  audioUrl: '',
+  audioMediaId: '',
+  audioLabel: '',
+})
 
 interface MatchPairsEditorProps extends EditorProps {
-    mediaFiles?: MatchPairsMediaFileItem[]
-    /** When set, URL→mediaId patch runs only for this block (avoids stale list from another block). */
-    blockId?: string
+  mediaFiles?: MediaChoiceFile[]
+  /** When set, URL→mediaId patch runs only for this block (avoids stale list from another block). */
+  blockId?: string
 }
 
-export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId }: MatchPairsEditorProps) => {
-    const [activeTab, setActiveTab] = useState(0)
-    const langMap = ['ru', 'kz'] as const
-    const currentLang = langMap[activeTab]
-    const valueRef = useRef(value)
-    valueRef.current = value
+function ItemTypeToggle({ value, onChange, label }: { value: MatchItemType; onChange: (t: MatchItemType) => void; label: string }) {
+  return (
+    <ToggleButtonGroup
+      exclusive
+      size="small"
+      value={value}
+      onChange={(_, v) => v && onChange(v as MatchItemType)}
+      aria-label={label}
+      sx={{ flexShrink: 0, '& .MuiToggleButton-root': { px: 1, py: 0.25, gap: 0.5, textTransform: 'none', fontSize: 13 } }}
+    >
+      <ToggleButton value="text" aria-label="Текст">
+        <NotesOutlined sx={{ fontSize: 16 }} /> Текст
+      </ToggleButton>
+      <ToggleButton value="audio" aria-label="Аудио">
+        <AudiotrackOutlined sx={{ fontSize: 16 }} /> Аудио
+      </ToggleButton>
+      <ToggleButton value="image" aria-label="Картинка">
+        <ImageOutlined sx={{ fontSize: 16 }} /> Картинка
+      </ToggleButton>
+    </ToggleButtonGroup>
+  )
+}
 
-    const { leftItems, rightItems, correctPairs, instructionRu, instructionKz } = migrateMatchPairsValue(value)
+export const MatchPairsEditor = ({ value, onChange, mediaFiles = [], blockId, lang = 'ru', showIssues }: MatchPairsEditorProps) => {
+  const [withImage, setWithImage] = useState<Set<string>>(() => new Set())
+  const valueRef = useRef(value)
+  valueRef.current = value
 
-    const images = mediaFiles.filter((f) => f.type === 'image')
-    const audios = mediaFiles.filter((f) => f.type === 'audio')
+  const { leftItems, rightItems, correctPairs, instructionRu, instructionKz } = migrateMatchPairsValue(value)
+  const images = mediaFiles.filter((f) => f.type === 'image')
+  const audios = mediaFiles.filter((f) => f.type === 'audio')
+  const issues = showIssues ? validateExerciseConfig('match_pairs', value) : []
 
-    const emit = (li: MatchItem[], ri: MatchItem[], cp: CorrectPair[], instr?: string, instrKz?: string) => {
-        onChange({ leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr ?? instructionRu, instructionKz: instrKz ?? instructionKz })
-    }
+  const emit = (li: MatchItem[], ri: MatchItem[], cp: CorrectPair[], instr?: string, instrKz?: string) => {
+    onChange({ leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr ?? instructionRu, instructionKz: instrKz ?? instructionKz })
+  }
 
-    const resolveAudioMediaId = (item: MatchItem): string | undefined => {
-        if (item.audioMediaId) return item.audioMediaId
-        if (!item.audioUrl) return undefined
-        return audios.find((a) => urlsProbablyMatch(a.url, item.audioUrl))?.id
-    }
+  const resolveAudioMediaId = (item: MatchItem): string | undefined => {
+    if (item.audioMediaId) return item.audioMediaId
+    if (!item.audioUrl) return undefined
+    return audios.find((a) => urlsProbablyMatch(a.url, item.audioUrl))?.id
+  }
 
-    const resolveImageMediaId = (item: MatchItem): string | undefined => {
-        if (item.imageMediaId) return item.imageMediaId
-        if (!item.imageUrl) return undefined
-        return images.find((img) => urlsProbablyMatch(img.url, item.imageUrl))?.id
-    }
+  const resolveImageMediaId = (item: MatchItem): string | undefined => {
+    if (item.imageMediaId) return item.imageMediaId
+    if (!item.imageUrl) return undefined
+    return images.find((img) => urlsProbablyMatch(img.url, item.imageUrl))?.id
+  }
 
-    /** After block media loads, attach media ids by URL so chips show selected without re-upload. */
-    useEffect(() => {
-        if (!blockId || !mediaFiles.length) return
-        const auds = mediaFiles.filter((f) => f.type === 'audio')
-        const imgs = mediaFiles.filter((f) => f.type === 'image')
-        const { leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr } = migrateMatchPairsValue(valueRef.current)
-        let changed = false
-        const patch = (it: MatchItem): MatchItem => {
-            const n = { ...it }
-            if (n.audioUrl && !n.audioMediaId) {
-                const m = auds.find((a) => urlsProbablyMatch(a.url, n.audioUrl))
-                if (m) {
-                    n.audioMediaId = m.id
-                    changed = true
-                }
-            }
-            if (n.imageUrl && !n.imageMediaId) {
-                const m = imgs.find((img) => urlsProbablyMatch(img.url, n.imageUrl))
-                if (m) {
-                    n.imageMediaId = m.id
-                    changed = true
-                }
-            }
-            return n
+  /** After block media loads, attach media ids by URL so pickers show the selection without re-upload. */
+  useEffect(() => {
+    if (!blockId || !mediaFiles.length) return
+    const auds = mediaFiles.filter((f) => f.type === 'audio')
+    const imgs = mediaFiles.filter((f) => f.type === 'image')
+    const { leftItems: li, rightItems: ri, correctPairs: cp, instructionRu: instr } = migrateMatchPairsValue(valueRef.current)
+    let changed = false
+    const patch = (it: MatchItem): MatchItem => {
+      const n = { ...it }
+      if (n.audioUrl && !n.audioMediaId) {
+        const m = auds.find((a) => urlsProbablyMatch(a.url, n.audioUrl))
+        if (m) {
+          n.audioMediaId = m.id
+          changed = true
         }
-        const nli = li.map(patch)
-        const nri = ri.map(patch)
-        if (changed) emit(nli, nri, cp, instr)
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- run when block media list loads; emit would change every render
-    }, [mediaFiles, blockId])
-
-    useEffect(() => {
-        const { leftItems: li } = migrateMatchPairsValue(value)
-        const legacyPairs = Array.isArray(value?.pairs) ? value.pairs : []
-        if (li.length === 0 && legacyPairs.length === 0) {
-            const newLi: MatchItem[] = [{ id: 'l1', text: { ru: '', kz: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '', audioLabel: '' }]
-            const newRi: MatchItem[] = [{ id: 'r1', text: { ru: '', kz: '' }, imageUrl: '', itemType: 'text', audioUrl: '', audioMediaId: '', audioLabel: '' }]
-            emit(newLi, newRi, [{ leftId: 'l1', rightId: 'r1' }])
+      }
+      if (n.imageUrl && !n.imageMediaId) {
+        const m = imgs.find((img) => urlsProbablyMatch(img.url, n.imageUrl))
+        if (m) {
+          n.imageMediaId = m.id
+          changed = true
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
-
-    const addPair = () => {
-        const n = Math.max(leftItems.length, rightItems.length) + 1
-        const lId = `l${n}`
-        const rId = `r${n}`
-        emit(
-            [...leftItems, { id: lId, text: { ru: '', kz: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }],
-            [...rightItems, { id: rId, text: { ru: '', kz: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }],
-            [...correctPairs, { leftId: lId, rightId: rId }],
-        )
+      }
+      return n
     }
+    const nli = li.map(patch)
+    const nri = ri.map(patch)
+    if (changed) emit(nli, nri, cp, instr)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run when block media list loads; emit would change every render
+  }, [mediaFiles, blockId])
 
-    const addDistractor = () => {
-        const n = rightItems.length + 1
-        const rId = `d${n}`
-        emit(leftItems, [...rightItems, { id: rId, text: { ru: '', kz: '' }, imageUrl: '', imageMediaId: '', itemType: 'text' as const, audioUrl: '', audioMediaId: '', audioLabel: '' }], correctPairs)
+  useEffect(() => {
+    const { leftItems: li } = migrateMatchPairsValue(value)
+    const legacyPairs = Array.isArray(value?.pairs) ? value.pairs : []
+    if (li.length === 0 && legacyPairs.length === 0) {
+      emit([emptyMatchItem('l1'), emptyMatchItem('l2')], [emptyMatchItem('r1'), emptyMatchItem('r2')], [
+        { leftId: 'l1', rightId: 'r1' },
+        { leftId: 'l2', rightId: 'r2' },
+      ])
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once on mount
+  }, [])
 
-    const updateLeftItemType = (id: string, itemType: MatchItemType) => {
-        emit(leftItems.map((i) => i.id === id ? { ...i, itemType } : i), rightItems, correctPairs)
+  const usedIds = new Set([...leftItems, ...rightItems].map((i) => i.id))
+  const freeId = (prefix: string) => {
+    let n = 1
+    while (usedIds.has(`${prefix}${n}`)) n += 1
+    return `${prefix}${n}`
+  }
+
+  const addPair = () => {
+    const lId = freeId('l')
+    const rId = freeId('r')
+    emit([...leftItems, emptyMatchItem(lId)], [...rightItems, emptyMatchItem(rId)], [...correctPairs, { leftId: lId, rightId: rId }])
+  }
+  const addDistractor = () => emit(leftItems, [...rightItems, emptyMatchItem(freeId('d'))], correctPairs)
+
+  const patchItem = (side: 'left' | 'right', id: string, patch: (i: MatchItem) => MatchItem) => {
+    if (side === 'left') emit(leftItems.map((i) => (i.id === id ? patch(i) : i)), rightItems, correctPairs)
+    else emit(leftItems, rightItems.map((i) => (i.id === id ? patch(i) : i)), correctPairs)
+  }
+  const assignAudio = (side: 'left' | 'right', id: string, mediaId: string) => {
+    const media = audios.find((a) => a.id === mediaId)
+    patchItem(side, id, (i) =>
+      resolveAudioMediaId(i) === mediaId ? { ...i, audioMediaId: '', audioUrl: '' } : { ...i, audioMediaId: mediaId, audioUrl: media?.url ?? '' },
+    )
+  }
+  const assignImage = (side: 'left' | 'right', id: string, mediaId: string) => {
+    const media = images.find((img) => img.id === mediaId)
+    patchItem(side, id, (i) =>
+      resolveImageMediaId(i) === mediaId ? { ...i, imageMediaId: '', imageUrl: '' } : { ...i, imageMediaId: mediaId, imageUrl: media?.url ?? '' },
+    )
+  }
+  const removeItem = (side: 'left' | 'right', id: string) => {
+    if (side === 'left') emit(leftItems.filter((i) => i.id !== id), rightItems, correctPairs.filter((p) => p.leftId !== id))
+    else emit(leftItems, rightItems.filter((i) => i.id !== id), correctPairs.filter((p) => p.rightId !== id))
+  }
+  const moveSide = (side: 'left' | 'right', from: number, to: number) => {
+    if (side === 'left') emit(moveItem(leftItems, from, to), rightItems, correctPairs)
+    else emit(leftItems, moveItem(rightItems, from, to), correctPairs)
+  }
+  const setPairRight = (leftId: string, rightId: string) => {
+    const next = correctPairs.filter((p) => p.leftId !== leftId)
+    if (rightId) next.push({ leftId, rightId })
+    emit(leftItems, rightItems, next)
+  }
+
+  const getPairedRight = (leftId: string) => correctPairs.find((p) => p.leftId === leftId)?.rightId ?? ''
+  const usedRightIds = new Set(correctPairs.map((p) => p.rightId))
+  const rightLabel = (r: MatchItem, index: number) => {
+    const t = r.itemType ?? 'text'
+    if (t === 'audio') {
+      const media = audios.find((a) => a.id === resolveAudioMediaId(r))
+      return `Аудио: ${r.audioLabel?.trim() || (media ? mediaDisplayName(media) : 'не выбрано')}`
     }
-
-    const updateRightItemType = (id: string, itemType: MatchItemType) => {
-        emit(leftItems, rightItems.map((i) => i.id === id ? { ...i, itemType } : i), correctPairs)
+    if (t === 'image') {
+      const media = images.find((a) => a.id === resolveImageMediaId(r))
+      return `Картинка: ${media ? mediaDisplayName(media) : 'не выбрана'}`
     }
+    return r.text[lang] || r.text.ru || `Ответ ${index + 1} (пусто)`
+  }
 
-    const assignLeftAudio = (id: string, mediaId: string) => {
-        const media = audios.find((a) => a.id === mediaId)
-        emit(
-            leftItems.map((i) => {
-                if (i.id !== id) return i
-                const selected = resolveAudioMediaId(i)
-                if (selected === mediaId) return { ...i, audioMediaId: '', audioUrl: '' }
-                return { ...i, audioMediaId: mediaId, audioUrl: media?.url ?? '' }
-            }),
-            rightItems,
-            correctPairs,
-        )
-    }
+  const renderItemBody = (side: 'left' | 'right', item: MatchItem, index: number) => {
+    const type = item.itemType ?? 'text'
+    const name = side === 'left' ? `элемента слева ${index + 1}` : `ответа ${index + 1}`
+    return (
+      <Stack gap={1.25} sx={{ minWidth: 0, flex: 1 }}>
+        <ItemTypeToggle value={type} label={`Тип ${name}`} onChange={(t) => patchItem(side, item.id, (i) => ({ ...i, itemType: t }))} />
+        {type === 'text' && (
+          <>
+            <TextField
+              fullWidth
+              size="small"
+              label={`Текст (${LANG_LABEL[lang]})`}
+              value={item.text[lang] || ''}
+              onChange={(e) => patchItem(side, item.id, (i) => ({ ...i, text: { ...i.text, [lang]: e.target.value } }))}
+              {...kzProps(lang, item.text.ru)}
+              inputProps={mixedInputPropsFor(item.text[lang])}
+            />
+            {images.length > 0 &&
+              (resolveImageMediaId(item) || withImage.has(item.id) ? (
+                <Box>
+                  <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 0.5 }}>
+                    Картинка к тексту (необязательно)
+                  </Typography>
+                  <MediaChoice
+                    kind="image"
+                    files={images}
+                    selectedId={resolveImageMediaId(item)}
+                    onSelect={(id) => assignImage(side, item.id, id)}
+                    label={`Картинка для ${name}`}
+                  />
+                </Box>
+              ) : (
+                <Box>
+                  <Button size="small" startIcon={<ImageOutlined fontSize="small" />} onClick={() => setWithImage((s) => new Set(s).add(item.id))}>
+                    Добавить картинку к тексту
+                  </Button>
+                </Box>
+              ))}
+          </>
+        )}
+        {type === 'audio' && (
+          <>
+            <MediaChoice
+              kind="audio"
+              files={audios}
+              selectedId={resolveAudioMediaId(item)}
+              onSelect={(id) => assignAudio(side, item.id, id)}
+              label={`Аудио для ${name}`}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              label="Подпись для себя"
+              placeholder="Например: звук «ба»"
+              value={item.audioLabel ?? ''}
+              onChange={(e) => patchItem(side, item.id, (i) => ({ ...i, audioLabel: e.target.value }))}
+              helperText="Видна только в админке, в приложении не показывается"
+            />
+          </>
+        )}
+        {type === 'image' && (
+          <MediaChoice
+            kind="image"
+            files={images}
+            selectedId={resolveImageMediaId(item)}
+            onSelect={(id) => assignImage(side, item.id, id)}
+            label={`Картинка для ${name}`}
+          />
+        )}
+      </Stack>
+    )
+  }
 
-    const assignRightAudio = (id: string, mediaId: string) => {
-        const media = audios.find((a) => a.id === mediaId)
-        emit(
-            leftItems,
-            rightItems.map((i) => {
-                if (i.id !== id) return i
-                const selected = resolveAudioMediaId(i)
-                if (selected === mediaId) return { ...i, audioMediaId: '', audioUrl: '' }
-                return { ...i, audioMediaId: mediaId, audioUrl: media?.url ?? '' }
-            }),
-            correctPairs,
-        )
-    }
+  const distractors = rightItems.filter((r) => !usedRightIds.has(r.id)).length
 
-    const assignLeftImage = (id: string, mediaId: string) => {
-        const media = images.find((img) => img.id === mediaId)
-        emit(
-            leftItems.map((i) => {
-                if (i.id !== id) return i
-                const selected = resolveImageMediaId(i)
-                if (selected === mediaId) return { ...i, imageMediaId: '', imageUrl: '' }
-                return { ...i, imageMediaId: mediaId, imageUrl: media?.url ?? '' }
-            }),
-            rightItems,
-            correctPairs,
-        )
-    }
+  return (
+    <Stack gap={3}>
+      <InstructionField
+        lang={lang}
+        ru={instructionRu}
+        kz={instructionKz}
+        placeholderRu="Соедините пары"
+        placeholderKz="Жұптарды сәйкестендіріңіз"
+        onChange={(l, text) => (l === 'kz' ? emit(leftItems, rightItems, correctPairs, instructionRu, text) : emit(leftItems, rightItems, correctPairs, text, instructionKz))}
+      />
 
-    const assignRightImage = (id: string, mediaId: string) => {
-        const media = images.find((img) => img.id === mediaId)
-        emit(
-            leftItems,
-            rightItems.map((i) => {
-                if (i.id !== id) return i
-                const selected = resolveImageMediaId(i)
-                if (selected === mediaId) return { ...i, imageMediaId: '', imageUrl: '' }
-                return { ...i, imageMediaId: mediaId, imageUrl: media?.url ?? '' }
-            }),
-            correctPairs,
-        )
-    }
+      {images.length === 0 && audios.length === 0 && (
+        <Alert severity="info">Чтобы использовать аудио или картинки, сначала загрузите их в разделе «Медиа блока» ниже.</Alert>
+      )}
 
-    const removeLeft = (id: string) => {
-        emit(
-            leftItems.filter((i) => i.id !== id),
-            rightItems,
-            correctPairs.filter((p) => p.leftId !== id),
-        )
-    }
-
-    const removeRight = (id: string) => {
-        emit(
-            leftItems,
-            rightItems.filter((i) => i.id !== id),
-            correctPairs.filter((p) => p.rightId !== id),
-        )
-    }
-
-    const updateLeftText = (id: string, text: string, lang: string) => {
-        emit(
-            leftItems.map((i) => i.id === id ? { ...i, text: { ...i.text, [lang]: text } } : i),
-            rightItems, correctPairs,
-        )
-    }
-
-    const updateRightText = (id: string, text: string, lang: string) => {
-        emit(
-            leftItems,
-            rightItems.map((i) => i.id === id ? { ...i, text: { ...i.text, [lang]: text } } : i),
-            correctPairs,
-        )
-    }
-
-    const setPairRight = (leftId: string, rightId: string) => {
-        const next = correctPairs.filter((p) => p.leftId !== leftId)
-        if (rightId) next.push({ leftId, rightId })
-        emit(leftItems, rightItems, next)
-    }
-
-    const getPairedRight = (leftId: string) => correctPairs.find((p) => p.leftId === leftId)?.rightId ?? ''
-    const usedRightIds = new Set(correctPairs.map((p) => p.rightId))
-
-    const updateLeftAudioLabel = (id: string, audioLabel: string) => {
-        emit(
-            leftItems.map((i) => (i.id === id ? { ...i, audioLabel } : i)),
-            rightItems,
-            correctPairs,
-        )
-    }
-
-    const updateRightAudioLabel = (id: string, audioLabel: string) => {
-        emit(
-            leftItems,
-            rightItems.map((i) => (i.id === id ? { ...i, audioLabel } : i)),
-            correctPairs,
-        )
-    }
-
-    /** Reusable media thumbnail grid picker */
-    const renderMediaPicker = (
-        files: MatchPairsMediaFileItem[],
-        selectedId: string | undefined,
-        onSelect: (mediaId: string) => void,
-        kind: 'image' | 'audio',
-    ) => {
-        if (files.length === 0) {
+      <Box>
+        <ListHeader title="Левая колонка" hint="Что ученик сопоставляет. Для каждого элемента выберите правильный ответ справа." />
+        <Stack gap={1}>
+          {leftItems.map((item, i) => {
+            const paired = getPairedRight(item.id)
             return (
-                <Typography variant="caption" color="text.disabled">
-                    {kind === 'image'
-                        ? '— загрузите изображения через раздел «Медиа файлы» ниже —'
-                        : '— загрузите аудио через раздел «Медиа файлы» ниже —'}
-                </Typography>
-            )
-        }
-        const selectedFile = files.find((f) => f.id === selectedId)
-        return (
-            <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                    {kind === 'image' ? 'Выберите картинку:' : 'Выберите аудио:'}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {files.map((file) => {
-                        const isSelected = selectedId === file.id
-                        return kind === 'image' ? (
-                            <Box
-                                key={file.id}
-                                onClick={() => onSelect(file.id)}
-                                sx={{
-                                    width: 72, height: 72, borderRadius: 2, overflow: 'hidden', cursor: 'pointer',
-                                    border: isSelected ? '3px solid #2e7d32' : '2px solid transparent',
-                                    outline: isSelected ? '2px solid #81c784' : '2px solid #e0e0e0',
-                                    position: 'relative', transition: 'all .15s',
-                                    '&:hover': { outline: '2px solid #66bb6a' },
-                                }}
-                            >
-                                <img src={file.url} alt={file.filename ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                {isSelected && (
-                                    <Box sx={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: '#2e7d32', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Typography sx={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>&#10003;</Typography>
-                                    </Box>
-                                )}
-                            </Box>
-                        ) : (
-                            (() => {
-                                const audioTitle = blockMediaDisplayName(file)
-                                const audioChipLabel =
-                                    audioTitle.length > 36 ? `${audioTitle.slice(0, 33)}…` : audioTitle
-                                return (
-                                    <Tooltip key={file.id} title={audioTitle} placement="top" enterDelay={400}>
-                                        <Chip
-                                            label={audioChipLabel}
-                                            onClick={() => onSelect(file.id)}
-                                            color={isSelected ? 'success' : 'default'}
-                                            variant={isSelected ? 'filled' : 'outlined'}
-                                            sx={{
-                                                cursor: 'pointer',
-                                                maxWidth: 220,
-                                                height: 'auto',
-                                                '& .MuiChip-label': {
-                                                    whiteSpace: 'normal',
-                                                    lineHeight: 1.2,
-                                                    py: 0.5,
-                                                },
-                                            }}
-                                        />
-                                    </Tooltip>
-                                )
-                            })()
+              <EditorRow key={item.id} tone={paired ? 'correct' : 'default'}>
+                <Stack direction="row" alignItems="flex-start" gap={1}>
+                  <Typography variant="subtitle2" sx={{ width: 22, pt: 0.75, color: 'text.secondary', flexShrink: 0 }}>
+                    {i + 1}
+                  </Typography>
+                  <Stack gap={1.25} sx={{ flex: 1, minWidth: 0 }}>
+                    {renderItemBody('left', item, i)}
+                    <TextField
+                      select
+                      size="small"
+                      fullWidth
+                      label="Правильный ответ справа"
+                      value={paired}
+                      onChange={(e) => setPairRight(item.id, e.target.value)}
+                      SelectProps={{ displayEmpty: true }}
+                      InputLabelProps={{ shrink: true }}
+                      error={showIssues && !paired}
+                    >
+                      <MenuItem value="">
+                        <Typography component="span" color="text.secondary">
+                          Не выбран
+                        </Typography>
+                      </MenuItem>
+                      {rightItems.map((r, ri) => {
+                        const taken = usedRightIds.has(r.id) && paired !== r.id
+                        return (
+                          <MenuItem key={r.id} value={r.id} disabled={taken}>
+                            {rightLabel(r, ri)}
+                            {taken ? ' — уже в паре' : ''}
+                          </MenuItem>
                         )
-                    })}
-                </Box>
-                {selectedFile && (
-                    <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block' }}>
-                        Выбрано:{' '}
-                        {kind === 'audio' ? blockMediaDisplayName(selectedFile) : (selectedFile.filename ?? selectedFile.id)}
-                    </Typography>
-                )}
-            </Box>
-        )
+                      })}
+                    </TextField>
+                  </Stack>
+                  <RowActions
+                    index={i}
+                    count={leftItems.length}
+                    minCount={1}
+                    itemLabel={`элемент слева ${i + 1}`}
+                    onMove={(from, to) => moveSide('left', from, to)}
+                    onRemove={() => removeItem('left', item.id)}
+                  />
+                </Stack>
+              </EditorRow>
+            )
+          })}
+        </Stack>
+      </Box>
+
+      <Box>
+        <ListHeader
+          title="Правая колонка"
+          hint={distractors > 0 ? `Ответы и лишние варианты: лишних — ${distractors}` : 'Ответы. Добавьте лишние варианты, чтобы усложнить задание.'}
+        />
+        <Stack gap={1}>
+          {rightItems.map((item, i) => {
+            const pairIndex = leftItems.findIndex((l) => getPairedRight(l.id) === item.id)
+            return (
+              <EditorRow key={item.id} tone={pairIndex >= 0 ? 'correct' : 'muted'}>
+                <Stack direction="row" alignItems="flex-start" gap={1}>
+                  <Stack gap={1} sx={{ flex: 1, minWidth: 0 }}>
+                    <Box>
+                      {pairIndex >= 0 ? (
+                        <StatusChip label={`Ответ к элементу ${pairIndex + 1}`} tone="success" />
+                      ) : (
+                        <StatusChip label="Лишний вариант" tone="warning" />
+                      )}
+                    </Box>
+                    {renderItemBody('right', item, i)}
+                  </Stack>
+                  <RowActions
+                    index={i}
+                    count={rightItems.length}
+                    minCount={1}
+                    itemLabel={`ответ ${i + 1}`}
+                    onMove={(from, to) => moveSide('right', from, to)}
+                    onRemove={() => removeItem('right', item.id)}
+                  />
+                </Stack>
+              </EditorRow>
+            )
+          })}
+        </Stack>
+      </Box>
+
+      <FieldIssues issues={[...issuesFor(issues, 'pairs'), ...issuesFor(issues, 'correct'), ...issuesFor(issues, 'items')]} />
+
+      <Stack direction="row" gap={1} flexWrap="wrap">
+        <Button startIcon={<Add />} onClick={addPair} variant="outlined" size="small">
+          Добавить пару
+        </Button>
+        <Button startIcon={<Add />} onClick={addDistractor} variant="text" size="small">
+          Добавить лишний вариант
+        </Button>
+      </Stack>
+    </Stack>
+  )
+}
+
+// ----------------------------------------------------------------------
+// Fill blank — same config shape as the test editor's FillBlankConfigEditor
+// { instructionRu/Kz, sentenceTemplateRu/Kz, options: [{id,text}], correctAnswerId, explanationRu/Kz }
+// ----------------------------------------------------------------------
+
+function normalizeFillOptions(raw: any): Array<{ id: string; text: string }> {
+  if (!Array.isArray(raw)) return []
+  return raw.map((o, i) => {
+    if (typeof o === 'string') return { id: `opt_${i + 1}`, text: o }
+    if (o && typeof o === 'object' && 'id' in o && 'text' in o) return { id: o.id, text: o.text ?? '' }
+    return { id: `opt_${i + 1}`, text: (o?.text ?? o?.textRu ?? '') as string }
+  })
+}
+
+export const FillBlankEditor = ({ value, onChange, lang = 'ru', showIssues }: EditorProps) => {
+  const content = value || {}
+  const options = normalizeFillOptions(content.options)
+  const correctAnswerId = (content.correctAnswerId as string) || ''
+  const issues = showIssues ? validateExerciseConfig('fill_blank', content) : []
+
+  useEffect(() => {
+    const raw = content.options
+    if (options.length === 0) {
+      onChange({ ...content, options: [{ id: 'opt_1', text: '' }, { id: 'opt_2', text: '' }], correctAnswerId: 'opt_1' })
+    } else if ((Array.isArray(raw) && typeof raw[0] === 'string') || !correctAnswerId) {
+      onChange({ ...content, options, correctAnswerId: correctAnswerId || options[0].id })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- normalise once on mount
+  }, [])
 
-    return (
-        <Box>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
-                <Tab label="Русский" />
-                <Tab label="Казахский" />
-            </Tabs>
+  const set = (patch: Record<string, unknown>) => onChange({ ...content, ...patch })
+  const setOptions = (next: Array<{ id: string; text: string }>, nextCorrect = correctAnswerId) =>
+    set({ options: next, correctAnswerId: next.some((o) => o.id === nextCorrect) ? nextCorrect : next[0]?.id || '' })
+  const nextOptionId = () => {
+    const max = options.reduce((m, o) => Math.max(m, Number(/^opt_(\d+)$/.exec(o.id)?.[1] ?? 0)), 0)
+    return `opt_${Math.max(max, options.length) + 1}`
+  }
+  const k = lang === 'ru' ? 'Ru' : 'Kz'
 
-            <TextField
-                fullWidth
-                size="small"
-                label="Инструкция"
-                value={currentLang === 'kz' ? (instructionKz || instructionRu) : instructionRu}
-                onChange={(e) => {
-                    if (currentLang === 'kz') emit(leftItems, rightItems, correctPairs, instructionRu, e.target.value)
-                    else emit(leftItems, rightItems, correctPairs, e.target.value, instructionKz)
-                }}
-                sx={{ mb: 2 }}
-            />
-
-            {images.length === 0 && audios.length === 0 && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                    Сначала сохраните блок, затем загрузите медиа файлы (изображения / аудио) через раздел <strong>Медиа файлы</strong> ниже — и они появятся здесь для выбора.
-                </Alert>
-            )}
-
-            {/* Left items */}
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Левые элементы (вопросы)</Typography>
-            {leftItems.map((item, i) => (
-                <Box key={item.id} sx={{ mb: 1.5, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                        <Select
-                            size="small"
-                            value={item.itemType ?? 'text'}
-                            onChange={(e) => updateLeftItemType(item.id, e.target.value as MatchItemType)}
-                            sx={{ minWidth: 110 }}
-                        >
-                            <MenuItem value="text">Текст</MenuItem>
-                            <MenuItem value="audio">Аудио</MenuItem>
-                            <MenuItem value="image">Картинка</MenuItem>
-                        </Select>
-                        {(item.itemType ?? 'text') === 'text' ? (
-                            <TextField
-                                fullWidth
-                                size="small"
-                                label={`Левая часть ${i + 1}`}
-                                value={item.text[currentLang] || ''}
-                                onChange={(e) => updateLeftText(item.id, e.target.value, currentLang)}
-                                inputProps={{ dir: 'ltr' }}
-                            />
-                        ) : (item.itemType ?? 'text') === 'audio' ? (
-                            <Box sx={{ flex: 1 }}>
-                                {renderMediaPicker(audios, resolveAudioMediaId(item), (mediaId) => assignLeftAudio(item.id, mediaId), 'audio')}
-                                <TextField
-                                    fullWidth
-                                    size="small"
-                                    label="Своя подпись к этой ячейке"
-                                    placeholder="Например: буква ба"
-                                    value={item.audioLabel ?? ''}
-                                    onChange={(e) => updateLeftAudioLabel(item.id, e.target.value)}
-                                    sx={{ mt: 1 }}
-                                    helperText="Только в админке; в приложении не показывается"
-                                />
-                            </Box>
-                        ) : (
-                            <Box sx={{ flex: 1 }}>
-                                {renderMediaPicker(images, resolveImageMediaId(item), (mediaId) => assignLeftImage(item.id, mediaId), 'image')}
-                            </Box>
-                        )}
-                        <IconButton size="small" color="error" onClick={() => removeLeft(item.id)} disabled={leftItems.length <= 1}>
-                            <Delete />
-                        </IconButton>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        {(item.itemType ?? 'text') === 'text' && (
-                            <Box sx={{ flex: 1 }}>
-                                {renderMediaPicker(images, resolveImageMediaId(item), (mediaId) => assignLeftImage(item.id, mediaId), 'image')}
-                            </Box>
-                        )}
-                        <Box sx={{ flex: 1 }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                Правильный ответ (правая сторона)
-                            </Typography>
-                            <Select
-                                size="small"
-                                fullWidth
-                                value={getPairedRight(item.id)}
-                                onChange={(e) => setPairRight(item.id, e.target.value as string)}
-                                displayEmpty
-                            >
-                                <MenuItem value=""><em>— не выбрано —</em></MenuItem>
-                                {rightItems.map((r) => (
-                                    <MenuItem key={r.id} value={r.id}
-                                        disabled={usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id}>
-                                        {r.itemType === 'audio'
-                                            ? `🔊 ${(r.audioLabel?.trim() || '[аудио]')}`
-                                            : r.itemType === 'image'
-                                              ? `🖼 [картинка]`
-                                              : (r.text[currentLang] || `[${r.id}]`)}
-                                        {usedRightIds.has(r.id) && getPairedRight(item.id) !== r.id ? ' (занято)' : ''}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </Box>
-                    </Box>
-                </Box>
-            ))}
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Right items (including distractors) */}
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                <Typography variant="subtitle2">Правые элементы (варианты ответов)</Typography>
-                {rightItems.length > leftItems.length && (
-                    <Chip size="small" label={`${rightItems.length - leftItems.length} дистракторов`} color="warning" />
-                )}
-            </Stack>
-            {rightItems.map((item) => {
-                const isPaired = usedRightIds.has(item.id)
-                return (
-                    <Box key={item.id} sx={{ mb: 1.5, p: 1.5, border: '1px solid', borderColor: isPaired ? 'success.light' : 'warning.light', borderRadius: 1, bgcolor: isPaired ? 'rgba(76,175,80,0.04)' : 'rgba(255,152,0,0.04)' }}>
-                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                            <Chip size="small" label={isPaired ? '&#10003; правильный' : '&#10007; дистрактор'} color={isPaired ? 'success' : 'warning'} variant="outlined" sx={{ flexShrink: 0 }} />
-                            <Select
-                                size="small"
-                                value={item.itemType ?? 'text'}
-                                onChange={(e) => updateRightItemType(item.id, e.target.value as MatchItemType)}
-                                sx={{ minWidth: 110 }}
-                            >
-                                <MenuItem value="text">Текст</MenuItem>
-                                <MenuItem value="audio">Аудио</MenuItem>
-                                <MenuItem value="image">Картинка</MenuItem>
-                            </Select>
-                            {(item.itemType ?? 'text') === 'text' ? (
-                                <TextField
-                                    fullWidth
-                                    size="small"
-                                    value={item.text[currentLang] || ''}
-                                    onChange={(e) => updateRightText(item.id, e.target.value, currentLang)}
-                                    placeholder="Текст правой части"
-                                    inputProps={{ dir: 'ltr' }}
-                                />
-                            ) : (item.itemType ?? 'text') === 'audio' ? (
-                                <Box sx={{ flex: 1 }}>
-                                    {renderMediaPicker(audios, resolveAudioMediaId(item), (mediaId) => assignRightAudio(item.id, mediaId), 'audio')}
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Своя подпись к этой ячейке"
-                                        placeholder="Например: звук «ба»"
-                                        value={item.audioLabel ?? ''}
-                                        onChange={(e) => updateRightAudioLabel(item.id, e.target.value)}
-                                        sx={{ mt: 1 }}
-                                        helperText="Только в админке; в приложении не показывается"
-                                    />
-                                </Box>
-                            ) : (
-                                <Box sx={{ flex: 1 }}>
-                                    {renderMediaPicker(images, resolveImageMediaId(item), (mediaId) => assignRightImage(item.id, mediaId), 'image')}
-                                </Box>
-                            )}
-                            <IconButton size="small" color="error" onClick={() => removeRight(item.id)} disabled={rightItems.length <= 1}>
-                                <Delete />
-                            </IconButton>
-                        </Box>
-                        {(item.itemType ?? 'text') === 'text' && (
-                            <Box>
-                                {renderMediaPicker(images, resolveImageMediaId(item), (mediaId) => assignRightImage(item.id, mediaId), 'image')}
-                            </Box>
-                        )}
-                    </Box>
-                )
-            })}
-
-            <Stack direction="row" spacing={1}>
-                <Button startIcon={<Add />} onClick={addPair} variant="outlined" size="small">
-                    Добавить пару
-                </Button>
-                <Button startIcon={<LinkOff />} onClick={addDistractor} variant="outlined" size="small" color="warning">
-                    Добавить дистрактор
-                </Button>
-            </Stack>
-        </Box>
-    )
+  return (
+    <Stack gap={2.5}>
+      <InstructionField
+        lang={lang}
+        ru={content.instructionRu}
+        kz={content.instructionKz}
+        placeholderRu="Заполни пропуск"
+        placeholderKz="Бос орынды толтырыңыз"
+        onChange={(l, text) => set({ [l === 'ru' ? 'instructionRu' : 'instructionKz']: text })}
+      />
+      <Box>
+        <TextField
+          fullWidth
+          multiline
+          minRows={2}
+          required={lang === 'ru'}
+          label={`Предложение с пропуском (${LANG_LABEL[lang]})`}
+          value={(content[`sentenceTemplate${k}`] as string) || ''}
+          onChange={(e) => set({ [`sentenceTemplate${k}`]: e.target.value })}
+          {...kzProps(lang, content.sentenceTemplateRu, 'Я читаю ___ каждый день')}
+          helperText="Место пропуска — три подчёркивания или больше: ___"
+          error={lang === 'ru' && issuesFor(issues, 'sentence').length > 0}
+          inputProps={mixedInputProps}
+        />
+        {lang === 'ru' && <FieldIssues issues={issuesFor(issues, 'sentence')} sx={{ mt: 0.75 }} />}
+      </Box>
+      <Box>
+        <ListHeader title="Варианты для пропуска" hint="Отметьте вариант, который подходит в пропуск." />
+        <SharedFieldsNote />
+        <Stack gap={1} sx={{ mt: 1 }}>
+          {options.map((opt, i) => (
+            <EditorRow key={opt.id} tone={correctAnswerId === opt.id ? 'correct' : 'default'}>
+              <Stack direction="row" alignItems="center" gap={1}>
+                <CorrectToggle single checked={correctAnswerId === opt.id} onChange={() => set({ correctAnswerId: opt.id })} label={`Вариант ${i + 1} — правильный`} />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={`Вариант ${i + 1}`}
+                  value={opt.text}
+                  onChange={(e) => setOptions(options.map((o, j) => (j === i ? { ...o, text: e.target.value } : o)))}
+                  inputProps={mixedInputPropsFor(opt.text)}
+                />
+                <RowActions
+                  index={i}
+                  count={options.length}
+                  minCount={1}
+                  itemLabel={`вариант ${i + 1}`}
+                  onMove={(from, to) => setOptions(moveItem(options, from, to))}
+                  onRemove={() => setOptions(options.filter((_, j) => j !== i))}
+                />
+              </Stack>
+            </EditorRow>
+          ))}
+        </Stack>
+        <FieldIssues issues={[...issuesFor(issues, 'options'), ...issuesFor(issues, 'correct')]} sx={{ mt: 1 }} />
+        <Button size="small" startIcon={<Add />} onClick={() => setOptions([...options, { id: nextOptionId(), text: '' }])} variant="outlined" sx={{ mt: 1.5 }}>
+          Добавить вариант
+        </Button>
+      </Box>
+      <TextField
+        fullWidth
+        multiline
+        minRows={1}
+        label={`Пояснение после ответа (${LANG_LABEL[lang]}), необязательно`}
+        value={(content[`explanation${k}`] as string) || ''}
+        onChange={(e) => set({ [`explanation${k}`]: e.target.value })}
+        {...kzProps(lang, content.explanationRu)}
+      />
+    </Stack>
+  )
 }
 
 // ----------------------------------------------------------------------
-// Fill Blank Editor
+// Image ↔ word
 // ----------------------------------------------------------------------
-
-export const FillBlankEditor = ({ value, onChange }: EditorProps) => {
-    const [activeTab, setActiveTab] = useState(0)
-    const content = value || { text: { ru: '', kz: '' } }
-
-    const langMap = ['ru', 'kz']
-    const langLabel = ['Русский', 'Казахский']
-    const currentLang = langMap[activeTab]
-
-    const updateText = (text: string, lang: string) => {
-        const newContent = { ...content }
-        if (!newContent.text) newContent.text = {}
-        newContent.text[lang] = text
-        onChange(newContent)
-    }
-
-    return (
-        <Box>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
-                <Tab label="Русский" />
-                <Tab label="Казахский" />
-            </Tabs>
-
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                Используйте <strong>[ответ]</strong> для создания пропуска.
-                <br />
-                Пример: <em>Столица Казахстана - [Астана].</em>
-            </Typography>
-
-            <TextField
-                fullWidth
-                multiline
-                rows={6}
-                label={`Текст с пропусками (${langLabel[activeTab]})`}
-                value={content.text?.[currentLang] || ''}
-                onChange={(e) => updateText(e.target.value, currentLang)}
-                inputProps={{ dir: 'ltr' }}
-            />
-        </Box>
-    )
-}
-
-// ----------------------------------------------------------------------
-// Manual Input Editor
-// ----------------------------------------------------------------------
-
-// ----------------------------------------------------------------------
-// Image Word Match Editor
-// ----------------------------------------------------------------------
-
-interface MediaFileItem {
-    id: string
-    url: string
-    type: string
-    filename?: string
-    description?: string
-}
 
 interface ImageWordMatchEditorProps extends EditorProps {
-    mediaFiles?: MediaFileItem[]
+  mediaFiles?: MediaChoiceFile[]
 }
 
-export const ImageWordMatchEditor = ({ value, onChange, mediaFiles = [] }: ImageWordMatchEditorProps) => {
-    const content = value || { instructionRu: '', instructionKz: '', pairs: [] }
+export const ImageWordMatchEditor = ({ value, onChange, mediaFiles = [], lang = 'ru', showIssues }: ImageWordMatchEditorProps) => {
+  const content = value || { instructionRu: '', instructionKz: '', pairs: [] }
+  const pairs: Array<{ id: string; word: string; imageMediaId?: string }> = content.pairs ?? []
+  const images = mediaFiles.filter((f) => f.type === 'image')
+  const issues = showIssues ? validateExerciseConfig('image_word_match', content) : []
 
-    const pairs: Array<{ id: string; word: string; imageMediaId?: string }> =
-        content.pairs ?? []
+  const setPairs = (next: typeof pairs) => onChange({ ...content, pairs: next })
+  const addPair = () => setPairs([...pairs, { id: newId(), word: '', imageMediaId: '' }])
 
-    const images = mediaFiles.filter((f) => f.type === 'image')
-
-    const addPair = () => {
-        onChange({
-            ...content,
-            pairs: [
-                ...pairs,
-                { id: crypto.randomUUID(), word: '', imageMediaId: '' },
-            ],
-        })
+  useEffect(() => {
+    if (!content.pairs || content.pairs.length === 0) {
+      onChange({ ...content, pairs: [{ id: newId(), word: '', imageMediaId: '' }, { id: newId(), word: '', imageMediaId: '' }] })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once on mount
+  }, [])
 
-    const removePair = (id: string) => {
-        onChange({
-            ...content,
-            pairs: pairs.filter((p) => p.id !== id),
-        })
-    }
+  return (
+    <Stack gap={2.5}>
+      <InstructionField
+        lang={lang}
+        ru={content.instructionRu}
+        kz={content.instructionKz}
+        placeholderRu="Соедините картинки и слова"
+        placeholderKz="Суреттер мен сөздерді сәйкестендіріңіз"
+        onChange={(l, text) => onChange({ ...content, [l === 'ru' ? 'instructionRu' : 'instructionKz']: text })}
+      />
+      {images.length === 0 && <Alert severity="info">Загрузите изображения в разделе «Медиа блока» ниже — они появятся здесь для выбора.</Alert>}
+      <Box>
+        <ListHeader title="Пары" hint="Арабское слово и картинка, которая ему соответствует." />
+        <SharedFieldsNote />
+        <Stack gap={1} sx={{ mt: 1 }}>
+          {pairs.map((pair, idx) => (
+            <EditorRow key={pair.id} tone={pair.imageMediaId && pair.word ? 'correct' : 'default'}>
+              <Stack direction="row" alignItems="flex-start" gap={1}>
+                <Typography variant="subtitle2" sx={{ width: 22, pt: 1, color: 'text.secondary', flexShrink: 0 }}>
+                  {idx + 1}
+                </Typography>
+                <Stack gap={1.25} sx={{ flex: 1, minWidth: 0 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Слово на арабском"
+                    value={pair.word ?? ''}
+                    onChange={(e) => setPairs(pairs.map((p) => (p.id === pair.id ? { ...p, word: e.target.value } : p)))}
+                    inputProps={arabicInputProps}
+                  />
+                  <MediaChoice
+                    kind="image"
+                    files={images}
+                    selectedId={pair.imageMediaId}
+                    onSelect={(mediaId) =>
+                      setPairs(pairs.map((p) => (p.id === pair.id ? { ...p, imageMediaId: p.imageMediaId === mediaId ? '' : mediaId } : p)))
+                    }
+                    label={`Картинка для пары ${idx + 1}`}
+                  />
+                </Stack>
+                <RowActions
+                  index={idx}
+                  count={pairs.length}
+                  minCount={1}
+                  itemLabel={`пару ${idx + 1}`}
+                  onMove={(from, to) => setPairs(moveItem(pairs, from, to))}
+                  onRemove={() => setPairs(pairs.filter((p) => p.id !== pair.id))}
+                />
+              </Stack>
+            </EditorRow>
+          ))}
+        </Stack>
+        <FieldIssues issues={[...issuesFor(issues, 'pairs'), ...issuesFor(issues, 'media')]} sx={{ mt: 1 }} />
+        <Button startIcon={<Add />} onClick={addPair} variant="outlined" size="small" sx={{ mt: 1.5 }}>
+          Добавить пару
+        </Button>
+      </Box>
+    </Stack>
+  )
+}
 
-    const updateWord = (id: string, word: string) => {
-        onChange({
-            ...content,
-            pairs: pairs.map((p) => (p.id === id ? { ...p, word } : p)),
-        })
-    }
+// ----------------------------------------------------------------------
+// Single-answer option list for Mahraj exercises (letters / words, Arabic)
+// ----------------------------------------------------------------------
 
-    const assignImage = (pairId: string, mediaId: string) => {
-        onChange({
-            ...content,
-            // If already assigned — clicking again deselects
-            pairs: pairs.map((p) =>
-                p.id === pairId
-                    ? { ...p, imageMediaId: p.imageMediaId === mediaId ? '' : mediaId }
-                    : p,
-            ),
-        })
-    }
+function ArabicOptionList({
+  options,
+  onChange,
+  itemNoun,
+  wide,
+  issues,
+}: {
+  options: any[]
+  onChange: (next: any[]) => void
+  itemNoun: string
+  /** Full-width inputs (words) instead of short ones (letters). */
+  wide?: boolean
+  issues: ReturnType<typeof validateExerciseConfig>
+}) {
+  return (
+    <Box>
+      <Stack gap={1}>
+        {options.map((opt: any, idx: number) => (
+          <EditorRow key={opt.id ?? idx} tone={opt.isCorrect ? 'correct' : 'default'}>
+            <Stack direction="row" alignItems="center" gap={1}>
+              <CorrectToggle
+                single
+                checked={!!opt.isCorrect}
+                onChange={() => onChange(options.map((o: any, i: number) => ({ ...o, isCorrect: i === idx })))}
+                label={`${itemNoun} ${idx + 1} — правильный`}
+              />
+              <TextField
+                size="small"
+                label={`${itemNoun} ${idx + 1}`}
+                value={opt.text || ''}
+                onChange={(e) => onChange(options.map((o: any, i: number) => (i === idx ? { ...o, text: e.target.value } : o)))}
+                inputProps={{ ...arabicInputProps, style: { ...arabicInputProps.style, textAlign: wide ? 'right' : 'center' } }}
+                sx={{ width: wide ? '100%' : 140 }}
+              />
+              <Box sx={{ flex: 1 }} />
+              <RowActions
+                index={idx}
+                count={options.length}
+                minCount={2}
+                itemLabel={`${itemNoun.toLowerCase()} ${idx + 1}`}
+                onMove={(from, to) => onChange(moveItem(options, from, to))}
+                onRemove={() => onChange(options.filter((_: any, i: number) => i !== idx))}
+              />
+            </Stack>
+          </EditorRow>
+        ))}
+      </Stack>
+      <FieldIssues issues={[...issuesFor(issues, 'options'), ...issuesFor(issues, 'correct')]} sx={{ mt: 1 }} />
+      <Button
+        startIcon={<Add />}
+        onClick={() => onChange([...options, { id: newId(), text: '', isCorrect: false }])}
+        variant="outlined"
+        size="small"
+        sx={{ mt: 1.5 }}
+      >
+        Добавить вариант
+      </Button>
+    </Box>
+  )
+}
 
-    useEffect(() => {
-        if (!content.pairs || content.pairs.length === 0) {
-            addPair()
-        }
-    }, [])
+// ----------------------------------------------------------------------
+// Audio → letter (Mahraj)
+// ----------------------------------------------------------------------
 
-    return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-                fullWidth
-                label="Инструкция (RU)"
-                value={content.instructionRu ?? ''}
-                onChange={(e) => onChange({ ...content, instructionRu: e.target.value })}
-                placeholder="Соедините картинки и слова"
-            />
-            <TextField
-                fullWidth
-                label="Инструкция (KZ)"
-                value={content.instructionKz ?? ''}
-                onChange={(e) => onChange({ ...content, instructionKz: e.target.value })}
-                placeholder="Суреттер мен сөздерді сәйкестендіріңіз"
-            />
+const audioChoiceDefaults = () => ({
+  instructionRu: 'Послушайте звук и выберите правильную букву',
+  instructionKz: 'Дыбысты тыңдап, дұрыс әріпті таңдаңыз',
+  audioUrl: '',
+  options: [
+    { id: newId(), text: '', isCorrect: false },
+    { id: newId(), text: '', isCorrect: false },
+  ],
+})
 
-            {images.length === 0 && (
-                <Alert severity="info">
-                    Сначала сохраните блок, затем загрузите изображения через раздел{' '}
-                    <strong>Изображения для пар</strong> ниже — и они появятся здесь для выбора.
-                </Alert>
-            )}
-
-            {pairs.map((pair, idx) => {
-                const assignedImage = images.find((img) => img.id === pair.imageMediaId)
-
-                return (
-                    <Paper key={pair.id} variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                                Пара {idx + 1}
-                            </Typography>
-                            <IconButton
-                                onClick={() => removePair(pair.id)}
-                                color="error"
-                                size="small"
-                                disabled={pairs.length <= 1}
-                            >
-                                <Delete fontSize="small" />
-                            </IconButton>
-                        </Box>
-
-                        {/* Arabic word input */}
-                        <TextField
-                            fullWidth
-                            label="Слово (арабский)"
-                            value={pair.word ?? ''}
-                            onChange={(e) => updateWord(pair.id, e.target.value)}
-                            inputProps={{ dir: 'rtl', style: { fontSize: 22 } }}
-                            size="small"
-                        />
-
-                        {/* Image picker */}
-                        {images.length > 0 ? (
-                            <Box>
-                                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                                    Выберите картинку для этой пары:
-                                </Typography>
-                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                    {images.map((img) => {
-                                        const isSelected = pair.imageMediaId === img.id
-                                        return (
-                                            <Box
-                                                key={img.id}
-                                                onClick={() => assignImage(pair.id, img.id)}
-                                                sx={{
-                                                    width: 72,
-                                                    height: 72,
-                                                    borderRadius: 2,
-                                                    overflow: 'hidden',
-                                                    cursor: 'pointer',
-                                                    border: isSelected
-                                                        ? '3px solid #2e7d32'
-                                                        : '2px solid transparent',
-                                                    outline: isSelected
-                                                        ? '2px solid #81c784'
-                                                        : '2px solid #e0e0e0',
-                                                    position: 'relative',
-                                                    transition: 'all .15s',
-                                                    '&:hover': { outline: '2px solid #66bb6a' },
-                                                }}
-                                            >
-                                                <img
-                                                    src={img.url}
-                                                    alt={img.filename ?? ''}
-                                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                                />
-                                                {isSelected && (
-                                                    <Box
-                                                        sx={{
-                                                            position: 'absolute',
-                                                            top: 2,
-                                                            right: 2,
-                                                            width: 18,
-                                                            height: 18,
-                                                            borderRadius: '50%',
-                                                            background: '#2e7d32',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                        }}
-                                                    >
-                                                        <Typography sx={{ color: '#fff', fontSize: 11, lineHeight: 1 }}>✓</Typography>
-                                                    </Box>
-                                                )}
-                                            </Box>
-                                        )
-                                    })}
-                                </Box>
-                                {assignedImage && (
-                                    <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block' }}>
-                                        Выбрано: {assignedImage.filename ?? assignedImage.id}
-                                    </Typography>
-                                )}
-                                {!pair.imageMediaId && (
-                                    <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
-                                        Картинка не выбрана
-                                    </Typography>
-                                )}
-                            </Box>
-                        ) : (
-                            <Typography variant="caption" color="text.disabled">
-                                — изображения появятся здесь после загрузки —
-                            </Typography>
-                        )}
-                    </Paper>
-                )
-            })}
-
-            <Button startIcon={<Add />} onClick={addPair} variant="outlined" size="small">
-                Добавить пару
-            </Button>
+export const AudioChoiceEditor = ({ value, onChange, lang = 'ru', showIssues }: EditorProps) => {
+  useEnsureDefaults(value, onChange, audioChoiceDefaults)
+  const content = isEmptyConfig(value) ? audioChoiceDefaults() : value
+  const issues = showIssues ? validateExerciseConfig('audio_choice', content) : []
+  return (
+    <Stack gap={2.5}>
+      <Alert severity="info" icon={<AudiotrackOutlined fontSize="small" />}>
+        Звук загружается в разделе «Медиа блока» ниже.
+      </Alert>
+      <InstructionField
+        lang={lang}
+        ru={content.instructionRu}
+        kz={content.instructionKz}
+        onChange={(l, text) => onChange({ ...content, [l === 'ru' ? 'instructionRu' : 'instructionKz']: text })}
+      />
+      <Box>
+        <ListHeader title="Буквы или слоги" hint="Отметьте ту, что звучит в записи." />
+        <SharedFieldsNote />
+        <Box sx={{ mt: 1 }}>
+          <ArabicOptionList options={content.options || []} onChange={(next) => onChange({ ...content, options: next })} itemNoun="Буква" issues={issues} />
         </Box>
-    )
+      </Box>
+    </Stack>
+  )
 }
 
 // ----------------------------------------------------------------------
-// Manual Input Editor
+// Find letter in word (Mahraj)
 // ----------------------------------------------------------------------
 
-// ----------------------------------------------------------------------
-// Audio Choice Editor (Mahraj: слушай звук → выбери букву/слог)
-// ----------------------------------------------------------------------
-
-export const AudioChoiceEditor = ({ value, onChange }: EditorProps) => {
-    const content = value || {
-        instructionRu: 'Послушайте звук и выберите правильную букву',
-        instructionKz: 'Дыбысты тыңдап, дұрыс әріпті таңдаңыз',
-        audioUrl: '',
-        options: [{ id: crypto.randomUUID(), text: '', isCorrect: false }],
-    }
-
-    const updateInstructionRu = (text: string) => onChange({ ...content, instructionRu: text })
-    const updateInstructionKz = (text: string) => onChange({ ...content, instructionKz: text })
-
-    const addOption = () => {
-        const newOptions = [...(content.options || []), { id: crypto.randomUUID(), text: '', isCorrect: false }]
-        onChange({ ...content, options: newOptions })
-    }
-
-    const removeOption = (idx: number) => {
-        if ((content.options?.length ?? 0) <= 2) return
-        onChange({ ...content, options: content.options.filter((_: any, i: number) => i !== idx) })
-    }
-
-    const setCorrect = (idx: number) => {
-        const newOptions = (content.options || []).map((o: any, i: number) => ({ ...o, isCorrect: i === idx }))
-        onChange({ ...content, options: newOptions })
-    }
-
-    const updateOptionText = (idx: number, text: string) => {
-        const newOptions = [...(content.options || [])]
-        newOptions[idx] = { ...newOptions[idx], text }
-        onChange({ ...content, options: newOptions })
-    }
-
-    return (
-        <Box>
-            <Alert severity="info" sx={{ mb: 2 }}>
-                Загрузите аудио через «Аудио файл» после сохранения блока.
-            </Alert>
-
-            <TextField
-                fullWidth
-                label="Инструкция (RU)"
-                value={content.instructionRu || ''}
-                onChange={(e) => updateInstructionRu(e.target.value)}
-                multiline
-                rows={2}
-                sx={{ mb: 1 }}
-            />
-            <TextField
-                fullWidth
-                label="Инструкция (KZ)"
-                value={content.instructionKz || ''}
-                onChange={(e) => updateInstructionKz(e.target.value)}
-                multiline
-                rows={2}
-                sx={{ mb: 3 }}
-            />
-
-            <Typography variant="subtitle1" gutterBottom>
-                Варианты (буквы или слоги)
-            </Typography>
-
-            {(content.options || []).map((opt: any, idx: number) => (
-                <Box key={opt.id ?? idx} sx={{ display: 'flex', alignItems: 'center', mb: 1.5, gap: 1 }}>
-                    <input
-                        type="radio"
-                        checked={!!opt.isCorrect}
-                        onChange={() => setCorrect(idx)}
-                        style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
-                    />
-                    <TextField
-                        size="small"
-                        label={`Буква/слог ${idx + 1}`}
-                        value={opt.text || ''}
-                        onChange={(e) => updateOptionText(idx, e.target.value)}
-                        inputProps={{ dir: 'rtl', style: { fontSize: 22, fontWeight: 'bold', textAlign: 'center' } }}
-                        sx={{ width: 120 }}
-                    />
-                    <IconButton onClick={() => removeOption(idx)} color="error" size="small"
-                        disabled={(content.options?.length ?? 0) <= 2}>
-                        <Delete />
-                    </IconButton>
-                </Box>
-            ))}
-
-            <Button startIcon={<Add />} onClick={addOption} variant="outlined" size="small" sx={{ mt: 1 }}>
-                Добавить вариант
-            </Button>
-        </Box>
-    )
-}
-
-// ----------------------------------------------------------------------
-// Find Letter In Word Editor (Mahraj: найди букву в слове)
-// ----------------------------------------------------------------------
+const HARAKAT_RE = /[\u064B-\u065F\u0670\u0640]/g
 
 /** Split Arabic word into grapheme clusters (letter + attached diacritics) */
 function splitArabicWord(word: string): string[] {
-    const result: string[] = []
-    let i = 0
+  const result: string[] = []
+  let i = 0
+  while (i < word.length) {
+    let cluster = word[i]
+    i++
+    // Attach Arabic diacritics (harakat): U+064B–U+065F, tatweel U+0640, U+0670
     while (i < word.length) {
-        let cluster = word[i]
+      const code = word.charCodeAt(i)
+      if ((code >= 0x064b && code <= 0x065f) || code === 0x0670 || code === 0x0640) {
+        cluster += word[i]
         i++
-        // Attach Arabic diacritics (harakat): U+064B–U+065F, tatweel U+0640, U+0670
-        while (i < word.length) {
-            const code = word.charCodeAt(i)
-            if ((code >= 0x064B && code <= 0x065F) || code === 0x0670 || code === 0x0640) {
-                cluster += word[i]
-                i++
-            } else {
-                break
-            }
-        }
-        result.push(cluster)
+      } else {
+        break
+      }
     }
-    return result
+    result.push(cluster)
+  }
+  return result
 }
 
-export const FindLetterInWordEditor = ({ value, onChange }: EditorProps) => {
-    const content = value || {
-        instructionRu: 'Найдите букву в слове',
-        instructionKz: 'Сөздегі әріпті табыңыз',
-        word: '',
-        targetLetter: '',
-    }
+const findLetterDefaults = () => ({
+  instructionRu: 'Найдите букву в слове',
+  instructionKz: 'Сөздегі әріпті табыңыз',
+  word: '',
+  targetLetter: '',
+})
 
-    const letters = content.word ? splitArabicWord(content.word) : []
+export const FindLetterInWordEditor = ({ value, onChange, lang = 'ru', showIssues }: EditorProps) => {
+  useEnsureDefaults(value, onChange, findLetterDefaults)
+  const content = isEmptyConfig(value) ? findLetterDefaults() : value
+  const issues = showIssues ? validateExerciseConfig('find_letter_in_word', content) : []
+  const letters = content.word ? splitArabicWord(content.word).filter((l: string) => l.trim()) : []
+  const target = (content.targetLetter || '').replace(HARAKAT_RE, '')
+  const found = letters.some((l: string) => l.replace(HARAKAT_RE, '') === target)
 
-    return (
+  return (
+    <Stack gap={2.5}>
+      <InstructionField
+        lang={lang}
+        ru={content.instructionRu}
+        kz={content.instructionKz}
+        placeholderRu="Найдите букву ح в слове"
+        onChange={(l, text) => onChange({ ...content, [l === 'ru' ? 'instructionRu' : 'instructionKz']: text })}
+      />
+      <Box>
+        <SharedFieldsNote />
+        <Stack direction={{ xs: 'column', sm: 'row' }} gap={2} sx={{ mt: 1 }}>
+          <TextField
+            label="Слово на арабском"
+            required
+            value={content.word || ''}
+            onChange={(e) => onChange({ ...content, word: e.target.value })}
+            inputProps={{ ...arabicInputProps, style: { ...arabicInputProps.style, fontSize: 28 } }}
+            sx={{ flex: 2 }}
+            placeholder="حَرَكَة"
+            error={issuesFor(issues, 'word').length > 0}
+          />
+          <TextField
+            label="Буква, которую ищем"
+            required
+            value={content.targetLetter || ''}
+            onChange={(e) => onChange({ ...content, targetLetter: e.target.value })}
+            inputProps={{ ...arabicInputProps, style: { ...arabicInputProps.style, fontSize: 28, textAlign: 'center' } }}
+            sx={{ flex: 1, maxWidth: { sm: 180 } }}
+            placeholder="ح"
+            error={issuesFor(issues, 'target').length > 0}
+          />
+        </Stack>
+        <FieldIssues issues={[...issuesFor(issues, 'word'), ...issuesFor(issues, 'target')]} sx={{ mt: 1 }} />
+      </Box>
+
+      {letters.length > 0 && (
         <Box>
-            <TextField
-                fullWidth
-                label="Инструкция (RU)"
-                value={content.instructionRu || ''}
-                onChange={(e) => onChange({ ...content, instructionRu: e.target.value })}
-                multiline
-                rows={2}
-                sx={{ mb: 1 }}
-                placeholder="Найдите букву ح в слове"
-            />
-            <TextField
-                fullWidth
-                label="Инструкция (KZ)"
-                value={content.instructionKz || ''}
-                onChange={(e) => onChange({ ...content, instructionKz: e.target.value })}
-                multiline
-                rows={2}
-                sx={{ mb: 3 }}
-                placeholder="Сөздегі әріпті табыңыз"
-            />
-
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                <TextField
-                    label="Арабское слово"
-                    value={content.word || ''}
-                    onChange={(e) => onChange({ ...content, word: e.target.value })}
-                    inputProps={{ dir: 'rtl', style: { fontSize: 28, fontWeight: 'bold', letterSpacing: 2 } }}
-                    sx={{ flex: 2 }}
-                    placeholder="حَرَكَة"
-                />
-                <TextField
-                    label="Целевая буква"
-                    value={content.targetLetter || ''}
-                    onChange={(e) => onChange({ ...content, targetLetter: e.target.value })}
-                    inputProps={{ dir: 'rtl', style: { fontSize: 28, fontWeight: 'bold', textAlign: 'center' } }}
-                    sx={{ flex: 1, maxWidth: 130 }}
-                    placeholder="ح"
-                />
-            </Box>
-
-            {letters.length > 0 && (
-                <Box>
-                    <Typography variant="subtitle2" gutterBottom>
-                        Предпросмотр (слово разбито на буквы):
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexDirection: 'row-reverse', flexWrap: 'wrap', mt: 1 }}>
-                        {letters.map((letter, idx) => {
-                            const strippedLetter = letter.replace(/[\u064B-\u065F\u0670\u0640]/g, '')
-                            const strippedTarget = (content.targetLetter || '').replace(/[\u064B-\u065F\u0670\u0640]/g, '')
-                            const isTarget = strippedLetter === strippedTarget
-                            return (
-                                <Chip
-                                    key={idx}
-                                    label={letter}
-                                    color={isTarget ? 'primary' : 'default'}
-                                    variant={isTarget ? 'filled' : 'outlined'}
-                                    sx={{ fontSize: 22, height: 44, px: 1, direction: 'rtl' }}
-                                />
-                            )
-                        })}
-                    </Box>
-                    {content.targetLetter && !letters.some((l) =>
-                        l.replace(/[\u064B-\u065F\u0670\u0640]/g, '') === (content.targetLetter || '').replace(/[\u064B-\u065F\u0670\u0640]/g, ''))
-                        && (
-                            <Alert severity="warning" sx={{ mt: 1 }}>
-                                Буква «{content.targetLetter}» не найдена в слове «{content.word}»
-                            </Alert>
-                        )}
+          <ListHeader title="Как ученик увидит слово" hint="Слово разбито на буквы; искомая выделена." />
+          <Box dir="rtl" sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+            {letters.map((letter: string, idx: number) => {
+              const isTarget = !!target && letter.replace(HARAKAT_RE, '') === target
+              return (
+                <Box
+                  key={idx}
+                  sx={{
+                    minWidth: 48,
+                    px: 1,
+                    py: 0.25,
+                    textAlign: 'center',
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: isTarget ? 'primary.main' : 'divider',
+                    bgcolor: isTarget ? 'brand.sand' : 'background.paper',
+                  }}
+                >
+                  <ArabicText size="lg" weight={isTarget ? 600 : 400} align="center">
+                    {letter}
+                  </ArabicText>
                 </Box>
-            )}
-        </Box>
-    )
-}
-
-// ----------------------------------------------------------------------
-// Listen And Choose Word Editor (Mahraj: послушай → выбери слово)
-// ----------------------------------------------------------------------
-
-export const ListenAndChooseWordEditor = ({ value, onChange }: EditorProps) => {
-    const content = value || {
-        instructionRu: 'Послушайте и выберите слово',
-        instructionKz: 'Тыңдап, сөзді таңдаңыз',
-        audioUrl: '',
-        options: [{ id: crypto.randomUUID(), text: '', isCorrect: false }],
-    }
-
-    const updateInstructionRu = (text: string) => onChange({ ...content, instructionRu: text })
-    const updateInstructionKz = (text: string) => onChange({ ...content, instructionKz: text })
-
-    const addOption = () => {
-        const newOptions = [...(content.options || []), { id: crypto.randomUUID(), text: '', isCorrect: false }]
-        onChange({ ...content, options: newOptions })
-    }
-
-    const removeOption = (idx: number) => {
-        if ((content.options?.length ?? 0) <= 2) return
-        onChange({ ...content, options: content.options.filter((_: any, i: number) => i !== idx) })
-    }
-
-    const setCorrect = (idx: number) => {
-        const newOptions = (content.options || []).map((o: any, i: number) => ({ ...o, isCorrect: i === idx }))
-        onChange({ ...content, options: newOptions })
-    }
-
-    const updateOptionText = (idx: number, text: string) => {
-        const newOptions = [...(content.options || [])]
-        newOptions[idx] = { ...newOptions[idx], text }
-        onChange({ ...content, options: newOptions })
-    }
-
-    return (
-        <Box>
-            <Alert severity="info" sx={{ mb: 2 }}>
-                Загрузите аудио через «Аудио файл» после сохранения блока.
+              )
+            })}
+          </Box>
+          {content.targetLetter && !found && (
+            <Alert severity="warning" sx={{ mt: 1.5 }}>
+              Буквы «{content.targetLetter}» нет в слове «{content.word}». Проверьте написание.
             </Alert>
-
-            <TextField
-                fullWidth
-                label="Инструкция (RU)"
-                value={content.instructionRu || ''}
-                onChange={(e) => updateInstructionRu(e.target.value)}
-                multiline
-                rows={2}
-                sx={{ mb: 1 }}
-            />
-            <TextField
-                fullWidth
-                label="Инструкция (KZ)"
-                value={content.instructionKz || ''}
-                onChange={(e) => updateInstructionKz(e.target.value)}
-                multiline
-                rows={2}
-                sx={{ mb: 3 }}
-            />
-
-            <Typography variant="subtitle1" gutterBottom>
-                Варианты — слова с огласовками (арабский)
-            </Typography>
-
-            {(content.options || []).map((opt: any, idx: number) => (
-                <Box key={opt.id ?? idx} sx={{ display: 'flex', alignItems: 'center', mb: 1.5, gap: 1 }}>
-                    <input
-                        type="radio"
-                        checked={!!opt.isCorrect}
-                        onChange={() => setCorrect(idx)}
-                        style={{ width: 18, height: 18, cursor: 'pointer', flexShrink: 0 }}
-                    />
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label={`Слово ${idx + 1} (с огласовками)`}
-                        value={opt.text || ''}
-                        onChange={(e) => updateOptionText(idx, e.target.value)}
-                        inputProps={{ dir: 'rtl', style: { fontSize: 20 } }}
-                        placeholder="قَمَر"
-                    />
-                    <IconButton onClick={() => removeOption(idx)} color="error" size="small"
-                        disabled={(content.options?.length ?? 0) <= 2}>
-                        <Delete />
-                    </IconButton>
-                </Box>
-            ))}
-
-            <Button startIcon={<Add />} onClick={addOption} variant="outlined" size="small" sx={{ mt: 1 }}>
-                Добавить вариант
-            </Button>
+          )}
         </Box>
-    )
+      )}
+    </Stack>
+  )
 }
 
-export const ManualInputEditor = ({ value, onChange }: EditorProps) => {
-    const [activeTab, setActiveTab] = useState(0)
-    const content = value || {
-        question: { ru: '', kz: '' },
-        correctAnswers: { ru: [], kz: [] } // Array of strings due to possible multiple correct answers
-    }
+// ----------------------------------------------------------------------
+// Listen → choose word (Mahraj)
+// ----------------------------------------------------------------------
 
-    const langMap = ['ru', 'kz']
-    const langLabel = ['Русский', 'Казахский']
-    const currentLang = langMap[activeTab]
+const listenChooseDefaults = () => ({
+  instructionRu: 'Послушайте и выберите слово',
+  instructionKz: 'Тыңдап, сөзді таңдаңыз',
+  audioUrl: '',
+  options: [
+    { id: newId(), text: '', isCorrect: false },
+    { id: newId(), text: '', isCorrect: false },
+  ],
+})
 
-    const updateQuestion = (text: string, lang: string) => {
-        const newContent = { ...content }
-        if (!newContent.question) newContent.question = {}
-        newContent.question[lang] = text
-        onChange(newContent)
-    }
-
-    const updateAnswers = (text: string, lang: string) => {
-        const newContent = { ...content }
-        if (!newContent.correctAnswers) newContent.correctAnswers = {}
-        // Split by comma or newline and trim
-        newContent.correctAnswers[lang] = text.split(/[\n,]/).map(s => s.trim()).filter(Boolean)
-        onChange(newContent)
-    }
-
-    return (
-        <Box>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
-                <Tab label="Русский" />
-                <Tab label="Казахский" />
-            </Tabs>
-
-            <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label={`Вопрос (${langLabel[activeTab]})`}
-                value={content.question?.[currentLang] || ''}
-                onChange={(e) => updateQuestion(e.target.value, currentLang)}
-                sx={{ mb: 3 }}
-                inputProps={{ dir: 'ltr' }}
-            />
-
-            <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label={`Правильные ответы (${langLabel[activeTab]})`}
-                helperText="Введите варианты правильных ответов через запятую или с новой строки"
-                value={content.correctAnswers?.[currentLang]?.join('\n') || ''}
-                onChange={(e) => updateAnswers(e.target.value, currentLang)}
-                inputProps={{ dir: 'ltr' }}
-            />
+export const ListenAndChooseWordEditor = ({ value, onChange, lang = 'ru', showIssues }: EditorProps) => {
+  useEnsureDefaults(value, onChange, listenChooseDefaults)
+  const content = isEmptyConfig(value) ? listenChooseDefaults() : value
+  const issues = showIssues ? validateExerciseConfig('listen_and_choose_word', content) : []
+  return (
+    <Stack gap={2.5}>
+      <Alert severity="info" icon={<AudiotrackOutlined fontSize="small" />}>
+        Запись загружается в разделе «Медиа блока» ниже.
+      </Alert>
+      <InstructionField
+        lang={lang}
+        ru={content.instructionRu}
+        kz={content.instructionKz}
+        onChange={(l, text) => onChange({ ...content, [l === 'ru' ? 'instructionRu' : 'instructionKz']: text })}
+      />
+      <Box>
+        <ListHeader title="Слова с огласовками" hint="Отметьте слово, которое звучит в записи." />
+        <SharedFieldsNote />
+        <Box sx={{ mt: 1 }}>
+          <ArabicOptionList options={content.options || []} onChange={(next) => onChange({ ...content, options: next })} itemNoun="Слово" wide issues={issues} />
         </Box>
-    )
+      </Box>
+    </Stack>
+  )
+}
+
+// ----------------------------------------------------------------------
+// Manual input
+// ----------------------------------------------------------------------
+
+const manualDefaults = () => ({ question: { ru: '', kz: '' }, correctAnswers: { ru: [], kz: [] } })
+
+export const ManualInputEditor = ({ value, onChange, lang = 'ru', showIssues }: EditorProps) => {
+  useEnsureDefaults(value, onChange, manualDefaults)
+  const content = isEmptyConfig(value) ? manualDefaults() : value
+  const issues = showIssues ? validateExerciseConfig('manual_input', content) : []
+  // Rows are kept locally so an empty row can exist while typing; the config gets the
+  // trimmed, non-empty list (same as the old comma/newline parser).
+  const [rows, setRows] = useState<Record<EditorLang, string[]>>(() => ({
+    ru: (content.correctAnswers?.ru as string[])?.length ? [...content.correctAnswers.ru] : [''],
+    kz: (content.correctAnswers?.kz as string[])?.length ? [...content.correctAnswers.kz] : [''],
+  }))
+  const current = rows[lang]
+
+  const commit = (next: string[]) => {
+    setRows((r) => ({ ...r, [lang]: next }))
+    onChange({
+      ...content,
+      correctAnswers: { ...(content.correctAnswers || {}), [lang]: next.map((s) => s.trim()).filter(Boolean) },
+    })
+  }
+
+  return (
+    <Stack gap={2.5}>
+      <Box>
+        <TextField
+          fullWidth
+          multiline
+          minRows={2}
+          required={lang === 'ru'}
+          label={`Вопрос (${LANG_LABEL[lang]})`}
+          value={content.question?.[lang] || ''}
+          onChange={(e) => onChange({ ...content, question: { ...(content.question || {}), [lang]: e.target.value } })}
+          {...kzProps(lang, content.question?.ru, 'Напишите перевод слова')}
+          error={lang === 'ru' && issuesFor(issues, 'question').length > 0}
+          inputProps={mixedInputProps}
+        />
+        {lang === 'ru' && <FieldIssues issues={issuesFor(issues, 'question')} sx={{ mt: 0.75 }} />}
+      </Box>
+      <Box>
+        <ListHeader title={`Правильные ответы (${LANG_LABEL[lang]})`} hint="Ответ засчитывается, если совпадает с любым из вариантов." />
+        <Stack gap={1}>
+          {current.map((answer, i) => (
+            <Stack key={i} direction="row" gap={1} alignItems="center">
+              <TextField
+                fullWidth
+                size="small"
+                label={`Ответ ${i + 1}`}
+                value={answer}
+                onChange={(e) => commit(current.map((a, j) => (j === i ? e.target.value : a)))}
+                inputProps={mixedInputPropsFor(answer)}
+              />
+              <RowActions index={i} count={current.length} minCount={1} itemLabel={`ответ ${i + 1}`} onRemove={() => commit(current.filter((_, j) => j !== i))} />
+            </Stack>
+          ))}
+        </Stack>
+        {lang === 'ru' && <FieldIssues issues={issuesFor(issues, 'answers')} sx={{ mt: 1 }} />}
+        <Button startIcon={<Add />} size="small" variant="outlined" onClick={() => setRows((r) => ({ ...r, [lang]: [...current, ''] }))} sx={{ mt: 1.5 }}>
+          Добавить вариант ответа
+        </Button>
+      </Box>
+    </Stack>
+  )
 }

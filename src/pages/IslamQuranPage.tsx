@@ -1,43 +1,8 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Checkbox,
-  Chip,
-  CircularProgress,
-  Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  IconButton,
-  InputAdornment,
-  ListItemText,
-  MenuItem,
-  OutlinedInput,
-  Paper,
-  Select,
-  Stack,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material'
-import { Add, Delete, Edit, ExpandLess, ExpandMore, Refresh, Search } from '@mui/icons-material'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { Box, Button, IconButton, LinearProgress, MenuItem, Stack, Tab, Tabs, TextField, Tooltip, Typography } from '@mui/material'
+import { Add, EditOutlined, Refresh, VisibilityOffOutlined } from '@mui/icons-material'
+import toast from 'react-hot-toast'
 import {
   createIslamAyah,
   createIslamQuranReciter,
@@ -56,94 +21,79 @@ import {
   updateIslamQuranReciter,
   updateIslamSurah,
 } from '../api/adminApi'
-import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
+import {
+  ArabicText,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  SearchField,
+  StatusChip,
+  Toolbar,
+  getErrorMessage,
+  useConfirm,
+  useShellBreadcrumbs,
+  visuallyHidden,
+  type DataTableColumn,
+} from '../components/ui'
+import { AudioPanel, SyncMonitorDialog } from './islam/quran/AudioPanel'
+import { AyahDrawer, SurahDrawer } from './islam/quran/editors'
+import { SurahDetail } from './islam/quran/SurahDetail'
+import {
+  REVELATION_LABEL,
+  type AyahForm,
+  type AyahItem,
+  type CoverageItem,
+  type EveryAyahReciterItem,
+  type ReciterForm,
+  type ReciterItem,
+  type SurahForm,
+  type SurahItem,
+} from './islam/quran/model'
 
-interface SurahItem {
-  id: string
-  number: number
-  nameAr: string
-  nameRu: string
-  nameKz?: string | null
-  transliteration: string
-  revelationType: 'meccan' | 'medinan'
-  ayahCount: number
-  juzNumber: number
-  pageNumber?: number | null
-  isActive: boolean
-}
+type QuranTab = 'surahs' | 'audio'
+type TypeFilter = 'all' | 'meccan' | 'medinan'
+type StatusFilter = 'all' | 'active' | 'hidden'
 
-interface AyahItem {
-  id: string
-  surahId: string
-  number: number
-  textAr: string
-  translationRu?: string | null
-  translationKz?: string | null
-}
-
-interface ReciterItem {
-  id: string
-  slug: string
-  displayName: string
-  source?: string | null
-  bitrate?: string | null
-  isActive: boolean
-  sortOrder: number
-}
-
-interface EveryAyahReciterItem {
-  slug: string
-  displayName: string
-  source?: string | null
-  bitrate?: string | null
-  exists: boolean
-  reciterId: string | null
-}
-
-interface CoverageItem {
-  surahId: string
-  surahNumber: number
-  surahNameRu: string
-  ayahCount: number
-  audioCount: number
-  percent: number
-}
+const emptyReciterForm = (): ReciterForm => ({ slug: '', displayName: '', source: 'EveryAyah', bitrate: '64kbps', sortOrder: 0 })
 
 export default function IslamQuranPage() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const confirm = useConfirm()
+  const [params, setParams] = useSearchParams()
+  const tab: QuranTab = params.get('tab') === 'audio' ? 'audio' : 'surahs'
+  const selectedSurahId = params.get('surah')
+
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
 
   const [surahs, setSurahs] = useState<SurahItem[]>([])
-  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [ayahsMap, setAyahsMap] = useState<Record<string, AyahItem[]>>({})
+  const [ayahsError, setAyahsError] = useState<Record<string, unknown>>({})
 
   const [reciters, setReciters] = useState<ReciterItem[]>([])
   const [everyAyahReciters, setEveryAyahReciters] = useState<EveryAyahReciterItem[]>([])
   const [selectedEveryAyahSlugs, setSelectedEveryAyahSlugs] = useState<string[]>([])
   const [everyAyahSearch, setEveryAyahSearch] = useState('')
   const [showOnlyNotAdded, setShowOnlyNotAdded] = useState(true)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [togglingReciterId, setTogglingReciterId] = useState<string | null>(null)
 
   const [coverage, setCoverage] = useState<CoverageItem[]>([])
+  const [reciterForm, setReciterForm] = useState<ReciterForm>(emptyReciterForm())
 
-  const [reciterForm, setReciterForm] = useState({
-    slug: '',
-    displayName: '',
-    source: 'EveryAyah',
-    bitrate: '64kbps',
-    sortOrder: 0,
-  })
+  const [q, setQ] = useState('')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const [surahDialogOpen, setSurahDialogOpen] = useState(false)
   const [editingSurah, setEditingSurah] = useState<SurahItem | null>(null)
-  const [surahForm, setSurahForm] = useState({
+  const [surahForm, setSurahForm] = useState<SurahForm>({
     number: 0,
     nameAr: '',
     nameRu: '',
     nameKz: '',
     transliteration: '',
-    revelationType: 'meccan' as 'meccan' | 'medinan',
+    revelationType: 'meccan',
     ayahCount: 0,
     juzNumber: 1,
     pageNumber: 0,
@@ -151,39 +101,30 @@ export default function IslamQuranPage() {
 
   const [ayahDialogOpen, setAyahDialogOpen] = useState(false)
   const [editingAyah, setEditingAyah] = useState<AyahItem | null>(null)
-  const [ayahForm, setAyahForm] = useState({
-    number: 0,
-    textAr: '',
-    translationRu: '',
-    translationKz: '',
-  })
+  const [ayahForm, setAyahForm] = useState<AyahForm>({ number: 0, textAr: '', translationRu: '', translationKz: '' })
   const [currentSurahId, setCurrentSurahId] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const [monitorOpen, setMonitorOpen] = useState(false)
   const [syncJobId, setSyncJobId] = useState('')
   const [syncStatus, setSyncStatus] = useState<any | null>(null)
-  const narrowFormMd = useNarrowDialogProps('md')
-  const narrowFormSm = useNarrowDialogProps('sm')
-  const themeMui = useTheme()
-  const isNarrow = useMediaQuery(themeMui.breakpoints.down('md'))
+  const [syncStarting, setSyncStarting] = useState(false)
 
   const filteredEveryAyahReciters = useMemo(() => {
     return everyAyahReciters.filter((item) => {
       if (showOnlyNotAdded && item.exists) return false
       if (!everyAyahSearch.trim()) return true
-      const q = everyAyahSearch.trim().toLowerCase()
-      return item.slug.toLowerCase().includes(q) || item.displayName.toLowerCase().includes(q)
+      const needle = everyAyahSearch.trim().toLowerCase()
+      return item.slug.toLowerCase().includes(needle) || item.displayName.toLowerCase().includes(needle)
     })
   }, [everyAyahReciters, showOnlyNotAdded, everyAyahSearch])
 
-  const coverageReadyCount = useMemo(
-    () => coverage.filter((item) => item.percent >= 100).length,
-    [coverage],
-  )
+  const coverageReadyCount = useMemo(() => coverage.filter((item) => item.percent >= 100).length, [coverage])
+  const coverageBySurah = useMemo(() => new Map(coverage.map((c) => [c.surahId, c])), [coverage])
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
-    setError('')
+    setLoadError(null)
     try {
       const [surahsRes, recitersRes, everyAyahRes, coverageRes] = await Promise.all([
         getIslamSurahs(),
@@ -195,14 +136,16 @@ export default function IslamQuranPage() {
       setReciters(recitersRes.data.reciters || [])
       setEveryAyahReciters(everyAyahRes.data.reciters || [])
       setCoverage(coverageRes.data.coverage || [])
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to load Quran data')
+    } catch (e) {
+      setLoadError(e)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+  }, [load])
 
   useEffect(() => {
     if (!syncJobId) return
@@ -219,23 +162,36 @@ export default function IslamQuranPage() {
       }
     }, 2500)
     return () => clearInterval(timer)
-  }, [syncJobId])
+  }, [syncJobId, load])
 
-  const toggleExpand = async (id: string) => {
-    if (expandedId === id) {
-      setExpandedId(null)
-      return
+  const loadAyahs = useCallback(async (surahId: string) => {
+    setAyahsError((prev) => ({ ...prev, [surahId]: null }))
+    try {
+      const { data } = await getIslamSurahAyahs(surahId)
+      setAyahsMap((prev) => ({ ...prev, [surahId]: data.ayahs || [] }))
+    } catch (e) {
+      setAyahsError((prev) => ({ ...prev, [surahId]: e }))
     }
-    setExpandedId(id)
-    if (!ayahsMap[id]) {
-      try {
-        const { data } = await getIslamSurahAyahs(id)
-        setAyahsMap((prev) => ({ ...prev, [id]: data.ayahs || [] }))
-      } catch (e: any) {
-        setError(e?.response?.data?.message || 'Failed to load ayahs')
-      }
-    }
-  }
+  }, [])
+
+  // Ayahs are fetched once per surah when it is opened.
+  useEffect(() => {
+    if (selectedSurahId && !ayahsMap[selectedSurahId]) loadAyahs(selectedSurahId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSurahId])
+
+  const selectedSurah = selectedSurahId ? surahs.find((s) => s.id === selectedSurahId) ?? null : null
+
+  useShellBreadcrumbs(
+    selectedSurah
+      ? [{ label: 'Коран', to: '/islam-quran' }, { label: `${selectedSurah.number}. ${selectedSurah.nameRu}` }]
+      : null,
+  )
+
+  const setTab = (next: QuranTab) => setParams(next === 'audio' ? { tab: 'audio' } : {})
+  const openSurah = (s: SurahItem) => setParams({ surah: s.id })
+
+  /* ---------------- surahs ---------------- */
 
   const openCreateSurah = () => {
     setEditingSurah(null)
@@ -270,32 +226,42 @@ export default function IslamQuranPage() {
   }
 
   const saveSurah = async () => {
-    setError('')
+    setSaving(true)
     try {
       if (editingSurah) {
         await updateIslamSurah(editingSurah.id, surahForm)
-        setSuccess('Сура обновлена')
+        toast.success('Сура сохранена')
       } else {
         await createIslamSurah(surahForm)
-        setSuccess('Сура создана')
+        toast.success('Сура создана')
       }
       setSurahDialogOpen(false)
       await load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Save failed')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось сохранить суру'))
+    } finally {
+      setSaving(false)
     }
   }
 
-  const handleDeleteSurah = async (id: string) => {
-    if (!confirm('Деактивировать суру?')) return
+  const handleDeleteSurah = async (s: SurahItem) => {
+    const ok = await confirm({
+      title: 'Деактивировать суру?',
+      description: `Сура ${s.number} «${s.nameRu}» перестанет показываться в приложении. Аяты сохранятся.`,
+      confirmLabel: 'Деактивировать',
+      destructive: true,
+    })
+    if (!ok) return
     try {
-      await deleteIslamSurah(id)
-      setSuccess('Сура деактивирована')
+      await deleteIslamSurah(s.id)
+      toast.success('Сура деактивирована')
       await load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Delete failed')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось деактивировать суру'))
     }
   }
+
+  /* ---------------- ayahs ---------------- */
 
   const openCreateAyah = (surahId: string) => {
     setCurrentSurahId(surahId)
@@ -318,50 +284,64 @@ export default function IslamQuranPage() {
   }
 
   const saveAyah = async () => {
-    setError('')
     const payload = {
       number: ayahForm.number,
       textAr: ayahForm.textAr,
       translationRu: ayahForm.translationRu || undefined,
       translationKz: ayahForm.translationKz || undefined,
     }
+    setSaving(true)
     try {
       if (editingAyah) {
         await updateIslamAyah(editingAyah.id, payload)
-        setSuccess('Аят обновлён')
+        toast.success('Аят сохранён')
       } else {
         await createIslamAyah(currentSurahId, payload)
-        setSuccess('Аят создан')
+        toast.success('Аят создан')
       }
       setAyahDialogOpen(false)
       const { data } = await getIslamSurahAyahs(currentSurahId)
       setAyahsMap((prev) => ({ ...prev, [currentSurahId]: data.ayahs || [] }))
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Save failed')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось сохранить аят'))
+    } finally {
+      setSaving(false)
     }
   }
 
   const handleDeleteAyah = async (a: AyahItem) => {
-    if (!confirm('Удалить аят?')) return
+    const surah = surahs.find((s) => s.id === a.surahId)
+    const ok = await confirm({
+      title: 'Удалить аят?',
+      description: `Аят ${a.number}${surah ? ` исчезнет из суры «${surah.nameRu}»` : ' будет удалён'}. Это действие нельзя отменить.`,
+      confirmLabel: 'Удалить аят',
+      destructive: true,
+    })
+    if (!ok) return
     try {
       await deleteIslamAyah(a.id)
-      setSuccess('Аят удалён')
+      toast.success('Аят удалён')
       const { data } = await getIslamSurahAyahs(a.surahId)
       setAyahsMap((prev) => ({ ...prev, [a.surahId]: data.ayahs || [] }))
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Delete failed')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось удалить аят'))
     }
   }
 
+  /* ---------------- audio & reciters ---------------- */
+
   const handleSyncAudioAll = async () => {
+    setSyncStarting(true)
     try {
       const { data } = await syncQuranAudioAll({ overwrite: false, concurrency: 4, fromSurah: 1, toSurah: 114 })
       setSyncJobId(data.jobId)
       setSyncStatus(data)
       setMonitorOpen(true)
-      setSuccess(`Синхронизация аудио запущена: ${data.jobId}`)
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Не удалось запустить синхронизацию аудио')
+      toast.success('Синхронизация аудио запущена')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось запустить синхронизацию аудио'))
+    } finally {
+      setSyncStarting(false)
     }
   }
 
@@ -373,23 +353,24 @@ export default function IslamQuranPage() {
         activate: true,
         overwriteMetadata: true,
       })
-      setSuccess(`Импорт рецитаторов: created ${data.created}, updated ${data.updated}`)
+      toast.success(`Чтецы импортированы: новых ${data.created}, обновлено ${data.updated}`)
       setSelectedEveryAyahSlugs([])
       await load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Не удалось импортировать рецитаторов')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось импортировать чтецов'))
     }
   }
 
   const handleToggleReciterActive = async (reciter: ReciterItem) => {
+    setTogglingReciterId(reciter.id)
     try {
       await updateIslamQuranReciter(reciter.id, { isActive: !reciter.isActive })
-      setReciters((prev) =>
-        prev.map((r) => (r.id === reciter.id ? { ...r, isActive: !r.isActive } : r)),
-      )
-      setSuccess('Статус рецитатора обновлён')
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Ошибка обновления рецитатора')
+      setReciters((prev) => prev.map((r) => (r.id === reciter.id ? { ...r, isActive: !r.isActive } : r)))
+      toast.success(reciter.isActive ? 'Чтец отключён' : 'Чтец включён')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось обновить чтеца'))
+    } finally {
+      setTogglingReciterId(null)
     }
   }
 
@@ -403,393 +384,324 @@ export default function IslamQuranPage() {
         sortOrder: reciterForm.sortOrder,
         isActive: true,
       })
-      setSuccess('Рецитатор создан')
-      setReciterForm({ slug: '', displayName: '', source: 'EveryAyah', bitrate: '64kbps', sortOrder: 0 })
+      toast.success('Чтец добавлен')
+      setReciterForm(emptyReciterForm())
       await load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Ошибка создания рецитатора')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось добавить чтеца'))
     }
   }
 
-  const renderSurahAyahs = (s: SurahItem) => {
-    const ayahs = ayahsMap[s.id] || []
-    const header = (
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={1}>
-        <Typography variant="subtitle2">Аяты суры {s.nameRu}</Typography>
-        <Button size="small" startIcon={<Add />} onClick={() => openCreateAyah(s.id)}>Добавить аят</Button>
-      </Stack>
-    )
-    if (isNarrow) {
+  /* ---------------- surah list ---------------- */
+
+  const filtersActive = !!q || typeFilter !== 'all' || statusFilter !== 'all'
+  const resetFilters = () => {
+    setQ('')
+    setTypeFilter('all')
+    setStatusFilter('all')
+  }
+
+  const visibleSurahs = useMemo(() => {
+    const needle = q.toLowerCase()
+    return surahs.filter((s) => {
+      if (typeFilter !== 'all' && s.revelationType !== typeFilter) return false
+      if (statusFilter === 'active' && !s.isActive) return false
+      if (statusFilter === 'hidden' && s.isActive) return false
+      if (!needle) return true
       return (
-        <Box sx={{ py: 1, px: { xs: 0, sm: 0.5 } }}>
-          {header}
-          <Stack spacing={1}>
-            {ayahs.map((a) => (
-              <Paper key={a.id} variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary">#{a.number}</Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'NotoSansArabic, serif', direction: 'rtl' }}>{a.textAr}</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{a.translationRu || '—'}</Typography>
-                  </Box>
-                  <Stack direction="row" flexShrink={0}>
-                    <IconButton size="small" onClick={() => openEditAyah(a)}><Edit fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteAyah(a)}><Delete fontSize="small" /></IconButton>
-                  </Stack>
-                </Stack>
-              </Paper>
-            ))}
-            {ayahs.length === 0 && (
-              <Typography color="text.secondary" py={2} textAlign="center">Нет аятов</Typography>
-            )}
-          </Stack>
-        </Box>
+        String(s.number) === needle ||
+        [s.nameAr, s.nameRu, s.nameKz, s.transliteration].some((v) => v && v.toLowerCase().includes(needle))
       )
-    }
+    })
+  }, [surahs, q, typeFilter, statusFilter])
+
+  const surahColumns: DataTableColumn<SurahItem>[] = [
+    {
+      id: 'nameAr',
+      header: 'Сура',
+      minWidth: 120,
+      render: (s) => (
+        <ArabicText size="md" weight={500}>
+          {s.nameAr}
+        </ArabicText>
+      ),
+    },
+    { id: 'number', header: '№', align: 'right', sortable: true, width: 64 },
+    {
+      id: 'nameRu',
+      header: 'Название',
+      sortable: true,
+      minWidth: 200,
+      render: (s) => (
+        <Box>
+          <Stack direction="row" alignItems="center" gap={1} flexWrap="wrap">
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              {s.nameRu}
+            </Typography>
+            {!s.isActive && <StatusChip status="inactive" label="Скрыта" />}
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            {s.transliteration}
+            {s.nameKz ? `, ${s.nameKz}` : ''}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      id: 'revelationType',
+      header: 'Тип',
+      sortable: true,
+      hideBelow: 'sm',
+      nowrap: true,
+      render: (s) => (
+        <StatusChip tone={s.revelationType === 'meccan' ? 'brand' : 'info'} label={REVELATION_LABEL[s.revelationType]} hideDot />
+      ),
+    },
+    { id: 'ayahCount', header: 'Аятов', align: 'right', sortable: true, width: 80 },
+    { id: 'juzNumber', header: 'Джуз', align: 'right', sortable: true, hideBelow: 'md', width: 80 },
+    {
+      id: 'coverage',
+      header: 'Аудио',
+      hideBelow: 'lg',
+      minWidth: 140,
+      sortable: true,
+      sortValue: (s) => coverageBySurah.get(s.id)?.percent ?? -1,
+      render: (s) => {
+        const c = coverageBySurah.get(s.id)
+        if (!c) return <Typography variant="body2" color="text.secondary">—</Typography>
+        return (
+          <Stack direction="row" alignItems="center" gap={1}>
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(100, c.percent)}
+              color={c.percent >= 100 ? 'success' : 'primary'}
+              aria-label={`Аудио ${Math.round(c.percent)}%`}
+              sx={{ flex: 1, height: 6, borderRadius: 3 }}
+            />
+            <Typography variant="caption" sx={{ width: 36, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+              {Math.round(c.percent)}%
+            </Typography>
+          </Stack>
+        )
+      },
+    },
+    {
+      id: 'actions',
+      header: <Box component="span" sx={visuallyHidden}>Действия</Box>,
+      align: 'right',
+      width: 96,
+      render: (s) => (
+        <Stack direction="row" justifyContent="flex-end" onClick={(e) => e.stopPropagation()}>
+          <Tooltip title="Изменить суру">
+            <IconButton size="small" aria-label={`Изменить суру ${s.nameRu}`} onClick={() => openEditSurah(s)}>
+              <EditOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Деактивировать">
+            <IconButton size="small" aria-label={`Деактивировать суру ${s.nameRu}`} onClick={() => handleDeleteSurah(s)} sx={{ color: 'error.main' }}>
+              <VisibilityOffOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      ),
+    },
+  ]
+
+  const drawers = (
+    <>
+      <SyncMonitorDialog open={monitorOpen} onClose={() => setMonitorOpen(false)} syncStatus={syncStatus} syncJobId={syncJobId} />
+      <SurahDrawer
+        open={surahDialogOpen}
+        isEdit={!!editingSurah}
+        form={surahForm}
+        saving={saving}
+        onChange={setSurahForm}
+        onClose={() => setSurahDialogOpen(false)}
+        onSave={saveSurah}
+      />
+      <AyahDrawer
+        open={ayahDialogOpen}
+        isEdit={!!editingAyah}
+        form={ayahForm}
+        saving={saving}
+        surah={surahs.find((s) => s.id === currentSurahId) ?? null}
+        onChange={setAyahForm}
+        onClose={() => setAyahDialogOpen(false)}
+        onSave={saveAyah}
+      />
+    </>
+  )
+
+  /* ---------------- surah detail view ---------------- */
+
+  if (selectedSurahId) {
     return (
-      <Box sx={{ py: 2, pl: 4 }}>
-        {header}
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>#</TableCell>
-              <TableCell>Арабский текст</TableCell>
-              <TableCell>Перевод (рус)</TableCell>
-              <TableCell align="right">Действия</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {ayahs.map((a) => (
-              <TableRow key={a.id}>
-                <TableCell>{a.number}</TableCell>
-                <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', direction: 'rtl', maxWidth: 300 }}>
-                  <Typography variant="body2" noWrap>{a.textAr}</Typography>
-                </TableCell>
-                <TableCell sx={{ maxWidth: 300 }}>
-                  <Typography variant="body2" noWrap>{a.translationRu}</Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <IconButton size="small" onClick={() => openEditAyah(a)}><Edit fontSize="small" /></IconButton>
-                  <IconButton size="small" color="error" onClick={() => handleDeleteAyah(a)}><Delete fontSize="small" /></IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-            {ayahs.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={4} align="center">
-                  <Typography color="text.secondary" py={2}>Нет аятов</Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Box>
+      <>
+        <PageHeader
+          backTo="/islam-quran"
+          backLabel="Все суры"
+          title={selectedSurah ? `${selectedSurah.number}. ${selectedSurah.nameRu}` : 'Сура'}
+          subtitle={selectedSurah ? `${selectedSurah.transliteration}, аяты с переводами` : undefined}
+          actions={
+            selectedSurah && (
+              <>
+                <Button variant="outlined" startIcon={<EditOutlined />} onClick={() => openEditSurah(selectedSurah)}>
+                  Изменить суру
+                </Button>
+                <Button variant="contained" startIcon={<Add />} onClick={() => openCreateAyah(selectedSurah.id)}>
+                  Добавить аят
+                </Button>
+              </>
+            )
+          }
+        />
+        {loading && !selectedSurah ? (
+          <LoadingState variant="page" label="Загружаем суру…" />
+        ) : loadError && !selectedSurah ? (
+          <ErrorState title="Не удалось загрузить суру" error={loadError} onRetry={load} />
+        ) : !selectedSurah ? (
+          <EmptyState
+            title="Сура не найдена"
+            description="Возможно, её удалили или ссылка устарела."
+            action={<Button onClick={() => setParams({})}>Ко всем сурам</Button>}
+          />
+        ) : (
+          <SurahDetail
+            surah={selectedSurah}
+            ayahs={ayahsMap[selectedSurah.id]}
+            ayahsError={ayahsError[selectedSurah.id]}
+            coverage={coverageBySurah.get(selectedSurah.id)}
+            onRetry={() => loadAyahs(selectedSurah.id)}
+            onCreateAyah={() => openCreateAyah(selectedSurah.id)}
+            onEditAyah={openEditAyah}
+            onDeleteAyah={handleDeleteAyah}
+          />
+        )}
+        {drawers}
+      </>
     )
   }
+
+  /* ---------------- list view ---------------- */
 
   return (
-    <Box>
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={2}>
-        <Box>
-          <Typography variant="h4" sx={{ fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>Коран</Typography>
-          <Typography variant="subtitle1">Суры и one-click синхронизация аудио</Typography>
-        </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button startIcon={<Refresh />} onClick={load} disabled={loading}>
-            Обновить
-          </Button>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreateSurah}>
-            Добавить суру
-          </Button>
-        </Stack>
-      </Stack>
-
-      {loading && (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-          <CircularProgress size={18} />
-          <Typography variant="body2" color="text.secondary">Обновление данных...</Typography>
-        </Stack>
-      )}
-
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
-
-      <Card sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'stretch', md: 'center' }}>
-          <Button variant="contained" onClick={handleSyncAudioAll}>
-            Синхронизировать аяты (аудио)
-          </Button>
-          <Button variant="outlined" onClick={() => setMonitorOpen(true)}>
-            Мониторинг статуса
-          </Button>
-          <Box sx={{ flex: 1 }} />
-          <Chip label={`Сур: ${surahs.length}`} />
-          <Chip label={`Рецитаторов: ${reciters.length}`} />
-          <Chip label={`Покрытие 100%: ${coverageReadyCount}/${coverage.length}`} color="success" variant="outlined" />
-        </Stack>
-      </Card>
-
-      <Accordion expanded={advancedOpen} onChange={(_, expanded) => setAdvancedOpen(expanded)} sx={{ mb: 2 }}>
-        <AccordionSummary expandIcon={<ExpandMore />}>
-          <Typography fontWeight={600}>Расширенные настройки (опционально)</Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Typography variant="body2" color="text.secondary" mb={1.5}>
-            Для ручного контроля рецитаторов. Основной флоу работает без этого.
-          </Typography>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={1}>
-            <OutlinedInput
-              size="small"
-              value={everyAyahSearch}
-              onChange={(e) => setEveryAyahSearch(e.target.value)}
-              placeholder="Поиск в каталоге EveryAyah"
-              startAdornment={<InputAdornment position="start"><Search fontSize="small" /></InputAdornment>}
-              sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { xs: 0, md: 260 } }}
-            />
-            <FormControlLabel
-              control={<Switch checked={showOnlyNotAdded} onChange={(e) => setShowOnlyNotAdded(e.target.checked)} />}
-              label="Только не добавленные"
-            />
-            <Button variant="text" onClick={() => setSelectedEveryAyahSlugs(filteredEveryAyahReciters.map((r) => r.slug))}>
-              Выбрать все
+    <>
+      <PageHeader
+        title="Коран"
+        subtitle="Суры и аяты с переводами, чтецы и синхронизация аудио."
+        disableGutterBottom
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading}>
+              Обновить
             </Button>
-            <Button variant="text" onClick={() => setSelectedEveryAyahSlugs([])}>
-              Очистить
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} mb={2}>
-            <Select
-              multiple
-              size="small"
-              value={selectedEveryAyahSlugs}
-              onChange={(e) => setSelectedEveryAyahSlugs(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as string[]))}
-              sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { xs: 0, md: 260 } }}
-              displayEmpty
-              renderValue={(selected) => (Array.isArray(selected) && selected.length > 0 ? `Выбрано: ${selected.length}` : 'Выберите рецитаторов')}
+            {tab === 'surahs' && (
+              <Button variant="contained" startIcon={<Add />} onClick={openCreateSurah}>
+                Добавить суру
+              </Button>
+            )}
+          </>
+        }
+      >
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} aria-label="Разделы Корана">
+          <Tab value="surahs" label={`Суры${surahs.length ? ` (${surahs.length})` : ''}`} />
+          <Tab value="audio" label="Чтецы и аудио" />
+        </Tabs>
+      </PageHeader>
+
+      <Box sx={{ mt: 2.5 }}>
+        {tab === 'surahs' ? (
+          <>
+            <Toolbar
+              hasActiveFilters={filtersActive}
+              onReset={resetFilters}
+              summary={surahs.length ? (filtersActive ? `Показано ${visibleSurahs.length} из ${surahs.length}` : `Всего ${surahs.length}`) : undefined}
             >
-              {filteredEveryAyahReciters.map((item) => (
-                <MenuItem key={item.slug} value={item.slug}>
-                  <Checkbox checked={selectedEveryAyahSlugs.includes(item.slug)} size="small" />
-                  <ListItemText primary={`${item.displayName} (${item.slug})`} secondary={item.exists ? 'Уже добавлен' : item.bitrate || undefined} />
-                </MenuItem>
-              ))}
-            </Select>
-            <Button variant="outlined" onClick={handleImportSelectedEveryAyahReciters} disabled={selectedEveryAyahSlugs.length === 0}>
-              Импортировать выбранные
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
-            <TextField size="small" label="Slug" value={reciterForm.slug} onChange={(e) => setReciterForm({ ...reciterForm, slug: e.target.value })} />
-            <TextField size="small" label="Название" value={reciterForm.displayName} onChange={(e) => setReciterForm({ ...reciterForm, displayName: e.target.value })} />
-            <TextField size="small" label="Источник" value={reciterForm.source} onChange={(e) => setReciterForm({ ...reciterForm, source: e.target.value })} />
-            <TextField size="small" label="Bitrate" value={reciterForm.bitrate} onChange={(e) => setReciterForm({ ...reciterForm, bitrate: e.target.value })} />
-            <Button variant="contained" onClick={handleCreateReciter}>Добавить</Button>
-          </Stack>
-          <Stack spacing={1} mt={2}>
-            {reciters.map((reciter) => (
-              <Stack key={reciter.id} direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={1} sx={{ border: '1px solid #eee', borderRadius: 1, px: 1.5, py: 1 }}>
-                <Typography>{reciter.displayName} ({reciter.slug})</Typography>
-                <FormControlLabel
-                  control={<Switch checked={reciter.isActive} onChange={() => handleToggleReciterActive(reciter)} />}
-                  label={reciter.isActive ? 'Активен' : 'Отключен'}
-                />
-              </Stack>
-            ))}
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
+              <SearchField value={q} onChange={setQ} placeholder="Номер или название суры" enableSlashShortcut sx={{ minWidth: { sm: 280 } }} />
+              <TextField select size="small" label="Тип" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TypeFilter)} sx={{ minWidth: 160 }}>
+                <MenuItem value="all">Все</MenuItem>
+                <MenuItem value="meccan">{REVELATION_LABEL.meccan}</MenuItem>
+                <MenuItem value="medinan">{REVELATION_LABEL.medinan}</MenuItem>
+              </TextField>
+              <TextField select size="small" label="Статус" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} sx={{ minWidth: 150 }}>
+                <MenuItem value="all">Все</MenuItem>
+                <MenuItem value="active">Показываются</MenuItem>
+                <MenuItem value="hidden">Скрытые</MenuItem>
+              </TextField>
+            </Toolbar>
+            <DataTable
+              aria-label="Суры"
+              columns={surahColumns}
+              rows={visibleSurahs}
+              getRowId={(s) => s.id}
+              loading={loading}
+              error={loadError}
+              onRetry={load}
+              onRowClick={openSurah}
+              defaultSort={{ by: 'number', direction: 'asc' }}
+              pagination
+              initialRowsPerPage={50}
+              rowsPerPageOptions={[25, 50, 114]}
+              emptyState={
+                filtersActive ? (
+                  <EmptyState
+                    size="sm"
+                    title="Ничего не найдено"
+                    description="Измените запрос или сбросьте фильтры."
+                    action={<Button onClick={resetFilters}>Сбросить фильтры</Button>}
+                  />
+                ) : (
+                  <EmptyState
+                    size="sm"
+                    title="Сур пока нет"
+                    description="Добавьте суру вручную или загрузите Коран скриптом импорта."
+                    action={
+                      <Button variant="contained" startIcon={<Add />} onClick={openCreateSurah}>
+                        Добавить суру
+                      </Button>
+                    }
+                  />
+                )
+              }
+            />
+            {surahs.length > 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                Нажмите на суру, чтобы открыть её аяты.
+              </Typography>
+            )}
+          </>
+        ) : loadError && !reciters.length && !coverage.length ? (
+          <ErrorState title="Не удалось загрузить данные Корана" error={loadError} onRetry={load} />
+        ) : (
+          <AudioPanel
+            surahsCount={surahs.length}
+            reciters={reciters}
+            coverage={coverage}
+            coverageReadyCount={coverageReadyCount}
+            loading={loading}
+            syncStatus={syncStatus}
+            syncStarting={syncStarting}
+            onSync={handleSyncAudioAll}
+            onOpenMonitor={() => setMonitorOpen(true)}
+            everyAyahSearch={everyAyahSearch}
+            onEveryAyahSearch={setEveryAyahSearch}
+            showOnlyNotAdded={showOnlyNotAdded}
+            onShowOnlyNotAdded={setShowOnlyNotAdded}
+            filteredEveryAyahReciters={filteredEveryAyahReciters}
+            totalEveryAyah={everyAyahReciters.length}
+            selectedSlugs={selectedEveryAyahSlugs}
+            onSelectedSlugs={setSelectedEveryAyahSlugs}
+            onImportSelected={handleImportSelectedEveryAyahReciters}
+            reciterForm={reciterForm}
+            onReciterForm={setReciterForm}
+            onCreateReciter={handleCreateReciter}
+            onToggleReciter={handleToggleReciterActive}
+            togglingReciterId={togglingReciterId}
+          />
+        )}
+      </Box>
 
-      {isNarrow ? (
-        <Stack spacing={1.5}>
-          {surahs.map((s) => (
-            <Card key={s.id} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
-              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                <Stack direction="row" alignItems="flex-start" spacing={1}>
-                  <IconButton size="small" onClick={() => toggleExpand(s.id)} aria-label="Развернуть">
-                    {expandedId === s.id ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
-                  </IconButton>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      {s.number}. {s.nameRu}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'NotoSansArabic, serif', mt: 0.25 }}>{s.nameAr}</Typography>
-                    <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center" sx={{ mt: 0.5 }}>
-                      <Chip label={s.revelationType === 'meccan' ? 'Мекк.' : 'Медин.'} size="small" color={s.revelationType === 'meccan' ? 'primary' : 'warning'} />
-                      <Chip label={s.isActive ? 'Активна' : 'Скрыта'} size="small" color={s.isActive ? 'success' : 'default'} />
-                      <Typography variant="caption" color="text.secondary">Джуз {s.juzNumber} · {s.ayahCount} аят.</Typography>
-                    </Stack>
-                  </Box>
-                  <Stack direction="row" flexShrink={0}>
-                    <IconButton size="small" onClick={() => openEditSurah(s)}><Edit fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteSurah(s.id)}><Delete fontSize="small" /></IconButton>
-                  </Stack>
-                </Stack>
-              </CardContent>
-              <Collapse in={expandedId === s.id} unmountOnExit>
-                <Box sx={{ px: 1.5, pb: 1.5, pt: 0, borderTop: 1, borderColor: 'divider' }}>{renderSurahAyahs(s)}</Box>
-              </Collapse>
-            </Card>
-          ))}
-          {surahs.length === 0 && !loading && (
-            <Typography color="text.secondary" py={4} textAlign="center">Нет сур</Typography>
-          )}
-        </Stack>
-      ) : (
-        <Card>
-          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell width={40} />
-                  <TableCell>#</TableCell>
-                  <TableCell>Арабский</TableCell>
-                  <TableCell>Русский</TableCell>
-                  <TableCell>Транслит</TableCell>
-                  <TableCell>Джуз</TableCell>
-                  <TableCell>Аяты</TableCell>
-                  <TableCell>Тип</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell align="right">Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {surahs.map((s) => (
-                  <Fragment key={s.id}>
-                    <TableRow hover>
-                      <TableCell>
-                        <IconButton size="small" onClick={() => toggleExpand(s.id)}>
-                          {expandedId === s.id ? <ExpandLess fontSize="small" /> : <ExpandMore fontSize="small" />}
-                        </IconButton>
-                      </TableCell>
-                      <TableCell>{s.number}</TableCell>
-                      <TableCell sx={{ fontFamily: 'NotoSansArabic, serif' }}>{s.nameAr}</TableCell>
-                      <TableCell><strong>{s.nameRu}</strong></TableCell>
-                      <TableCell>{s.transliteration}</TableCell>
-                      <TableCell>{s.juzNumber}</TableCell>
-                      <TableCell>{s.ayahCount}</TableCell>
-                      <TableCell>
-                        <Chip label={s.revelationType === 'meccan' ? 'Мекк.' : 'Медин.'} size="small" color={s.revelationType === 'meccan' ? 'primary' : 'warning'} />
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={s.isActive ? 'Акт.' : 'Скр.'} size="small" color={s.isActive ? 'success' : 'default'} />
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={() => openEditSurah(s)}><Edit fontSize="small" /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteSurah(s.id)}><Delete fontSize="small" /></IconButton>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell colSpan={10} sx={{ py: 0, border: expandedId === s.id ? undefined : 'none' }}>
-                        <Collapse in={expandedId === s.id} unmountOnExit>
-                          {renderSurahAyahs(s)}
-                        </Collapse>
-                      </TableCell>
-                    </TableRow>
-                  </Fragment>
-                ))}
-                {surahs.length === 0 && !loading && (
-                  <TableRow>
-                    <TableCell colSpan={10} align="center">
-                      <Typography color="text.secondary" py={4}>Нет сур</Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-      )}
-
-      <Dialog open={monitorOpen} onClose={() => setMonitorOpen(false)} {...narrowFormMd}>
-        <DialogTitle>Мониторинг синхронизации</DialogTitle>
-        <DialogContent dividers>
-          {!syncStatus && (
-            <Typography color="text.secondary">Пока нет активной синхронизации.</Typography>
-          )}
-          {syncStatus && (
-            <Stack spacing={1.5}>
-              <Typography><strong>Job ID:</strong> {syncStatus.id || syncJobId}</Typography>
-              <Typography><strong>Тип:</strong> {syncStatus.type || syncStatus.mode || '-'}</Typography>
-              <Typography><strong>Статус:</strong> {syncStatus.status}</Typography>
-              {typeof syncStatus.processed === 'number' && (
-                <Typography>
-                  <strong>Прогресс:</strong> processed {syncStatus.processed}, success {syncStatus.success}, skipped {syncStatus.skipped}, failed {syncStatus.failed}
-                </Typography>
-              )}
-              {Array.isArray(syncStatus.reciters) && (
-                <Box>
-                  <Typography fontWeight={600} mb={1}>Прогресс по рецитаторам</Typography>
-                  <Stack spacing={1}>
-                    {syncStatus.reciters.slice(0, 20).map((r: any) => (
-                      <Stack key={r.reciterId || r.reciterSlug} direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
-                        <Typography>{r.reciterDisplayName || r.reciterSlug}</Typography>
-                        <Typography color="text.secondary">
-                          {r.status}: {r.success}/{r.processed} (fail {r.failed})
-                        </Typography>
-                      </Stack>
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-              {Array.isArray(syncStatus.errors) && syncStatus.errors.length > 0 && (
-                <Box>
-                  <Typography fontWeight={600} mb={1}>Последние ошибки</Typography>
-                  <Stack spacing={0.5}>
-                    {syncStatus.errors.slice(0, 20).map((e: any, idx: number) => (
-                      <Typography key={idx} variant="body2" color="error">
-                        {e.surahNumber ? `${e.surahNumber}:${e.ayahNumber} ` : ''}{e.message || e.reason}
-                      </Typography>
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions sx={dialogActionsSafeAreaSx}>
-          <Button onClick={() => setMonitorOpen(false)}>Закрыть</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={surahDialogOpen} onClose={() => setSurahDialogOpen(false)} {...narrowFormSm}>
-        <DialogTitle>{editingSurah ? 'Редактировать суру' : 'Новая сура'}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} mt={1}>
-            <TextField label="Номер" type="number" value={surahForm.number} onChange={(e) => setSurahForm({ ...surahForm, number: +e.target.value })} />
-            <TextField label="Арабский" value={surahForm.nameAr} onChange={(e) => setSurahForm({ ...surahForm, nameAr: e.target.value })} />
-            <TextField label="Русский" value={surahForm.nameRu} onChange={(e) => setSurahForm({ ...surahForm, nameRu: e.target.value })} />
-            <TextField label="Казахский" value={surahForm.nameKz} onChange={(e) => setSurahForm({ ...surahForm, nameKz: e.target.value })} />
-            <TextField label="Транслитерация" value={surahForm.transliteration} onChange={(e) => setSurahForm({ ...surahForm, transliteration: e.target.value })} />
-            <Select value={surahForm.revelationType} onChange={(e) => setSurahForm({ ...surahForm, revelationType: e.target.value as any })} size="small">
-              <MenuItem value="meccan">Мекканская</MenuItem>
-              <MenuItem value="medinan">Мединская</MenuItem>
-            </Select>
-            <TextField label="Кол-во аятов" type="number" value={surahForm.ayahCount} onChange={(e) => setSurahForm({ ...surahForm, ayahCount: +e.target.value })} />
-            <TextField label="Джуз" type="number" value={surahForm.juzNumber} onChange={(e) => setSurahForm({ ...surahForm, juzNumber: +e.target.value })} />
-            <TextField label="Страница" type="number" value={surahForm.pageNumber} onChange={(e) => setSurahForm({ ...surahForm, pageNumber: +e.target.value })} />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={dialogActionsSafeAreaSx}>
-          <Button onClick={() => setSurahDialogOpen(false)}>Отмена</Button>
-          <Button variant="contained" onClick={saveSurah}>Сохранить</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={ayahDialogOpen} onClose={() => setAyahDialogOpen(false)} {...narrowFormSm}>
-        <DialogTitle>{editingAyah ? 'Редактировать аят' : 'Новый аят'}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} mt={1}>
-            <TextField label="Номер аята" type="number" value={ayahForm.number} onChange={(e) => setAyahForm({ ...ayahForm, number: +e.target.value })} />
-            <TextField label="Арабский текст" multiline rows={3} value={ayahForm.textAr} onChange={(e) => setAyahForm({ ...ayahForm, textAr: e.target.value })} inputProps={{ dir: 'rtl' }} />
-            <TextField label="Перевод (рус)" multiline rows={2} value={ayahForm.translationRu} onChange={(e) => setAyahForm({ ...ayahForm, translationRu: e.target.value })} />
-            <TextField label="Перевод (каз)" multiline rows={2} value={ayahForm.translationKz} onChange={(e) => setAyahForm({ ...ayahForm, translationKz: e.target.value })} />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={dialogActionsSafeAreaSx}>
-          <Button onClick={() => setAyahDialogOpen(false)}>Отмена</Button>
-          <Button variant="contained" onClick={saveAyah}>Сохранить</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+      {drawers}
+    </>
   )
 }

@@ -1,34 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  InputAdornment,
-  LinearProgress,
-  Stack,
-  TablePagination,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material'
-import {
-  Add,
-  Audiotrack,
-  Delete,
-  DragIndicator,
-  Edit as EditIcon,
-  Refresh,
-  Save,
-  Search,
-} from '@mui/icons-material'
+import { useCallback, useEffect, useState } from 'react'
+import { Box, Button, IconButton, Stack, Tooltip, Typography } from '@mui/material'
+import { Add, DeleteOutline, EditOutlined, Refresh } from '@mui/icons-material'
+import toast from 'react-hot-toast'
 import {
   createWordsDictionaryEntry,
   createWordsDictionaryExample,
@@ -43,105 +16,73 @@ import {
   uploadWordsDictionaryExampleAudio,
   deleteWordsDictionaryEntryAudio,
 } from '../api/adminApi'
-import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
-import { pageTitleH4Sx } from '../utils/responsivePageSx'
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebounced(value), delayMs)
-    return () => window.clearTimeout(t)
-  }, [value, delayMs])
-  return debounced
-}
-
-interface DictionaryExample {
-  id: string
-  arabicSentence: string
-  translationRu: string
-  translationKz?: string | null
-  orderIndex: number
-  audioUrl?: string | null
-}
-
-interface DictionaryEntry {
-  id: string
-  arabic: string
-  arabicPlural?: string | null
-  translit?: string | null
-  translationRu: string
-  translationKz?: string | null
-  noteRu?: string | null
-  isActive: boolean
-  audioUrl?: string | null
-  examples?: DictionaryExample[]
-}
+import {
+  ArabicText,
+  DataTable,
+  EmptyState,
+  PageHeader,
+  SearchField,
+  StatusChip,
+  Toolbar,
+  getErrorMessage,
+  useConfirm,
+  visuallyHidden,
+  type DataTableColumn,
+} from '../components/ui'
+import { AudioPlayButton, Completeness } from './words/shared'
+import { EntryDrawer } from './words/dictionary/EntryDrawer'
+import { entryCompleteness, newEntry, type DictionaryEntry, type DictionaryExample } from './words/dictionary/model'
 
 export default function WordsDictionaryPage() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const confirm = useConfirm()
   const [entries, setEntries] = useState<DictionaryEntry[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(50)
-  const [searchInput, setSearchInput] = useState('')
-  const debouncedSearch = useDebouncedValue(searchInput, 400)
+  const [q, setQ] = useState('')
+  const [listLoading, setListLoading] = useState(true)
+  const [listError, setListError] = useState<unknown>(null)
+
   const [editOpen, setEditOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DictionaryEntry | null>(null)
-  const [deleteConfirm, setDeleteConfirm] = useState<DictionaryEntry | null>(null)
-  const [deleteEntryAudioOpen, setDeleteEntryAudioOpen] = useState(false)
-  const [draggingExampleId, setDraggingExampleId] = useState<string | null>(null)
-  const pendingExamplesRef = useRef<DictionaryExample[] | null>(null)
-  const narrowFormDialog = useNarrowDialogProps('md')
+  const [saving, setSaving] = useState(false)
+  const [reorderingExamples, setReorderingExamples] = useState(false)
+  const [addingExample, setAddingExample] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
-    setError('')
+  const load = useCallback(async () => {
+    setListLoading(true)
+    setListError(null)
     try {
-      const q = debouncedSearch.trim()
+      const query = q.trim()
       const { data } = await getWordsDictionary({
         page: page + 1,
         limit: rowsPerPage,
-        ...(q ? { q } : {}),
+        ...(query ? { q: query } : {}),
       })
       const list: DictionaryEntry[] = (data.data || data.entries || []).sort((a: DictionaryEntry, b: DictionaryEntry) =>
         a.arabic.localeCompare(b.arabic),
       )
       setEntries(list)
       setTotal(data.total ?? list.length)
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка загрузки словаря'
-      setError(msg)
+    } catch (e) {
+      setListError(e)
     } finally {
-      setLoading(false)
+      setListLoading(false)
     }
-  }
+  }, [page, rowsPerPage, q])
 
   useEffect(() => {
     load()
-  }, [page, rowsPerPage, debouncedSearch])
+  }, [load])
 
   const openCreateDialog = () => {
-    setEditingEntry({
-      id: '',
-      arabic: '',
-      arabicPlural: '',
-      translit: '',
-      translationRu: '',
-      translationKz: '',
-      noteRu: '',
-      isActive: true,
-      audioUrl: null,
-      examples: [],
-    })
+    setEditingEntry(newEntry())
     setEditOpen(true)
   }
 
   const openEditDialog = async (id: string) => {
-    setLoading(true)
-    setError('')
+    setEditingEntry(null)
+    setEditOpen(true)
     try {
       const { data } = await getWordsDictionaryEntry(id)
       const entry: DictionaryEntry = {
@@ -149,15 +90,13 @@ export default function WordsDictionaryPage() {
         examples: (data.examples || []).sort((a: any, b: any) => a.orderIndex - b.orderIndex),
       }
       setEditingEntry(entry)
-      setEditOpen(true)
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка загрузки слова'
-      setError(msg)
-    } finally {
-      setLoading(false)
+    } catch (e) {
+      setEditOpen(false)
+      toast.error(getErrorMessage(e, 'Не удалось загрузить слово'))
     }
   }
+
+  const closeEditor = () => setEditOpen(false)
 
   const handleSaveEntry = async () => {
     if (!editingEntry) return
@@ -171,10 +110,8 @@ export default function WordsDictionaryPage() {
       noteRu: editingEntry.noteRu ?? null,
       isActive: editingEntry.isActive,
     }
+    setSaving(true)
     try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
       if (!id) {
         await createWordsDictionaryEntry(entryPayload)
       } else {
@@ -196,87 +133,70 @@ export default function WordsDictionaryPage() {
         await updateWordsDictionaryEntry(id, entryPayload)
       }
       setEditOpen(false)
-      setDeleteEntryAudioOpen(false)
       await load()
-      setSuccess('Слово сохранено')
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка сохранения слова'
-      setError(msg)
+      toast.success('Слово сохранено')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось сохранить слово'))
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
-  const handleDeleteEntry = async () => {
-    if (!deleteConfirm) return
-    const id = deleteConfirm.id
-    setDeleteConfirm(null)
+  const handleDeleteEntry = async (entry: DictionaryEntry) => {
+    const ok = await confirm({
+      title: 'Удалить слово?',
+      description: `Слово «${entry.translationRu}» и все его примеры будут удалены без возможности восстановления.`,
+      confirmLabel: 'Удалить слово',
+      destructive: true,
+    })
+    if (!ok) return
     try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
-      await deleteWordsDictionaryEntry(id)
+      await deleteWordsDictionaryEntry(entry.id)
+      if (editingEntry?.id === entry.id) setEditOpen(false)
       await load()
-      setSuccess('Слово удалено')
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка удаления слова'
-      setError(msg)
-    } finally {
-      setLoading(false)
+      toast.success('Слово удалено')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось удалить слово'))
     }
   }
 
-  const handleEntryFieldChange = (field: keyof DictionaryEntry, value: any) => {
+  const handleEntryFieldChange = (field: keyof DictionaryEntry, value: unknown) => {
     setEditingEntry((prev) => (prev ? { ...prev, [field]: value } : prev))
   }
 
-  const handleUploadEntryAudio = async (file: File | null) => {
-    if (!editingEntry || !file || !editingEntry.id) return
-    try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
-      const { data } = await uploadWordsDictionaryEntryAudio(editingEntry.id, file)
-      setEditingEntry((prev) => (prev ? { ...prev, audioUrl: data.audioUrl } : prev))
-      setEntries((prev) =>
-        prev.map((e) => (e.id === editingEntry.id ? { ...e, audioUrl: data.audioUrl } : e)),
-      )
-      setSuccess('Аудио для слова загружено')
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка загрузки аудио слова'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
+  const handleUploadEntryAudio = async (file: File) => {
+    if (!editingEntry || !editingEntry.id) return
+    const entryId = editingEntry.id
+    const { data } = await uploadWordsDictionaryEntryAudio(entryId, file)
+    setEditingEntry((prev) => (prev ? { ...prev, audioUrl: data.audioUrl } : prev))
+    setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, audioUrl: data.audioUrl } : e)))
+    toast.success('Аудио для слова загружено')
   }
 
-  const handleConfirmDeleteEntryAudio = async () => {
+  const handleDeleteEntryAudio = async () => {
     if (!editingEntry?.id) return
     const entryId = editingEntry.id
+    const ok = await confirm({
+      title: 'Удалить аудио?',
+      description: `Произношение слова «${editingEntry.translationRu}» пропадёт из приложения.`,
+      confirmLabel: 'Удалить аудио',
+      destructive: true,
+    })
+    if (!ok) return
     try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
       await deleteWordsDictionaryEntryAudio(entryId)
-      setDeleteEntryAudioOpen(false)
       setEditingEntry((prev) => (prev ? { ...prev, audioUrl: null } : prev))
       setEntries((prev) => prev.map((e) => (e.id === entryId ? { ...e, audioUrl: null } : e)))
-      setSuccess('Аудио удалено')
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка удаления аудио'
-      setError(msg)
-    } finally {
-      setLoading(false)
+      toast.success('Аудио удалено')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось удалить аудио'))
     }
   }
 
   const handleAddExample = async () => {
     if (!editingEntry || !editingEntry.id) return
     const orderIndex = editingEntry.examples?.length || 0
+    setAddingExample(true)
     try {
       const { data } = await createWordsDictionaryExample(editingEntry.id, {
         arabicSentence: 'مثال',
@@ -284,17 +204,15 @@ export default function WordsDictionaryPage() {
         translationKz: null,
         orderIndex,
       })
-      setEditingEntry((prev) =>
-        prev ? { ...prev, examples: [...(prev.examples || []), data] } : prev,
-      )
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка добавления примера'
-      setError(msg)
+      setEditingEntry((prev) => (prev ? { ...prev, examples: [...(prev.examples || []), data] } : prev))
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось добавить пример'))
+    } finally {
+      setAddingExample(false)
     }
   }
 
-  const handleExampleFieldChange = (id: string, field: keyof DictionaryExample, value: any) => {
+  const handleExampleFieldChange = (id: string, field: keyof DictionaryExample, value: unknown) => {
     setEditingEntry((prev) =>
       prev
         ? {
@@ -309,544 +227,300 @@ export default function WordsDictionaryPage() {
 
   const handleSaveExample = async (example: DictionaryExample) => {
     try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
       await updateWordsDictionaryExample(example.id, {
         arabicSentence: example.arabicSentence,
         translationRu: example.translationRu,
         translationKz: example.translationKz ?? null,
         orderIndex: example.orderIndex,
       })
-      setSuccess('Пример сохранён')
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка сохранения примера'
-      setError(msg)
-    } finally {
-      setLoading(false)
+      toast.success('Пример сохранён')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось сохранить пример'))
     }
   }
 
-  const handleDeleteExample = async (id: string) => {
+  const handleDeleteExample = async (example: DictionaryExample) => {
     if (!editingEntry) return
+    const ok = await confirm({
+      title: 'Удалить пример?',
+      description: `«${example.translationRu}» и его аудио будут удалены.`,
+      confirmLabel: 'Удалить пример',
+      destructive: true,
+    })
+    if (!ok) return
     try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
-      await deleteWordsDictionaryExample(id)
+      await deleteWordsDictionaryExample(example.id)
       setEditingEntry((prev) =>
-        prev ? { ...prev, examples: (prev.examples || []).filter((ex) => ex.id !== id) } : prev,
+        prev ? { ...prev, examples: (prev.examples || []).filter((ex) => ex.id !== example.id) } : prev,
       )
-      setSuccess('Пример удалён')
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка удаления примера'
-      setError(msg)
-    } finally {
-      setLoading(false)
+      toast.success('Пример удалён')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось удалить пример'))
     }
   }
 
-  const handleUploadExampleAudio = async (exampleId: string, file: File | null) => {
-    if (!file) return
-    try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
-      const { data } = await uploadWordsDictionaryExampleAudio(exampleId, file)
-      setEditingEntry((prev) =>
-        prev
-          ? {
-              ...prev,
-              examples: (prev.examples || []).map((ex) =>
-                ex.id === exampleId ? { ...ex, audioUrl: data.audioUrl } : ex,
-              ),
-            }
-          : prev,
-      )
-      setSuccess('Аудио для примера загружено')
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка загрузки аудио примера'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
+  const handleUploadExampleAudio = async (exampleId: string, file: File) => {
+    const { data } = await uploadWordsDictionaryExampleAudio(exampleId, file)
+    setEditingEntry((prev) =>
+      prev
+        ? {
+            ...prev,
+            examples: (prev.examples || []).map((ex) => (ex.id === exampleId ? { ...ex, audioUrl: data.audioUrl } : ex)),
+          }
+        : prev,
+    )
+    toast.success('Аудио для примера загружено')
   }
 
   const handleReorderExamples = async (examplesOverride?: DictionaryExample[]) => {
     if (!editingEntry || !editingEntry.id) return
-    const current = examplesOverride ?? editingEntry.examples ?? []
+    const previous = editingEntry.examples ?? []
+    const current = examplesOverride ?? previous
     if (current.length === 0) return
+    // Show the new order immediately; roll back if the server rejects it.
+    setEditingEntry((prev) => (prev ? { ...prev, examples: current } : prev))
+    setReorderingExamples(true)
     try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
       await reorderWordsDictionaryExamples(editingEntry.id, current.map((ex) => ex.id))
       setEditingEntry((prev) =>
         prev ? { ...prev, examples: current.map((ex, index) => ({ ...ex, orderIndex: index })) } : prev,
       )
-      setSuccess('Порядок примеров сохранён')
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message?.[0] || e?.response?.data?.message || e?.message || 'Ошибка сохранения порядка'
-      setError(msg)
+      toast.success('Порядок примеров сохранён')
+    } catch (e) {
+      setEditingEntry((prev) => (prev ? { ...prev, examples: previous } : prev))
+      toast.error(getErrorMessage(e, 'Не удалось сохранить порядок'))
     } finally {
-      setLoading(false)
+      setReorderingExamples(false)
     }
   }
 
-  const handleExampleDragStart = (id: string) => setDraggingExampleId(id)
-
-  const handleExampleDragOver = (event: React.DragEvent, targetId: string) => {
-    event.preventDefault()
-    if (!editingEntry || !editingEntry.examples || !draggingExampleId || draggingExampleId === targetId) return
-    const examples = [...editingEntry.examples]
-    const fromIndex = examples.findIndex((ex) => ex.id === draggingExampleId)
-    const toIndex = examples.findIndex((ex) => ex.id === targetId)
-    if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return
-    const [moved] = examples.splice(fromIndex, 1)
-    examples.splice(toIndex, 0, moved)
-    pendingExamplesRef.current = examples
-    setEditingEntry((prev) => (prev ? { ...prev, examples } : prev))
-  }
-
-  const handleExampleDrop = async () => {
-    setDraggingExampleId(null)
-    const pending = pendingExamplesRef.current
-    pendingExamplesRef.current = null
-    if (pending && editingEntry?.id) {
-      await handleReorderExamples(pending)
-    }
-  }
+  const columns: DataTableColumn<DictionaryEntry>[] = [
+    {
+      id: 'arabic',
+      header: 'Слово',
+      sortable: true,
+      minWidth: 160,
+      render: (e) => (
+        <Box>
+          <ArabicText size="md" weight={500} component="div">
+            {e.arabic}
+          </ArabicText>
+          {e.arabicPlural?.trim() && (
+            <Stack direction="row" gap={0.75} alignItems="baseline" justifyContent="flex-end">
+              <ArabicText size="sm" muted>
+                {e.arabicPlural}
+              </ArabicText>
+              <Typography variant="caption" color="text.secondary">
+                мн.
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+      ),
+    },
+    {
+      id: 'translit',
+      header: 'Транскрипция',
+      sortable: true,
+      hideBelow: 'sm',
+      render: (e) => e.translit || <Typography variant="body2" color="text.secondary">—</Typography>,
+    },
+    {
+      id: 'translationRu',
+      header: 'Перевод',
+      sortable: true,
+      minWidth: 200,
+      render: (e) => (
+        <Box>
+          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+            {e.translationRu}
+          </Typography>
+          {e.translationKz?.trim() ? (
+            <Typography variant="body2" color="text.secondary">
+              {e.translationKz}
+            </Typography>
+          ) : (
+            <Typography variant="caption" sx={{ color: 'warning.dark' }}>
+              Нет перевода KZ
+            </Typography>
+          )}
+          {e.noteRu?.trim() && (
+            <Typography variant="caption" color="text.secondary" component="p">
+              {e.noteRu}
+            </Typography>
+          )}
+        </Box>
+      ),
+    },
+    {
+      id: 'completeness',
+      header: 'Заполнено',
+      hideBelow: 'md',
+      minWidth: 250,
+      render: (e) => <Completeness items={entryCompleteness(e)} />,
+    },
+    {
+      id: 'examples',
+      header: 'Примеры',
+      align: 'right',
+      hideBelow: 'lg',
+      sortable: true,
+      sortValue: (e) => e.examples?.length ?? 0,
+      render: (e) => e.examples?.length ?? 0,
+    },
+    {
+      id: 'audio',
+      header: 'Аудио',
+      width: 72,
+      render: (e) =>
+        e.audioUrl ? (
+          <AudioPlayButton src={e.audioUrl} label={e.translationRu} />
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            нет
+          </Typography>
+        ),
+    },
+    {
+      id: 'isActive',
+      header: 'Статус',
+      hideBelow: 'lg',
+      nowrap: true,
+      render: (e) => <StatusChip status={e.isActive ? 'active' : 'inactive'} label={e.isActive ? 'Показывается' : 'Скрыто'} />,
+    },
+    {
+      id: 'actions',
+      header: <Box component="span" sx={visuallyHidden}>Действия</Box>,
+      align: 'right',
+      width: 96,
+      render: (e) => (
+        <Stack direction="row" justifyContent="flex-end" onClick={(ev) => ev.stopPropagation()}>
+          <Tooltip title="Изменить">
+            <IconButton size="small" aria-label={`Изменить слово ${e.translationRu}`} onClick={() => openEditDialog(e.id)}>
+              <EditOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Удалить">
+            <IconButton
+              size="small"
+              aria-label={`Удалить слово ${e.translationRu}`}
+              onClick={() => handleDeleteEntry(e)}
+              sx={{ color: 'error.main' }}
+            >
+              <DeleteOutline fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      ),
+    },
+  ]
 
   return (
-    <Box>
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 2 }}>
-        <Box>
-          <Typography variant="h4" sx={pageTitleH4Sx}>
-            Словарь
-          </Typography>
-          <Typography color="text.secondary">
-            Слова с переводами, примерами и аудио для приложения.
-          </Typography>
-        </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignSelf: 'stretch' }}>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-            Обновить
-          </Button>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-            Добавить слово
-          </Button>
-        </Stack>
-      </Stack>
+    <>
+      <PageHeader
+        title="Словарь"
+        subtitle="Слова с переводами, примерами и аудио для приложения."
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={listLoading}>
+              Обновить
+            </Button>
+            <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog}>
+              Добавить слово
+            </Button>
+          </>
+        }
+      />
 
-      {loading && <LinearProgress sx={{ mb: 2 }} />}
-      {!!error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {!!success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      <Toolbar
+        hasActiveFilters={!!q}
+        onReset={() => {
+          setQ('')
+          setPage(0)
+        }}
+        summary={!listLoading || entries.length ? (q ? `Найдено ${total}` : `Всего ${total}`) : undefined}
+      >
+        <SearchField
+          value={q}
+          onChange={(v) => {
+            setQ(v)
+            setPage(0)
+          }}
+          debounceMs={400}
+          placeholder="Русский перевод или транскрипция"
+          enableSlashShortcut
+          sx={{ minWidth: { sm: 380 } }}
+        />
+      </Toolbar>
 
-      <Card sx={{ borderRadius: 4 }}>
-        <CardContent>
-          <TextField
-            fullWidth
-            size="small"
-            label="Поиск"
-            placeholder="Русский перевод или транскрипция"
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value)
-              setPage(0)
-            }}
-            sx={{ mb: 2 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search fontSize="small" color="action" />
-                </InputAdornment>
-              ),
-            }}
-          />
-          {loading && entries.length === 0 ? (
-            <Box sx={{ py: 6, display: 'flex', justifyContent: 'center' }}>
-              <CircularProgress />
-            </Box>
-          ) : !loading && entries.length === 0 ? (
-            <Box sx={{ py: 8, textAlign: 'center' }}>
-              <Typography color="text.secondary" sx={{ mb: 2 }}>
-                {debouncedSearch.trim()
-                  ? 'Ничего не найдено'
-                  : 'Нет слов. Добавьте первое слово в словарь.'}
-              </Typography>
-              {!debouncedSearch.trim() ? (
+      <DataTable
+        aria-label="Словарь"
+        columns={columns}
+        rows={entries}
+        getRowId={(e) => e.id}
+        loading={listLoading}
+        error={listError}
+        onRetry={load}
+        onRowClick={(e) => openEditDialog(e.id)}
+        selectedRowId={editOpen ? editingEntry?.id : null}
+        rowsPerPageOptions={[25, 50, 100, 200]}
+        pagination={{
+          page,
+          rowsPerPage,
+          total,
+          onPageChange: setPage,
+          onRowsPerPageChange: setRowsPerPage,
+        }}
+        emptyState={
+          q ? (
+            <EmptyState
+              size="sm"
+              title="Ничего не найдено"
+              description="Попробуйте другой перевод или транскрипцию."
+              action={
+                <Button
+                  onClick={() => {
+                    setQ('')
+                    setPage(0)
+                  }}
+                >
+                  Сбросить поиск
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              size="sm"
+              title="В словаре пока нет слов"
+              description="Добавьте первое слово — его можно будет использовать в уроках и карточках."
+              action={
                 <Button variant="contained" startIcon={<Add />} onClick={openCreateDialog}>
                   Добавить слово
                 </Button>
-              ) : null}
-            </Box>
-          ) : (
-            <Stack spacing={1}>
-              {entries.map((entry) => (
-                <Card
-                  key={entry.id}
-                  variant="outlined"
-                  sx={{
-                    borderRadius: 2,
-                    transition: 'box-shadow 0.2s',
-                    '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-                  }}
-                >
-                  <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      alignItems={{ xs: 'stretch', sm: 'center' }}
-                      spacing={2}
-                    >
-                      <Box
-                        sx={{
-                          width: { xs: '100%', sm: 56 },
-                          height: 56,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: 2,
-                          bgcolor: 'action.hover',
-                          flexShrink: 0,
-                          alignSelf: { xs: 'center', sm: 'auto' },
-                        }}
-                      >
-                        <Typography variant="h5" sx={{ fontFamily: 'serif' }}>
-                          {entry.arabic}
-                        </Typography>
-                      </Box>
-                      <Stack sx={{ flex: 1, minWidth: 0 }} spacing={0.25}>
-                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                          {entry.translationRu}
-                        </Typography>
-                        {entry.translationKz?.trim() ? (
-                          <Typography variant="body2" color="text.secondary">
-                            {entry.translationKz}
-                          </Typography>
-                        ) : null}
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          {entry.translit && (
-                            <Typography variant="body2" color="text.secondary">
-                              {entry.translit}
-                            </Typography>
-                          )}
-                          <Typography variant="caption" color="text.secondary">
-                            {entry.examples?.length ?? 0} примеров
-                          </Typography>
-                        </Stack>
-                      </Stack>
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        justifyContent={{ xs: 'flex-end', sm: 'flex-start' }}
-                        spacing={0.5}
-                        sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}
-                      >
-                        <Tooltip title={entry.audioUrl ? 'Есть аудио' : 'Нет аудио'}>
-                          <Audiotrack
-                            sx={{
-                              fontSize: 20,
-                              color: entry.audioUrl ? 'success.main' : 'text.disabled',
-                            }}
-                          />
-                        </Tooltip>
-                        <Tooltip title="Редактировать">
-                          <IconButton size="small" onClick={() => openEditDialog(entry.id)} sx={{ minWidth: 44, minHeight: 44 }}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Удалить">
-                          <IconButton size="small" color="error" onClick={() => setDeleteConfirm(entry)} sx={{ minWidth: 44, minHeight: 44 }}>
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ))}
-            </Stack>
-          )}
-        </CardContent>
-      </Card>
-      {total > rowsPerPage && (
-        <TablePagination
-          component="div"
-          count={total}
-          page={page}
-          onPageChange={(_, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10))
-            setPage(0)
-          }}
-          rowsPerPageOptions={[25, 50, 100, 200]}
-          labelRowsPerPage="Строк на странице:"
-          sx={{
-            flexWrap: 'wrap',
-            '& .MuiTablePagination-toolbar': { flexWrap: 'wrap', gap: 1 },
-          }}
-        />
-      )}
+              }
+            />
+          )
+        }
+      />
 
-      <Dialog
+      <EntryDrawer
         open={editOpen}
-        onClose={() => {
-          setEditOpen(false)
-          setDeleteEntryAudioOpen(false)
-        }}
-        {...narrowFormDialog}
-      >
-        <DialogTitle>{editingEntry?.id ? 'Редактирование слова' : 'Новое слово'}</DialogTitle>
-        {editingEntry && (
-          <DialogContent dividers sx={{ flex: '1 1 auto' }}>
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                <TextField
-                  fullWidth
-                  label="Арабское"
-                  value={editingEntry.arabic}
-                  onChange={(e) => handleEntryFieldChange('arabic', e.target.value)}
-                />
-                <TextField
-                  fullWidth
-                  label="Транслит"
-                  value={editingEntry.translit || ''}
-                  onChange={(e) => handleEntryFieldChange('translit', e.target.value)}
-                />
-              </Stack>
-              <TextField
-                fullWidth
-                label="Арабское (мн. ч.)"
-                value={editingEntry.arabicPlural || ''}
-                onChange={(e) => handleEntryFieldChange('arabicPlural', e.target.value)}
-                helperText="Оставьте пустым, если множественного числа нет"
-              />
-              <TextField
-                fullWidth
-                label="Заметка (блок и т.п.)"
-                value={editingEntry.noteRu || ''}
-                onChange={(e) => handleEntryFieldChange('noteRu', e.target.value)}
-              />
-              <TextField
-                fullWidth
-                label="Перевод (RU)"
-                value={editingEntry.translationRu}
-                onChange={(e) => handleEntryFieldChange('translationRu', e.target.value)}
-              />
-              <TextField
-                fullWidth
-                label="Перевод (каз)"
-                value={editingEntry.translationKz || ''}
-                onChange={(e) => handleEntryFieldChange('translationKz', e.target.value)}
-              />
-              {editingEntry.id && (
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ alignSelf: 'flex-start' }}>
-                  <Button component="label" size="small" variant="outlined" startIcon={<Audiotrack />}>
-                    {editingEntry.audioUrl ? 'Заменить аудио' : 'Добавить аудио'}
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      hidden
-                      onChange={(e) => handleUploadEntryAudio(e.target.files?.[0] || null)}
-                    />
-                  </Button>
-                  {editingEntry.audioUrl ? (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      onClick={() => setDeleteEntryAudioOpen(true)}
-                    >
-                      Удалить аудио
-                    </Button>
-                  ) : null}
-                </Stack>
-              )}
-
-              {editingEntry.id && (
-                <Box>
-                  <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} sx={{ mb: 1.5 }}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Примеры
-                    </Typography>
-                    <Button size="small" variant="outlined" startIcon={<Add />} onClick={handleAddExample}>
-                      Добавить пример
-                    </Button>
-                  </Stack>
-                  <Stack spacing={1}>
-                    {(editingEntry.examples || []).map((ex) => (
-                      <Card
-                        key={ex.id}
-                        variant="outlined"
-                        sx={{
-                          borderRadius: 1.5,
-                          cursor: 'grab',
-                          opacity: draggingExampleId === ex.id ? 0.5 : 1,
-                          '&:active': { cursor: 'grabbing' },
-                        }}
-                        draggable
-                        onDragStart={() => handleExampleDragStart(ex.id)}
-                        onDragOver={(e) => handleExampleDragOver(e, ex.id)}
-                        onDrop={handleExampleDrop}
-                      >
-                        <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                          <Stack direction="row" alignItems="flex-start" spacing={1}>
-                            <Box
-                              sx={{
-                                width: 32,
-                                display: 'flex',
-                                justifyContent: 'center',
-                                color: 'text.disabled',
-                                flexShrink: 0,
-                                pointerEvents: 'none',
-                              }}
-                            >
-                              <DragIndicator sx={{ fontSize: 18 }} />
-                            </Box>
-                            <Stack sx={{ flex: 1 }} spacing={1}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Арабское предложение"
-                                value={ex.arabicSentence}
-                                onChange={(e) =>
-                                  handleExampleFieldChange(ex.id, 'arabicSentence', e.target.value)
-                                }
-                              />
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Перевод (RU)"
-                                value={ex.translationRu}
-                                onChange={(e) =>
-                                  handleExampleFieldChange(ex.id, 'translationRu', e.target.value)
-                                }
-                              />
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label="Перевод (каз)"
-                                value={ex.translationKz || ''}
-                                onChange={(e) =>
-                                  handleExampleFieldChange(ex.id, 'translationKz', e.target.value)
-                                }
-                              />
-                            </Stack>
-                            <Stack direction="row" spacing={0.5}>
-                              <Button
-                                component="label"
-                                size="small"
-                                variant="text"
-                                sx={{ minWidth: 0, p: 1 }}
-                              >
-                                <Audiotrack
-                                  sx={{
-                                    fontSize: 18,
-                                    color: ex.audioUrl ? 'success.main' : 'text.disabled',
-                                  }}
-                                />
-                                <input
-                                  type="file"
-                                  accept="audio/*"
-                                  hidden
-                                  onChange={(e) =>
-                                    handleUploadExampleAudio(ex.id, e.target.files?.[0] || null)
-                                  }
-                                />
-                              </Button>
-                              <IconButton size="small" onClick={() => handleSaveExample(ex)}>
-                                <Save fontSize="small" />
-                              </IconButton>
-                              <IconButton size="small" color="error" onClick={() => handleDeleteExample(ex.id)}>
-                                <Delete fontSize="small" />
-                              </IconButton>
-                            </Stack>
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Stack>
-                  {(editingEntry.examples?.length ?? 0) > 0 && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      sx={{ mt: 1 }}
-                      onClick={() => handleReorderExamples()}
-                    >
-                      Сохранить порядок примеров
-                    </Button>
-                  )}
-                </Box>
-              )}
-            </Stack>
-          </DialogContent>
-        )}
-        <DialogActions sx={dialogActionsSafeAreaSx}>
-          <Button
-            onClick={() => {
-              setEditOpen(false)
-              setDeleteEntryAudioOpen(false)
-            }}
-          >
-            Отмена
-          </Button>
-          <Button variant="contained" onClick={handleSaveEntry} disabled={loading}>
-            Сохранить
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={deleteEntryAudioOpen} onClose={() => setDeleteEntryAudioOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Удалить аудио?</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mt: 0.5 }}>Вы уверены, что хотите удалить аудио?</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteEntryAudioOpen(false)}>Отмена</Button>
-          <Button variant="contained" color="error" onClick={handleConfirmDeleteEntryAudio} disabled={loading}>
-            Удалить
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} fullWidth maxWidth="xs">
-        <DialogTitle>Удалить слово?</DialogTitle>
-        <DialogContent>
-          {deleteConfirm && (
-            <Stack direction="row" alignItems="center" spacing={2} sx={{ mt: 1 }}>
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: 2,
-                  bgcolor: 'action.hover',
-                }}
-              >
-                <Typography variant="h5" sx={{ fontFamily: 'serif' }}>
-                  {deleteConfirm.arabic}
-                </Typography>
-              </Box>
-              <Typography>
-                Удалить слово «{deleteConfirm.translationRu}» и все его примеры? Это действие нельзя отменить.
-              </Typography>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)}>Отмена</Button>
-          <Button variant="contained" color="error" onClick={handleDeleteEntry} disabled={loading}>
-            Удалить
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        entry={editingEntry}
+        saving={saving}
+        reorderingExamples={reorderingExamples}
+        addingExample={addingExample}
+        onClose={closeEditor}
+        onChange={handleEntryFieldChange}
+        onSave={handleSaveEntry}
+        onUploadAudio={handleUploadEntryAudio}
+        onDeleteAudio={handleDeleteEntryAudio}
+        onAddExample={handleAddExample}
+        onExampleChange={handleExampleFieldChange}
+        onSaveExample={handleSaveExample}
+        onDeleteExample={handleDeleteExample}
+        onUploadExampleAudio={handleUploadExampleAudio}
+        onReorderExamples={handleReorderExamples}
+      />
+    </>
   )
 }

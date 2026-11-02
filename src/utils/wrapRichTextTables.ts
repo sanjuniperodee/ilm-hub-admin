@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify'
+
 /**
  * Class + inline style for the table “card” shell.
  * Parity: mobile `kIlmRichtextTableCornerPx` / `kIlmRichtextTableBlockMarginPx` and
@@ -35,9 +37,19 @@ function cleanRichTextClassValue(raw: string): string {
     .join(' ')
 }
 
+/**
+ * Removes scripts, event handlers and javascript: URLs (DOMPurify), then drops foreign
+ * classes. Lesson HTML is rendered both here (preview) and in the mobile app, so it must
+ * never carry executable markup.
+ */
 export function sanitizeRichTextHtml(html: string): string {
   if (!html) return html
-  return html
+  const purified = DOMPurify.sanitize(html, {
+    ADD_TAGS: ['audio', 'source', 'section'],
+    ADD_ATTR: ['controls', 'preload', 'target', 'data-media-id', 'data-ilm-table-wrap'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'style'],
+  })
+  return purified
     .replace(/class="([^"]*)"/gi, (_match, raw: string) => {
       const cleaned = cleanRichTextClassValue(raw)
       return cleaned ? `class="${cleaned}"` : ''

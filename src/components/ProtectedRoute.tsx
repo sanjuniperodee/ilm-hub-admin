@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { ReactNode } from 'react'
+import { LoadingState } from './ui'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -14,7 +15,7 @@ export const ProtectedRoute = ({
   const { isAuthenticated, userRole, loading } = useAuth()
 
   if (loading) {
-    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Загрузка...</div>
+    return <LoadingState variant="spinner" label="Проверяем доступ…" minHeight={320} />
   }
 
   if (!isAuthenticated) {

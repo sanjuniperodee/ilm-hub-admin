@@ -1,142 +1,93 @@
-import { Box, Chip, Typography, TextField, Stack } from '@mui/material'
+import { Box, Button, Stack, TextField, Typography } from '@mui/material'
+import { LinkOutlined, PermMediaOutlined } from '@mui/icons-material'
 import { useState } from 'react'
+import { MediaChoice } from './lesson-editor/MediaChoice'
 
 export interface MediaFile {
-    id: string
-    type: 'image' | 'audio' | 'video'
-    url: string
-    filename: string
-    mimeType: string
-    size: number
-    description?: string
+  id: string
+  type: 'image' | 'audio' | 'video'
+  url: string
+  filename: string
+  mimeType: string
+  size: number
+  description?: string
 }
 
 interface ImageMediaPickerProps {
-    mediaFiles: MediaFile[]
-    imageUrl?: string
-    imageMediaId?: string
-    onChange?: (imageUrl: string, imageMediaId?: string) => void
-    label?: string
+  mediaFiles: MediaFile[]
+  imageUrl?: string
+  imageMediaId?: string
+  onChange?: (imageUrl: string, imageMediaId?: string) => void
+  label?: string
 }
 
-export function ImageMediaPicker({
-    mediaFiles,
-    imageUrl,
-    imageMediaId,
-    onChange,
-    label = 'Изображение',
-}: ImageMediaPickerProps) {
-    const [manualUrl, setManualUrl] = useState(imageUrl || '')
-    const [showManual, setShowManual] = useState(!imageMediaId && !!imageUrl)
+/** Pick an uploaded image (or type a URL) for a test question. */
+export function ImageMediaPicker({ mediaFiles, imageUrl, imageMediaId, onChange, label = 'Изображение' }: ImageMediaPickerProps) {
+  const [manualUrl, setManualUrl] = useState(imageUrl || '')
+  const [showManual, setShowManual] = useState(!imageMediaId && !!imageUrl)
 
-    const images = mediaFiles.filter((f) => f.type === 'image')
+  const images = mediaFiles.filter((f) => f.type === 'image')
+  const selectedMedia = imageMediaId ? images.find((img) => img.id === imageMediaId) : images.find((img) => img.url === imageUrl)
 
-    const selectedMedia = imageMediaId
-        ? images.find((img) => img.id === imageMediaId)
-        : images.find((img) => img.url === imageUrl)
+  const handleSelect = (mediaId: string) => {
+    const media = images.find((img) => img.id === mediaId)
+    if (!media) return
+    if (selectedMedia?.id === mediaId) onChange?.('', '')
+    else onChange?.(media.url, media.id)
+    setShowManual(false)
+    setManualUrl('')
+  }
 
-    const handleSelect = (mediaId: string) => {
-        const media = images.find((img) => img.id === mediaId)
-        if (!media) return
-        if (imageMediaId === mediaId) {
-            onChange?.('', '')
-        } else {
-            onChange?.(media.url, media.id)
-        }
-        setShowManual(false)
-        setManualUrl('')
-    }
+  return (
+    <Stack gap={1}>
+      {label && <Typography variant="subtitle2" component="p">{label}</Typography>}
 
-    const handleManualChange = (url: string) => {
-        setManualUrl(url)
-        onChange?.(url, '')
-    }
+      {!showManual && (
+        <MediaChoice
+          kind="image"
+          files={images}
+          selectedId={selectedMedia?.id}
+          onSelect={handleSelect}
+          label={label || 'Изображение'}
+          emptyText="Сначала загрузите изображения в медиафайлы — они появятся здесь."
+        />
+      )}
 
-    return (
-        <Stack spacing={1}>
-            {label && (
-                <Typography variant="subtitle2">{label}</Typography>
-            )}
-
-            {images.length === 0 && !showManual && (
-                <Typography variant="caption" color="text.disabled">
-                    — загрузите изображения через раздел «Медиа файлы теста» выше —
-                </Typography>
-            )}
-
-            {images.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {images.map((file) => {
-                        const isSelected = imageMediaId === file.id || (!imageMediaId && file.url === imageUrl)
-                        return (
-                            <Box
-                                key={file.id}
-                                onClick={() => handleSelect(file.id)}
-                                sx={{
-                                    width: 72,
-                                    height: 72,
-                                    borderRadius: 1,
-                                    overflow: 'hidden',
-                                    cursor: 'pointer',
-                                    border: isSelected ? '3px solid #2e7d32' : '2px solid transparent',
-                                    outline: isSelected ? '2px solid #81c784' : '2px solid #e0e0e0',
-                                    '&:hover': { outline: '2px solid #66bb6a' },
-                                    position: 'relative',
-                                }}
-                            >
-                                <img
-                                    src={file.url}
-                                    alt={file.filename}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                />
-                            </Box>
-                        )
-                    })}
-                </Box>
-            )}
-
-            {selectedMedia && (
-                <Box
-                    component="img"
-                    src={selectedMedia.url}
-                    alt={selectedMedia.filename}
-                    sx={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 1, border: '2px solid #2e7d32' }}
-                />
-            )}
-
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                {!showManual && (
-                    <Chip
-                        label="Ввести URL вручную"
-                        onClick={() => {
-                            setShowManual(true)
-                            setManualUrl(imageUrl || '')
-                        }}
-                        variant="outlined"
-                        sx={{ cursor: 'pointer' }}
-                    />
-                )}
-                {showManual && (
-                    <Chip
-                        label="Выбрать из медиа"
-                        onClick={() => setShowManual(false)}
-                        variant="outlined"
-                        color="warning"
-                        sx={{ cursor: 'pointer' }}
-                    />
-                )}
-            </Box>
-
-            {showManual && (
-                <TextField
-                    fullWidth
-                    size="small"
-                    label="URL изображения (вручную)"
-                    value={manualUrl}
-                    onChange={(e) => handleManualChange(e.target.value)}
-                    placeholder="https://storage.example.com/image.png"
-                />
-            )}
+      {showManual && (
+        <Stack direction="row" gap={1} alignItems="flex-start">
+          <TextField
+            fullWidth
+            size="small"
+            label="Ссылка на изображение"
+            value={manualUrl}
+            onChange={(e) => {
+              setManualUrl(e.target.value)
+              onChange?.(e.target.value, '')
+            }}
+            placeholder="https://storage.example.com/image.png"
+          />
+          {manualUrl && (
+            <Box component="img" src={manualUrl} alt="" sx={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 1, border: '1px solid', borderColor: 'divider', flexShrink: 0 }} />
+          )}
         </Stack>
-    )
+      )}
+
+      <Box>
+        <Button
+          size="small"
+          variant="text"
+          startIcon={showManual ? <PermMediaOutlined /> : <LinkOutlined />}
+          onClick={() => {
+            if (showManual) setShowManual(false)
+            else {
+              setShowManual(true)
+              setManualUrl(imageUrl || '')
+            }
+          }}
+        >
+          {showManual ? 'Выбрать из загруженных' : 'Указать ссылку вручную'}
+        </Button>
+      </Box>
+    </Stack>
+  )
 }

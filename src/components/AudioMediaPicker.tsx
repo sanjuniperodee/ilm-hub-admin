@@ -1,145 +1,104 @@
-import { Box, Chip, Typography, TextField, Stack } from '@mui/material'
-import { Audiotrack } from '@mui/icons-material'
+import { Box, Button, Stack, TextField, Typography } from '@mui/material'
+import { LinkOutlined, PermMediaOutlined } from '@mui/icons-material'
 import { useState } from 'react'
+import { MediaChoice, mediaDisplayName } from './lesson-editor/MediaChoice'
 
 export interface MediaFile {
-    id: string
-    type: 'image' | 'audio' | 'video'
-    url: string
-    filename: string
-    mimeType: string
-    size: number
-    description?: string
+  id: string
+  type: 'image' | 'audio' | 'video'
+  url: string
+  filename: string
+  mimeType: string
+  size: number
+  description?: string
 }
 
 interface AudioMediaPickerProps {
-    mediaFiles: MediaFile[]
-    audioUrl?: string
-    audioMediaId?: string
-    onChange?: (audioUrl: string, audioMediaId?: string) => void
-    label?: string
+  mediaFiles: MediaFile[]
+  audioUrl?: string
+  audioMediaId?: string
+  onChange?: (audioUrl: string, audioMediaId?: string) => void
+  label?: string
 }
 
 function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024) return `${bytes} Б`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
 }
 
-export function AudioMediaPicker({
-    mediaFiles,
-    audioUrl,
-    audioMediaId,
-    onChange,
-    label = 'Аудио файл',
-}: AudioMediaPickerProps) {
-    const [manualUrl, setManualUrl] = useState(audioUrl || '')
-    const [showManual, setShowManual] = useState(!audioMediaId && !!audioUrl)
+/** Pick an uploaded audio file (or type a URL) for a test question. */
+export function AudioMediaPicker({ mediaFiles, audioUrl, audioMediaId, onChange, label = 'Аудио файл' }: AudioMediaPickerProps) {
+  const [manualUrl, setManualUrl] = useState(audioUrl || '')
+  const [showManual, setShowManual] = useState(!audioMediaId && !!audioUrl)
 
-    const audios = mediaFiles.filter((f) => f.type === 'audio')
+  const audios = mediaFiles.filter((f) => f.type === 'audio')
+  const selectedMedia = audioMediaId ? audios.find((a) => a.id === audioMediaId) : audios.find((a) => a.url === audioUrl)
 
-    const selectedMedia = audioMediaId
-        ? audios.find((a) => a.id === audioMediaId)
-        : audios.find((a) => a.url === audioUrl)
+  const handleSelect = (mediaId: string) => {
+    const media = audios.find((a) => a.id === mediaId)
+    if (!media) return
+    // Toggle off if already selected
+    if (selectedMedia?.id === mediaId) onChange?.('', '')
+    else onChange?.(media.url, media.id)
+    setShowManual(false)
+    setManualUrl('')
+  }
 
-    const handleSelect = (mediaId: string) => {
-        const media = audios.find((a) => a.id === mediaId)
-        if (!media) return
-        // Toggle off if already selected
-        if (audioMediaId === mediaId) {
-            onChange?.('', '')
-        } else {
-            onChange?.(media.url, media.id)
-        }
-        setShowManual(false)
-        setManualUrl('')
-    }
+  return (
+    <Stack gap={1}>
+      {label && <Typography variant="subtitle2" component="p">{label}</Typography>}
 
-    const handleManualChange = (url: string) => {
-        setManualUrl(url)
-        onChange?.(url, '')
-    }
+      {!showManual && (
+        <MediaChoice
+          kind="audio"
+          files={audios}
+          selectedId={selectedMedia?.id}
+          onSelect={handleSelect}
+          label={label || 'Аудио'}
+          emptyText="Сначала загрузите аудио в медиафайлы — оно появится здесь."
+        />
+      )}
 
-    return (
-        <Stack spacing={1}>
-            {label && (
-                <Typography variant="subtitle2">{label}</Typography>
-            )}
+      {selectedMedia && !showManual && (
+        <Box sx={{ p: 1, bgcolor: 'surface.sunken', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+          <Typography variant="caption" color="text.secondary">
+            {mediaDisplayName(selectedMedia)}, {formatFileSize(selectedMedia.size)}
+          </Typography>
+          <audio src={selectedMedia.url} controls preload="none" style={{ width: '100%', height: 32, display: 'block', marginTop: 4 }} />
+        </Box>
+      )}
 
-            {audios.length === 0 && !showManual && (
-                <Typography variant="caption" color="text.disabled">
-                    — загрузите аудио через раздел «Медиа файлы теста» выше —
-                </Typography>
-            )}
+      {showManual && (
+        <TextField
+          fullWidth
+          size="small"
+          label="Ссылка на аудио"
+          value={manualUrl}
+          onChange={(e) => {
+            setManualUrl(e.target.value)
+            onChange?.(e.target.value, '')
+          }}
+          placeholder="https://storage.example.com/audio.mp3"
+        />
+      )}
 
-            {audios.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {audios.map((file) => {
-                        const isSelected = audioMediaId === file.id || (!audioMediaId && file.url === audioUrl)
-                        const displayName = file.description?.trim() || file.filename
-                        return (
-                            <Chip
-                                key={file.id}
-                                icon={<Audiotrack fontSize="small" />}
-                                label={displayName.length > 36 ? `${displayName.slice(0, 33)}…` : displayName}
-                                onClick={() => handleSelect(file.id)}
-                                color={isSelected ? 'primary' : 'default'}
-                                variant={isSelected ? 'filled' : 'outlined'}
-                                sx={{ cursor: 'pointer' }}
-                            />
-                        )
-                    })}
-                </Box>
-            )}
-
-            {selectedMedia && (
-                <Box sx={{ p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
-                    <Typography variant="caption" color="text.secondary">
-                        {selectedMedia.description?.trim() || selectedMedia.filename} • {formatFileSize(selectedMedia.size)}
-                    </Typography>
-                    <audio
-                        src={selectedMedia.url}
-                        controls
-                        style={{ width: '100%', height: 32, display: 'block', marginTop: 4 }}
-                    />
-                </Box>
-            )}
-
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                {!showManual && (
-                    <Chip
-                        label="Ввести URL вручную"
-                        onClick={() => {
-                            setShowManual(true)
-                            setManualUrl(audioUrl || '')
-                        }}
-                        variant="outlined"
-                        sx={{ cursor: 'pointer' }}
-                    />
-                )}
-                {showManual && (
-                    <Chip
-                        label="Выбрать из медиа"
-                        onClick={() => {
-                            setShowManual(false)
-                        }}
-                        variant="outlined"
-                        color="warning"
-                        sx={{ cursor: 'pointer' }}
-                    />
-                )}
-            </Box>
-
-            {showManual && (
-                <TextField
-                    fullWidth
-                    size="small"
-                    label="URL аудио (вручную)"
-                    value={manualUrl}
-                    onChange={(e) => handleManualChange(e.target.value)}
-                    placeholder="https://storage.example.com/audio.mp3"
-                />
-            )}
-        </Stack>
-    )
+      <Box>
+        <Button
+          size="small"
+          variant="text"
+          startIcon={showManual ? <PermMediaOutlined /> : <LinkOutlined />}
+          onClick={() => {
+            if (showManual) setShowManual(false)
+            else {
+              setShowManual(true)
+              setManualUrl(audioUrl || '')
+            }
+          }}
+        >
+          {showManual ? 'Выбрать из загруженных' : 'Указать ссылку вручную'}
+        </Button>
+      </Box>
+    </Stack>
+  )
 }

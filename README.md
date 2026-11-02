@@ -9,10 +9,10 @@ Admin panel for managing ILM HUB educational content.
 npm install
 ```
 
-2. Create `.env` file:
-```
-VITE_API_URL=http://localhost:3000/api/v1
-```
+2. Environment: `npm run dev` uses `.env.development` (local backend at
+`http://localhost:3000/api/v1`); `npm run build` uses `.env.production`
+(`https://api.ilmhub.kz/api/v1`). To override locally, copy `.env.example`
+to `.env.local`.
 
 3. Start development server:
 ```bash

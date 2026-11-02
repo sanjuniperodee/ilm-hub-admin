@@ -1,8 +1,24 @@
 import apiClient from "./client";
 
 // Auth
+export const STAFF_ROLES = ["admin", "content_manager", "support"];
+
+export class NotStaffError extends Error {
+  constructor() {
+    super("У этой учётной записи нет доступа к админ-панели");
+  }
+}
+
 export const login = async (email: string, password: string) => {
   const response = await apiClient.post("/auth/login", { email, password });
+  const role = response.data.user?.role;
+  if (!STAFF_ROLES.includes(String(role))) {
+    // Do not keep tokens of a regular app user in the admin panel.
+    if (response.data.refreshToken) {
+      apiClient.post("/auth/logout", { refreshToken: response.data.refreshToken }).catch(() => undefined);
+    }
+    throw new NotStaffError();
+  }
   if (response.data.accessToken) {
     localStorage.setItem("admin_token", response.data.accessToken);
   }
@@ -11,6 +27,9 @@ export const login = async (email: string, password: string) => {
   }
   return response.data;
 };
+
+export const logoutRequest = (refreshToken: string) =>
+  apiClient.post("/auth/logout", { refreshToken });
 
 // Dashboard
 export const getDashboardStats = (params?: { days?: number }) =>
@@ -716,8 +735,11 @@ export const getAdminById = (id: string) =>
 export const inviteAdmin = (data: { email: string; role: string }) =>
   apiClient.post("/admin/admins/invite", data);
 
-export const acceptAdminInvitation = (token: string) =>
-  apiClient.post("/admin/invitations/accept", { token });
+/** Accepts an admin invitation; the invitee sets their account password (8–128 chars). */
+export const acceptAdminInvitation = (token: string, password: string) =>
+  apiClient.post("/admin/invitations/accept", { token, password });
+
+export const acceptInvitation = acceptAdminInvitation;
 
 export const updateAdminRole = (id: string, role: string) =>
   apiClient.patch(`/admin/admins/${id}/role`, { role });

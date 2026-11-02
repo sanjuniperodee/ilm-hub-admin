@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { login as apiLogin } from '../api/adminApi'
+import { login as apiLogin, logoutRequest, STAFF_ROLES } from '../api/adminApi'
 
 interface AuthContextType {
   isAuthenticated: boolean
@@ -66,6 +66,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           /* оставляем role как есть */
         }
       }
+      if (role && !STAFF_ROLES.includes(role)) {
+        localStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_refresh_token')
+        if (!cancelled) setLoading(false)
+        return
+      }
       if (!cancelled) {
         setIsAuthenticated(true)
         setUserRole(role)
@@ -98,6 +104,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const logout = () => {
+    const refreshToken = localStorage.getItem('admin_refresh_token')
+    if (refreshToken) logoutRequest(refreshToken).catch(() => undefined)
     localStorage.removeItem('admin_token')
     localStorage.removeItem('admin_refresh_token')
     setIsAuthenticated(false)

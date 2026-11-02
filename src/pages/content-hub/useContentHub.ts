@@ -13,9 +13,12 @@ import {
 } from '../../api/adminApi';
 import { HubCourse, HubModule, HubLesson } from './types';
 import { arrayMove } from '@dnd-kit/sortable';
+import { useConfirm, getErrorMessage } from '../../components/ui';
+import { plural, USER_FORMS } from './accessRules';
 
 export function useContentHub() {
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
@@ -23,22 +26,33 @@ export function useContentHub() {
   const [exportingCourseId, setExportingCourseId] = useState<string | null>(null);
   
   // Queries
-  const { data: coursesData, isLoading: loadingCourses } = useQuery({
+  const coursesQuery = useQuery({
     queryKey: ['hub', 'courses'],
     queryFn: getCourses,
   });
 
-  const { data: modulesData, isLoading: loadingModules } = useQuery({
+  const modulesQuery = useQuery({
     queryKey: ['hub', 'modules'],
     queryFn: () => getModules(),
   });
 
-  const { data: lessonsData, isLoading: loadingLessons } = useQuery({
+  const lessonsQuery = useQuery({
     queryKey: ['hub', 'lessons'],
     queryFn: () => getLessons(),
   });
 
-  const loading = loadingCourses || loadingModules || loadingLessons;
+  const coursesData = coursesQuery.data;
+  const modulesData = modulesQuery.data;
+  const lessonsData = lessonsQuery.data;
+
+  const loading = coursesQuery.isLoading || modulesQuery.isLoading || lessonsQuery.isLoading;
+  const fetching = coursesQuery.isFetching || modulesQuery.isFetching || lessonsQuery.isFetching;
+  const error = coursesQuery.error || modulesQuery.error || lessonsQuery.error;
+  const refetch = () => {
+    void coursesQuery.refetch();
+    void modulesQuery.refetch();
+    void lessonsQuery.refetch();
+  };
 
   // Computed state
   const courses = useMemo(() => {
@@ -48,6 +62,9 @@ export function useContentHub() {
       code: c.code,
       titleRu: c.titleRu,
       orderIndex: c.orderIndex ?? 0,
+      titleKz: c.titleKz ?? undefined,
+      level: c.level ?? undefined,
+      isPremium: !!c.isPremium,
     })).sort((a: HubCourse, b: HubCourse) => a.orderIndex - b.orderIndex);
   }, [coursesData]);
 
@@ -67,6 +84,7 @@ export function useContentHub() {
         courseId: m.courseId,
         titleRu: m.titleRu,
         orderIndex: m.orderIndex ?? 0,
+        titleKz: m.titleKz ?? undefined,
       });
     });
 
@@ -94,6 +112,9 @@ export function useContentHub() {
         moduleId: l.moduleId ?? undefined,
         titleRu: l.titleRu,
         orderIndex: l.orderIndex ?? 0,
+        isPremium: !!l.isPremium,
+        isTest: !!l.isTest,
+        estimatedMinutes: typeof l.estimatedMinutes === 'number' ? l.estimatedMinutes : undefined,
       });
     });
 
@@ -145,8 +166,23 @@ export function useContentHub() {
       toast.success('Порядок модулей обновлён');
       queryClient.invalidateQueries({ queryKey: ['hub', 'modules'] });
     },
-    onError: () => toast.error('Не удалось изменить порядок модулей'),
+    onError: (e) => {
+      toast.error(getErrorMessage(e, 'Не удалось изменить порядок модулей'));
+      queryClient.invalidateQueries({ queryKey: ['hub', 'modules'] });
+    },
   });
+
+  /** Optimistically renumber items in a cached `{ data: [...] }` response (server uses 0-based index). */
+  const applyOptimisticOrder = (key: 'modules' | 'lessons', orderedIds: string[]) => {
+    const position = new Map(orderedIds.map((id, i) => [id, i]));
+    queryClient.setQueryData(['hub', key], (old: any) => {
+      if (!old || !Array.isArray(old.data)) return old;
+      return {
+        ...old,
+        data: old.data.map((item: any) => (position.has(item.id) ? { ...item, orderIndex: position.get(item.id) } : item)),
+      };
+    });
+  };
 
   const handleDragModule = async (courseId: string, activeId: string, overId: string) => {
     const mods = sortedModulesByCourse[courseId] || [];
@@ -154,8 +190,8 @@ export function useContentHub() {
     const newIndex = mods.findIndex((m) => m.id === overId);
     if (oldIndex === -1 || newIndex === -1) return;
     
-    // Optimistic UI could be implemented here via queryClient.setQueryData, but refetching is fine for admin
     const reordered = arrayMove(mods, oldIndex, newIndex);
+    applyOptimisticOrder('modules', reordered.map((m) => m.id));
     reorderModulesMutation.mutate({ courseId, moduleIds: reordered.map(m => m.id) });
   };
 
@@ -165,7 +201,10 @@ export function useContentHub() {
       toast.success('Порядок уроков обновлён');
       queryClient.invalidateQueries({ queryKey: ['hub', 'lessons'] });
     },
-    onError: () => toast.error('Не удалось изменить порядок уроков'),
+    onError: (e) => {
+      toast.error(getErrorMessage(e, 'Не удалось изменить порядок уроков'));
+      queryClient.invalidateQueries({ queryKey: ['hub', 'lessons'] });
+    },
   });
 
   const handleDragLesson = async (courseId: string, moduleId: string, activeId: string, overId: string) => {
@@ -175,6 +214,7 @@ export function useContentHub() {
     if (oldIndex === -1 || newIndex === -1) return;
 
     const reordered = arrayMove(les, oldIndex, newIndex);
+    applyOptimisticOrder('lessons', reordered.map((l) => l.id));
     reorderLessonsMutation.mutate({ moduleId, lessonIds: reordered.map(l => l.id) });
   };
 
@@ -185,39 +225,40 @@ export function useContentHub() {
       queryClient.invalidateQueries({ queryKey: ['hub', 'lessons'] });
       setDeletingLessonId(null);
     },
-    onError: () => {
-      toast.error('Не удалось удалить урок');
+    onError: (e) => {
+      toast.error(getErrorMessage(e, 'Не удалось удалить урок'));
       setDeletingLessonId(null);
     },
   });
 
   const handleDeleteLesson = async (lesson: HubLesson) => {
+    setDeletingLessonId(lesson.id);
+    let n = 0;
     try {
       const { data } = await getLessonDeletionImpact(lesson.id);
-      const n = data?.distinctUserCount ?? 0;
-      
-      const ruUsersWord = (num: number) => {
-        if (num % 10 === 1 && num % 100 !== 11) return 'пользователь';
-        if (num % 10 >= 2 && num % 10 <= 4 && (num % 100 < 10 || num % 100 >= 20)) return 'пользователя';
-        return 'пользователей';
-      };
-
-      const progressHint = n > 0 
-        ? `\n\nВнимание: у ${n} ${ruUsersWord(n)} есть прогресс по уроку или мини-тесту. Эти данные будут удалены.` 
-        : '';
-        
-      const userInput = window.prompt(`Введите слово DELETE для удаления урока «${lesson.titleRu}». Действие нельзя отменить.${progressHint}`);
-      
-      if (userInput !== 'DELETE') {
-        if (userInput !== null) toast.error('Удаление отменено: неверное слово подтверждения');
-        return;
-      }
-
-      setDeletingLessonId(lesson.id);
-      deleteLessonMutation.mutate(lesson.id);
+      n = data?.distinctUserCount ?? 0;
     } catch (e) {
-      toast.error('Не удалось получить информацию об уроке');
+      setDeletingLessonId(null);
+      toast.error(getErrorMessage(e, 'Не удалось получить информацию об уроке'));
+      return;
     }
+
+    const ok = await confirm({
+      title: `Удалить урок «${lesson.titleRu}»?`,
+      description:
+        n > 0
+          ? `У ${n} ${plural(n, USER_FORMS)} есть прогресс по уроку или мини-тесту — эти данные будут удалены вместе с блоками урока. Действие нельзя отменить.`
+          : 'Урок, его блоки и мини-тест будут удалены. Прогресса пользователей по этому уроку нет. Действие нельзя отменить.',
+      confirmLabel: 'Удалить урок',
+      destructive: true,
+      confirmText: 'DELETE',
+    });
+
+    if (!ok) {
+      setDeletingLessonId(null);
+      return;
+    }
+    deleteLessonMutation.mutate(lesson.id);
   };
 
   const handleExportCourse = async (course: HubCourse) => {
@@ -243,7 +284,7 @@ export function useContentHub() {
       URL.revokeObjectURL(url);
       toast.success(`Экспорт «${course.titleRu}» готов`);
     } catch (e) {
-      toast.error('Не удалось выгрузить контент курса');
+      toast.error(getErrorMessage(e, 'Не удалось выгрузить контент курса'));
     } finally {
       setExportingCourseId(null);
     }
@@ -252,6 +293,10 @@ export function useContentHub() {
   return {
     courses,
     loading,
+    fetching,
+    error,
+    refetch,
+    reordering: reorderModulesMutation.isPending || reorderLessonsMutation.isPending,
     expandedCourses,
     expandedModules,
     toggleCourse,

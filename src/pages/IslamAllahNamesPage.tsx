@@ -1,30 +1,7 @@
-import { useEffect, useState } from 'react'
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Paper,
-  Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material'
-import { Add, Audiotrack, Delete, Edit, Refresh } from '@mui/icons-material'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Box, Button, IconButton, MenuItem, Stack, Switch, TextField, Tooltip, Typography } from '@mui/material'
+import { Add, EditOutlined, Refresh, VisibilityOffOutlined } from '@mui/icons-material'
+import toast from 'react-hot-toast'
 import {
   getIslamAllahNames,
   createIslamAllahName,
@@ -32,70 +9,101 @@ import {
   deleteIslamAllahName,
   uploadIslamAllahNameAudio,
 } from '../api/adminApi'
-import { dialogActionsSafeAreaSx, useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
-import { pageTitleH4Sx } from '../utils/responsivePageSx'
+import {
+  ArabicText,
+  DataTable,
+  EmptyState,
+  PageHeader,
+  SearchField,
+  Toolbar,
+  getErrorMessage,
+  useConfirm,
+  visuallyHidden,
+  type DataTableColumn,
+} from '../components/ui'
+import { AudioPlayButton, AudioUploadButton, Completeness } from './words/shared'
+import { NameDrawer, nameCompleteness, type AllahName, type AllahNameForm } from './islam/names/NameDrawer'
 
-interface AllahName {
-  id: string
-  number: number
-  nameAr: string
-  nameRu: string
-  nameKz?: string | null
-  transliteration: string
-  meaningRu: string
-  meaningKz?: string | null
-  descriptionRu?: string | null
-  descriptionKz?: string | null
-  audioUrl?: string | null
-  isActive: boolean
-}
+type StatusFilter = 'all' | 'active' | 'hidden'
+type GapFilter = 'all' | 'noAudio' | 'noKz'
+
+const emptyForm = (number: number): AllahNameForm => ({
+  number,
+  nameAr: '',
+  nameRu: '',
+  nameKz: '',
+  transliteration: '',
+  meaningRu: '',
+  meaningKz: '',
+  descriptionRu: '',
+  descriptionKz: '',
+})
 
 export default function IslamAllahNamesPage() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const confirm = useConfirm()
   const [names, setNames] = useState<AllahName[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<unknown>(null)
+  const [q, setQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [gapFilter, setGapFilter] = useState<GapFilter>('all')
 
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<AllahName | null>(null)
-  const [form, setForm] = useState({
-    number: 0,
-    nameAr: '',
-    nameRu: '',
-    nameKz: '',
-    transliteration: '',
-    meaningRu: '',
-    meaningKz: '',
-    descriptionRu: '',
-    descriptionKz: '',
-  })
-  const narrowFormSm = useNarrowDialogProps('sm')
-  const themeMui = useTheme()
-  const isNarrow = useMediaQuery(themeMui.breakpoints.down('md'))
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState<AllahNameForm>(emptyForm(1))
+  const [saving, setSaving] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const editing = editingId ? names.find((n) => n.id === editingId) ?? null : null
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
-    setError('')
+    setLoadError(null)
     try {
       const { data } = await getIslamAllahNames()
       setNames(data.names || [])
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to load names')
+    } catch (e) {
+      setLoadError(e)
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const filtersActive = !!q || statusFilter !== 'all' || gapFilter !== 'all'
+  const resetFilters = () => {
+    setQ('')
+    setStatusFilter('all')
+    setGapFilter('all')
   }
 
-  useEffect(() => { load() }, [])
+  const visible = useMemo(() => {
+    const needle = q.toLowerCase()
+    return names.filter((n) => {
+      if (statusFilter === 'active' && !n.isActive) return false
+      if (statusFilter === 'hidden' && n.isActive) return false
+      if (gapFilter === 'noAudio' && n.audioUrl) return false
+      if (gapFilter === 'noKz' && nameCompleteness(n)[1].done) return false
+      if (!needle) return true
+      return (
+        String(n.number) === needle ||
+        [n.nameAr, n.nameRu, n.nameKz, n.transliteration, n.meaningRu].some((v) => v && v.toLowerCase().includes(needle))
+      )
+    })
+  }, [names, q, statusFilter, gapFilter])
+
+  const noAudio = names.filter((n) => !n.audioUrl).length
 
   const openCreate = () => {
-    setEditing(null)
-    setForm({ number: (names.length || 0) + 1, nameAr: '', nameRu: '', nameKz: '', transliteration: '', meaningRu: '', meaningKz: '', descriptionRu: '', descriptionKz: '' })
+    setEditingId(null)
+    setForm(emptyForm((names.length || 0) + 1))
     setDialogOpen(true)
   }
 
   const openEdit = (n: AllahName) => {
-    setEditing(n)
+    setEditingId(n.id)
     setForm({
       number: n.number,
       nameAr: n.nameAr,
@@ -111,199 +119,246 @@ export default function IslamAllahNamesPage() {
   }
 
   const handleSave = async () => {
-    setError('')
+    setSaving(true)
     try {
-      if (editing) {
-        await updateIslamAllahName(editing.id, form)
-        setSuccess('Имя обновлено')
+      if (editingId) {
+        await updateIslamAllahName(editingId, form)
+        toast.success('Имя сохранено')
       } else {
         await createIslamAllahName(form)
-        setSuccess('Имя создано')
+        toast.success('Имя создано')
       }
       setDialogOpen(false)
       load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Save failed')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось сохранить имя'))
+    } finally {
+      setSaving(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Деактивировать это имя?')) return
+  const handleDelete = async (n: AllahName) => {
+    const ok = await confirm({
+      title: 'Деактивировать имя?',
+      description: `«${n.nameRu}» (№${n.number}) перестанет показываться в приложении.`,
+      confirmLabel: 'Деактивировать',
+      destructive: true,
+    })
+    if (!ok) return
     try {
-      await deleteIslamAllahName(id)
-      setSuccess('Имя деактивировано')
+      await deleteIslamAllahName(n.id)
+      toast.success('Имя деактивировано')
       load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Delete failed')
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось деактивировать имя'))
     }
   }
 
   const handleAudioUpload = async (id: string, file: File) => {
-    try {
-      await uploadIslamAllahNameAudio(id, file)
-      setSuccess('Аудио загружено')
-      load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Upload failed')
-    }
+    await uploadIslamAllahNameAudio(id, file)
+    toast.success('Аудио загружено')
+    await load()
   }
 
   const handleToggleActive = async (n: AllahName) => {
+    setTogglingId(n.id)
     try {
       await updateIslamAllahName(n.id, { isActive: !n.isActive })
-      load()
-    } catch (e: any) {
-      setError(e?.response?.data?.message || 'Toggle failed')
+      toast.success(n.isActive ? 'Имя скрыто' : 'Имя показывается')
+      await load()
+    } catch (e) {
+      toast.error(getErrorMessage(e, 'Не удалось изменить статус'))
+    } finally {
+      setTogglingId(null)
     }
   }
 
-  return (
-    <Box>
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1} mb={3}>
+  const columns: DataTableColumn<AllahName>[] = [
+    {
+      id: 'nameAr',
+      header: 'Имя',
+      minWidth: 130,
+      render: (n) => (
+        <ArabicText size="lg" weight={500}>
+          {n.nameAr}
+        </ArabicText>
+      ),
+    },
+    {
+      id: 'number',
+      header: '№',
+      align: 'right',
+      sortable: true,
+      width: 64,
+    },
+    {
+      id: 'nameRu',
+      header: 'Название',
+      sortable: true,
+      minWidth: 180,
+      render: (n) => (
         <Box>
-          <Typography variant="h4" sx={pageTitleH4Sx}>
-            99 имён Аллаха
+          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+            {n.nameRu}
           </Typography>
-          <Typography variant="subtitle1" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
-            Управление именами Всевышнего
+          <Typography variant="body2" color="text.secondary">
+            {n.transliteration}
+            {n.nameKz ? `, ${n.nameKz}` : ''}
           </Typography>
+          <Box sx={{ mt: 0.75 }}>
+            <Completeness items={nameCompleteness(n)} />
+          </Box>
         </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, alignSelf: { xs: 'stretch', sm: 'auto' } }}>
-          <Button startIcon={<Refresh />} onClick={load} disabled={loading} sx={{ width: { xs: '100%', sm: 'auto' } }}>Обновить</Button>
-          <Button variant="contained" startIcon={<Add />} onClick={openCreate} sx={{ width: { xs: '100%', sm: 'auto' } }}>Добавить</Button>
+      ),
+    },
+    {
+      id: 'meaningRu',
+      header: 'Значение',
+      hideBelow: 'md',
+      minWidth: 180,
+      render: (n) => <Typography variant="body2">{n.meaningRu}</Typography>,
+    },
+    {
+      id: 'audio',
+      header: 'Аудио',
+      nowrap: true,
+      render: (n) => (
+        <Stack direction="row" alignItems="center" gap={0.5} onClick={(e) => e.stopPropagation()}>
+          <AudioPlayButton src={n.audioUrl} label={n.nameRu} reserveSpace />
+          <AudioUploadButton variant="icon" hasAudio={!!n.audioUrl} onUpload={(f) => handleAudioUpload(n.id, f)} itemLabel={n.nameRu} />
         </Stack>
-      </Stack>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
-
-      {isNarrow ? (
-        <Stack spacing={1.25}>
-          {names.map((n) => (
-            <Card key={n.id} variant="outlined" sx={{ borderRadius: 2 }}>
-              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="caption" color="text.secondary">№{n.number}</Typography>
-                    <Typography sx={{ fontFamily: 'NotoSansArabic, serif', fontSize: '1.15rem' }}>{n.nameAr}</Typography>
-                    <Typography fontWeight={700}>{n.nameRu}</Typography>
-                    <Typography variant="body2" color="text.secondary">{n.transliteration}</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>{n.meaningRu}</Typography>
-                    <Stack direction="row" flexWrap="wrap" gap={0.5} alignItems="center" sx={{ mt: 1 }}>
-                      {n.audioUrl ? (
-                        <Chip label="Аудио" color="success" size="small" icon={<Audiotrack />} />
-                      ) : (
-                        <label>
-                          <input type="file" accept="audio/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAudioUpload(n.id, f) }} />
-                          <Chip label="Загрузить аудио" size="small" clickable variant="outlined" icon={<Audiotrack />} />
-                        </label>
-                      )}
-                      <Chip
-                        label={n.isActive ? 'Активно' : 'Скрыто'}
-                        color={n.isActive ? 'success' : 'default'}
-                        size="small"
-                        onClick={() => handleToggleActive(n)}
-                      />
-                    </Stack>
-                  </Box>
-                  <Stack direction="row" flexShrink={0}>
-                    <IconButton size="small" onClick={() => openEdit(n)}><Edit fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(n.id)}><Delete fontSize="small" /></IconButton>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-          {names.length === 0 && !loading && (
-            <Typography color="text.secondary" py={4} textAlign="center">Нет имён. Нажмите «Добавить» или запустите seed-скрипт.</Typography>
-          )}
+      ),
+    },
+    {
+      id: 'isActive',
+      header: 'В приложении',
+      nowrap: true,
+      sortable: true,
+      render: (n) => (
+        <Stack direction="row" alignItems="center" gap={0.5} onClick={(e) => e.stopPropagation()}>
+          <Switch
+            size="small"
+            checked={n.isActive}
+            disabled={togglingId === n.id}
+            onChange={() => handleToggleActive(n)}
+            inputProps={{ 'aria-label': `Показывать имя ${n.nameRu} в приложении` }}
+          />
+          <Typography variant="body2" color={n.isActive ? 'text.primary' : 'text.secondary'}>
+            {n.isActive ? 'Да' : 'Скрыто'}
+          </Typography>
         </Stack>
-      ) : (
-        <Card>
-          <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>#</TableCell>
-                  <TableCell>Арабский</TableCell>
-                  <TableCell>Русский</TableCell>
-                  <TableCell>Транслитерация</TableCell>
-                  <TableCell>Значение</TableCell>
-                  <TableCell>Аудио</TableCell>
-                  <TableCell>Статус</TableCell>
-                  <TableCell align="right">Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {names.map((n) => (
-                  <TableRow key={n.id}>
-                    <TableCell>{n.number}</TableCell>
-                    <TableCell sx={{ fontFamily: 'NotoSansArabic, serif', fontSize: '1.1rem' }}>{n.nameAr}</TableCell>
-                    <TableCell><strong>{n.nameRu}</strong></TableCell>
-                    <TableCell>{n.transliteration}</TableCell>
-                    <TableCell sx={{ maxWidth: 200 }}>
-                      <Typography variant="body2" noWrap>{n.meaningRu}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      {n.audioUrl ? (
-                        <Chip label="Есть" color="success" size="small" icon={<Audiotrack />} />
-                      ) : (
-                        <label>
-                          <input type="file" accept="audio/*" hidden onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) handleAudioUpload(n.id, file)
-                          }} />
-                          <Chip label="Загрузить" size="small" clickable variant="outlined" icon={<Audiotrack />} />
-                        </label>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={n.isActive ? 'Активно' : 'Скрыто'}
-                        color={n.isActive ? 'success' : 'default'}
-                        size="small"
-                        onClick={() => handleToggleActive(n)}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => openEdit(n)}><Edit fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(n.id)}><Delete fontSize="small" /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {names.length === 0 && !loading && (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Typography color="text.secondary" py={4}>Нет имён. Нажмите «Добавить» или запустите seed-скрипт.</Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
-      )}
+      ),
+    },
+    {
+      id: 'actions',
+      header: <Box component="span" sx={visuallyHidden}>Действия</Box>,
+      align: 'right',
+      width: 96,
+      render: (n) => (
+        <Stack direction="row" justifyContent="flex-end" onClick={(e) => e.stopPropagation()}>
+          <Tooltip title="Изменить">
+            <IconButton size="small" aria-label={`Изменить имя ${n.nameRu}`} onClick={() => openEdit(n)}>
+              <EditOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Деактивировать">
+            <IconButton size="small" aria-label={`Деактивировать имя ${n.nameRu}`} onClick={() => handleDelete(n)} sx={{ color: 'error.main' }}>
+              <VisibilityOffOutlined fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      ),
+    },
+  ]
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} {...narrowFormSm}>
-        <DialogTitle>{editing ? 'Редактировать имя' : 'Новое имя'}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} mt={1}>
-            <TextField label="Номер" type="number" value={form.number} onChange={(e) => setForm({ ...form, number: +e.target.value })} />
-            <TextField label="Арабский" value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} />
-            <TextField label="Русский" value={form.nameRu} onChange={(e) => setForm({ ...form, nameRu: e.target.value })} />
-            <TextField label="Казахский" value={form.nameKz} onChange={(e) => setForm({ ...form, nameKz: e.target.value })} />
-            <TextField label="Транслитерация" value={form.transliteration} onChange={(e) => setForm({ ...form, transliteration: e.target.value })} />
-            <TextField label="Значение (рус)" value={form.meaningRu} onChange={(e) => setForm({ ...form, meaningRu: e.target.value })} />
-            <TextField label="Значение (каз)" value={form.meaningKz} onChange={(e) => setForm({ ...form, meaningKz: e.target.value })} />
-            <TextField label="Описание (рус)" multiline rows={3} value={form.descriptionRu} onChange={(e) => setForm({ ...form, descriptionRu: e.target.value })} />
-            <TextField label="Описание (каз)" multiline rows={3} value={form.descriptionKz} onChange={(e) => setForm({ ...form, descriptionKz: e.target.value })} />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={dialogActionsSafeAreaSx}>
-          <Button onClick={() => setDialogOpen(false)}>Отмена</Button>
-          <Button variant="contained" onClick={handleSave}>Сохранить</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+  return (
+    <>
+      <PageHeader
+        title="99 имён Аллаха"
+        subtitle="Имена Всевышнего: арабское написание, значение, описание и аудио."
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<Refresh />} onClick={load} disabled={loading}>
+              Обновить
+            </Button>
+            <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
+              Добавить имя
+            </Button>
+          </>
+        }
+      />
+
+      <Toolbar
+        hasActiveFilters={filtersActive}
+        onReset={resetFilters}
+        summary={
+          names.length
+            ? filtersActive
+              ? `Показано ${visible.length} из ${names.length}`
+              : `Всего ${names.length}, без аудио ${noAudio}`
+            : undefined
+        }
+      >
+        <SearchField value={q} onChange={setQ} placeholder="Номер, имя, транслит или значение" enableSlashShortcut sx={{ minWidth: { sm: 300 } }} />
+        <TextField select size="small" label="Статус" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)} sx={{ minWidth: 150 }}>
+          <MenuItem value="all">Все</MenuItem>
+          <MenuItem value="active">Показываются</MenuItem>
+          <MenuItem value="hidden">Скрытые</MenuItem>
+        </TextField>
+        <TextField select size="small" label="Пробелы" value={gapFilter} onChange={(e) => setGapFilter(e.target.value as GapFilter)} sx={{ minWidth: 170 }}>
+          <MenuItem value="all">Все</MenuItem>
+          <MenuItem value="noAudio">Без аудио</MenuItem>
+          <MenuItem value="noKz">Не заполнен KZ</MenuItem>
+        </TextField>
+      </Toolbar>
+
+      <DataTable
+        aria-label="99 имён Аллаха"
+        columns={columns}
+        rows={visible}
+        getRowId={(n) => n.id}
+        loading={loading}
+        error={loadError}
+        onRetry={load}
+        onRowClick={openEdit}
+        selectedRowId={dialogOpen ? editingId : null}
+        defaultSort={{ by: 'number', direction: 'asc' }}
+        pagination
+        rowsPerPageOptions={[25, 50, 100]}
+        initialRowsPerPage={100}
+        emptyState={
+          filtersActive ? (
+            <EmptyState
+              size="sm"
+              title="Ничего не найдено"
+              description="Измените запрос или сбросьте фильтры."
+              action={<Button onClick={resetFilters}>Сбросить фильтры</Button>}
+            />
+          ) : (
+            <EmptyState
+              size="sm"
+              title="Имён пока нет"
+              description="Добавьте имя вручную или заполните список seed-скриптом seed:islam-content."
+              action={
+                <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
+                  Добавить имя
+                </Button>
+              }
+            />
+          )
+        }
+      />
+
+      <NameDrawer
+        open={dialogOpen}
+        editing={editing}
+        form={form}
+        saving={saving}
+        onChange={setForm}
+        onClose={() => setDialogOpen(false)}
+        onSave={handleSave}
+        onUploadAudio={handleAudioUpload}
+      />
+    </>
   )
 }

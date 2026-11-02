@@ -1,159 +1,108 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Montserrat:wght@400;500&family=Noto+Sans+Arabic:wght@400;500;600&display=swap');
+/*
+ * Global styles for ILM HUB admin.
+ * Most styling lives in the MUI theme (src/theme). This file only holds:
+ * fonts, CSS custom properties for non-MUI contexts (TipTap content, raw HTML),
+ * scrollbar and a few legacy utility classes still used by pages.
+ */
 
+/* UI typeface (brand) — Cyrillic + Latin subsets are picked via unicode-range. */
+@import '@fontsource/montserrat/400.css';
+@import '@fontsource/montserrat/500.css';
+@import '@fontsource/montserrat/600.css';
+@import '@fontsource/montserrat/700.css';
+/* Arabic script */
+@import '@fontsource/noto-sans-arabic/400.css';
+@import '@fontsource/noto-sans-arabic/500.css';
+@import '@fontsource/noto-sans-arabic/600.css';
+/* Inter is offered as a content font in the rich-text editor (mirrors the mobile app). */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+
+/* Gilroy — content font in the rich-text editor; files live in /public/fonts. */
 @font-face {
   font-family: 'Gilroy';
-  src: url('/public/fonts/gilroy-regular.woff2') format('woff2'),
-       url('/public/fonts/gilroy-regular.woff') format('woff'),
-       url('/public/fonts/gilroy-regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Gilroy';
-  src: url('/public/fonts/gilroy-regular.woff2') format('woff2'),
-       url('/public/fonts/gilroy-regular.woff') format('woff'),
-       url('/public/fonts/gilroy-regular.ttf') format('truetype');
-  font-weight: 300;
+  src: url('/fonts/gilroy-regular.woff2') format('woff2'),
+       url('/fonts/gilroy-regular.woff') format('woff');
+  font-weight: 300 400;
   font-style: normal;
   font-display: swap;
 }
 
 :root {
-  /* Sidebar */
-  --sidebar-width: 270px;
-  --sidebar-collapsed-width: 72px;
-  --sidebar-bg: #0F172A;
-  --sidebar-hover: rgba(255,255,255,0.06);
-  --sidebar-active: rgba(99,102,241,0.18);
-  --sidebar-text: rgba(255,255,255,0.65);
-  --sidebar-text-active: #fff;
-  --sidebar-accent: #818CF8;
+  /* Mirrors src/theme/tokens.ts — for plain CSS / HTML content only. */
+  --ilm-ink: #221C17;
+  --ilm-ink-rail: #1C1612;
+  --ilm-text-secondary: #6B6159;
+  --ilm-bronze: #B68A60;
+  --ilm-bronze-strong: #8F6337;
+  --ilm-gold: #EBCA70;
+  --ilm-sand: #F6E5CE;
+  --ilm-canvas: #FAF6F0;
+  --ilm-surface: #FFFFFF;
+  --ilm-border: #E9E0D4;
+  --ilm-font-sans: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ilm-font-arabic: 'Noto Sans Arabic', 'Geeza Pro', 'Segoe UI', Tahoma, sans-serif;
 
-  /* Surface */
-  --surface-bg: #F8FAFC;
-  --card-bg: #FFFFFF;
-  --card-border: rgba(0,0,0,0.06);
-  --card-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
-  --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-
-  /* Palette */
-  --primary: #6366F1;
-  --primary-light: #818CF8;
-  --primary-dark: #4F46E5;
-  --primary-bg: rgba(99,102,241,0.08);
-  --success: #10B981;
-  --success-bg: rgba(16,185,129,0.08);
-  --warning: #F59E0B;
-  --warning-bg: rgba(245,158,11,0.08);
-  --error: #EF4444;
-  --error-bg: rgba(239,68,68,0.08);
-  --info: #3B82F6;
-  --info-bg: rgba(59,130,246,0.08);
-
-  /* Text */
-  --text-primary: #0F172A;
-  --text-secondary: #64748B;
-  --text-disabled: #94A3B8;
-  --divider: rgba(0,0,0,0.06);
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
+  color-scheme: light;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: var(--surface-bg);
-  color: var(--text-primary);
+  margin: 0;
+  font-family: var(--ilm-font-sans);
+  background: var(--ilm-canvas);
+  color: var(--ilm-ink);
 }
 
-/* Custom scrollbar */
+/* Scrollbars: thin and warm, never hidden. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(107, 97, 89, 0.35) transparent;
+}
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.15);
-  border-radius: 3px;
+  background: rgba(107, 97, 89, 0.3);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.25);
+  background: rgba(107, 97, 89, 0.5);
+  background-clip: content-box;
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideInLeft {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.96); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.35s ease-out both;
-}
-
-.animate-slide-in {
-  animation: slideInLeft 0.3s ease-out both;
-}
-
-/* Page transition */
-.page-enter {
-  animation: fadeIn 0.3s ease-out both;
-}
-
-/* Selection color */
-::selection {
-  background: var(--primary-bg);
-  color: var(--primary-dark);
-}
-
-/* Focus outline */
-*:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+code,
+kbd {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.875em;
 }
 
 code {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, Consolas, monospace;
-  font-size: 0.875em;
-  background: var(--primary-bg);
-  padding: 2px 6px;
+  background: #F4EFE8;
+  padding: 1px 5px;
   border-radius: 4px;
 }
 
-/* Loading skeleton */
-.skeleton {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 8px;
+/* Legacy utility classes (used by pages not yet migrated). Kept intentionally subtle. */
+@keyframes ilmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in,
+.page-enter {
+  animation: ilmFadeIn 160ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .page-enter {
+    animation: none;
+  }
 }

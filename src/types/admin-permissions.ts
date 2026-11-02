@@ -6,7 +6,8 @@ export type PermissionName =
   | 'words.view' | 'words.create' | 'words.edit' | 'words.delete'
   | 'islam.view' | 'islam.create' | 'islam.edit' | 'islam.delete'
   | 'admin.view' | 'admin.create' | 'admin.edit' | 'admin.delete'
-  | 'audit.view';
+  | 'audit.view'
+  | 'push.send' | 'push.manage';
 
 export type UserRole = 'user' | 'content_manager' | 'support' | 'admin';
 

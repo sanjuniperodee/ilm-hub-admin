@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Box, Dialog, DialogContent, IconButton, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
+import DOMPurify from 'dompurify'
+import { Box, Dialog, DialogContent, IconButton, MenuItem, Select, Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useNarrowDialogProps } from '../hooks/useNarrowDialogProps'
-import { Close, PlayCircleFilled, VolumeUp, MusicOff, MenuBook, Star, TrendingUp, PhoneIphone, TabletMac } from '@mui/icons-material'
+import { Close, PlayCircleFilled, VolumeUp, MusicOff, MenuBook, Star, TrendingUp, PhoneIphone, TabletMac, ImageOutlined } from '@mui/icons-material'
 import { ILM_RICHTEXT_TABLE_WRAP_CLASS, wrapRichTextTables } from '../utils/wrapRichTextTables'
 
 /* ─── Phone models ─── */
@@ -15,8 +16,10 @@ const PHONE_MODELS = [
 ] as const
 
 type PhoneModelId = typeof PHONE_MODELS[number]['id']
+const MODEL_STORAGE_KEY = 'ilm-admin.preview.device'
 
-/* ─── Design tokens (matching mobile IlmColors / IlmTypography / IlmSpacing) ─── */
+/* ─── Design tokens of the MOBILE APP (IlmColors / IlmTypography / IlmSpacing).
+   Raw values on purpose: this component imitates the app, not the admin theme. ─── */
 const C = {
   primary: '#B68A60',
   accent: '#EBCA70',
@@ -81,10 +84,10 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
       open={open}
       onClose={onClose}
       {...nd}
+      aria-labelledby="mobile-preview-title"
       PaperProps={{
         sx: {
-          bgcolor: '#f5f5f5',
-          borderRadius: nd.fullScreen ? 0 : 3,
+          bgcolor: 'surface.canvas',
           maxHeight: nd.fullScreen ? '100%' : '95vh',
         },
       }}
@@ -100,11 +103,11 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
           pb: { xs: 'max(12px, env(safe-area-inset-bottom, 0px))', sm: 2 },
         }}
       >
-        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-          <Typography sx={{ ...font(14, 600), color: C.textSecondary }}>
-            {BLOCK_LABELS[block.type] || block.type}
+        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, gap: 1 }}>
+          <Typography id="mobile-preview-title" variant="subtitle1" component="h2">
+            Предпросмотр: {BLOCK_LABELS[block.type] || block.type}
           </Typography>
-          <IconButton size="small" onClick={onClose}>
+          <IconButton size="small" onClick={onClose} aria-label="Закрыть предпросмотр">
             <Close fontSize="small" />
           </IconButton>
         </Box>
@@ -114,45 +117,100 @@ export default function MobilePreview({ open, onClose, block }: MobilePreviewPro
   )
 }
 
+export interface MobilePreviewFrameProps {
+  block: MobilePreviewBlock
+  /** Max frame height in px; the device is scaled down to fit. */
+  maxFrameH?: number
+  /** Max frame width in px (side panels). */
+  maxFrameW?: number
+  /** Compact chrome: device picker as a menu, smaller controls. */
+  compact?: boolean
+  /** Controlled content language (e.g. synced with the editor tab). */
+  locale?: 'ru' | 'kz'
+  onLocaleChange?: (locale: 'ru' | 'kz') => void
+}
+
 export function MobilePreviewFrame({
   block,
   maxFrameH = 600,
+  maxFrameW,
   compact = false,
-}: {
-  block: MobilePreviewBlock
-  maxFrameH?: number
-  compact?: boolean
-}) {
-  const [modelId, setModelId] = useState<PhoneModelId>('iphone-14')
-  const [locale, setLocale] = useState<'ru' | 'kz'>('ru')
+  locale: controlledLocale,
+  onLocaleChange,
+}: MobilePreviewFrameProps) {
+  const [modelId, setModelId] = useState<PhoneModelId>(() => {
+    const saved = typeof window !== 'undefined' ? window.localStorage.getItem(MODEL_STORAGE_KEY) : null
+    return (PHONE_MODELS.some((m) => m.id === saved) ? saved : 'iphone-14') as PhoneModelId
+  })
+  const [ownLocale, setOwnLocale] = useState<'ru' | 'kz'>('ru')
+  const locale = controlledLocale ?? ownLocale
+  const setLocale = (l: 'ru' | 'kz') => {
+    if (onLocaleChange) onLocaleChange(l)
+    if (controlledLocale === undefined) setOwnLocale(l)
+  }
   const model = PHONE_MODELS.find((m) => m.id === modelId) || PHONE_MODELS[1]
-  const cr = locale === 'kz' ? (block.contentKz || block.contentRu || {}) : (block.contentRu || {})
-  const scale = model.h > maxFrameH ? maxFrameH / model.h : 1
+  const pickModel = (id: PhoneModelId) => {
+    setModelId(id)
+    try {
+      window.localStorage.setItem(MODEL_STORAGE_KEY, id)
+    } catch {
+      /* ignore */
+    }
+  }
+  const ru = block.contentRu || {}
+  const kz = block.contentKz || {}
+  // KZ payloads hold only translated fields for some types (illustration, lesson complete):
+  // shared fields (Arabic word, media) come from RU, like in the app.
+  const cr =
+    locale === 'kz'
+      ? block.type === 'lesson_complete'
+        ? { ...ru, messageRu: kz.messageKz || ru.messageRu, summaryRu: kz.summaryKz ?? '' }
+        : { ...ru, ...kz }
+      : ru
+  const bezel = 10
+  const scale = Math.min(1, maxFrameH / model.h, maxFrameW ? (maxFrameW - bezel * 2) / model.w : 1)
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
-        <Stack direction="row" spacing={1} sx={{ mb: compact ? 1 : 2 }}>
+        <Stack direction="row" gap={1} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ mb: compact ? 1 : 1.5 }}>
           <ToggleButtonGroup
             value={locale}
             exclusive
             onChange={(_, v) => { if (v) setLocale(v as 'ru' | 'kz') }}
             size="small"
+            aria-label="Язык предпросмотра"
           >
-            <ToggleButton value="ru" sx={{ textTransform: 'none', fontSize: 11, px: 1.25, py: 0.5 }}>
+            <ToggleButton value="ru" sx={{ textTransform: 'none', fontSize: 12, px: 1.25, py: 0.25 }}>
               RU
             </ToggleButton>
-            <ToggleButton value="kz" sx={{ textTransform: 'none', fontSize: 11, px: 1.25, py: 0.5 }}>
+            <ToggleButton value="kz" sx={{ textTransform: 'none', fontSize: 12, px: 1.25, py: 0.25 }}>
               KZ
             </ToggleButton>
           </ToggleButtonGroup>
+          {compact && (
+            <Select
+              size="small"
+              value={modelId}
+              onChange={(e) => pickModel(e.target.value as PhoneModelId)}
+              inputProps={{ 'aria-label': 'Устройство' }}
+              sx={{ height: 30, fontSize: 12, minWidth: 128 }}
+            >
+              {PHONE_MODELS.map((m) => (
+                <MenuItem key={m.id} value={m.id} sx={{ fontSize: 13 }}>
+                  {m.label}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
         </Stack>
         {!compact && (
           <ToggleButtonGroup
             value={modelId}
             exclusive
-            onChange={(_, v) => { if (v) setModelId(v as PhoneModelId) }}
+            onChange={(_, v) => { if (v) pickModel(v as PhoneModelId) }}
             size="small"
-            sx={{ mb: 2, flexWrap: 'wrap', justifyContent: 'center' }}
+            aria-label="Устройство"
+            sx={{ mb: 1.5, flexWrap: 'wrap', justifyContent: 'center' }}
           >
             {PHONE_MODELS.map((m) => (
               <ToggleButton
@@ -166,19 +224,20 @@ export function MobilePreviewFrame({
             ))}
           </ToggleButtonGroup>
         )}
-        <Typography sx={{ ...font(11, 400), color: C.textDisabled, mb: 1 }}>
-          {model.w} × {model.h}pt
-          {scale < 1 && ` (масштаб ${Math.round(scale * 100)}%)`}
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
+          {model.w} × {model.h} pt
+          {scale < 1 && `, масштаб ${Math.round(scale * 100)}%`}
         </Typography>
 
         {/* Phone frame — outer border at scaled size, inner content at real device px */}
         <Box sx={{
-          width: model.w * scale + Math.round(10 * scale) * 2,
-          height: model.h * scale + Math.round(10 * scale) * 2,
-          border: `${Math.round(10 * scale)}px solid #1a1a1a`,
+          width: model.w * scale + Math.round(bezel * scale) * 2,
+          height: model.h * scale + Math.round(bezel * scale) * 2,
+          border: `${Math.round(bezel * scale)}px solid #1a1a1a`,
           borderRadius: `${model.radius * scale}px`,
           overflow: 'hidden',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          flexShrink: 0,
+          boxShadow: '0 12px 32px rgba(41, 28, 16, 0.18)',
         }}>
           {/* Wrapper: exact scaled size so transform fits; clips scaled content correctly */}
           <Box sx={{
@@ -228,7 +287,7 @@ export function MobilePreviewFrame({
 
             {/* Bottom button — inside the same scaled container, always at bottom */}
             <Box sx={{ p: `${S.m}px`, pt: 0, flexShrink: 0 }}>
-              <MobileButton label="Продолжить" />
+              <MobileButton label={locale === 'kz' ? 'Жалғастыру' : 'Продолжить'} />
             </Box>
             </Box>
           </Box>
@@ -368,11 +427,26 @@ function ElementGridPreview({ c }: { c: Record<string, any> }) {
 }
 
 /* ─── Theory ─── */
+/** Editor HTML is shown as-is in the preview; strip scripts / handlers but keep media and inline styles. */
+function sanitizePreviewHtml(html: string) {
+  const clean = DOMPurify.sanitize(html, { ADD_TAGS: ['audio', 'video', 'source'], ADD_ATTR: ['controls', 'preload', 'data-media-id', 'data-width-pct'] })
+  // Like the app: a paragraph is RTL when more than half of its letters are Arabic.
+  const tpl = document.createElement('template')
+  tpl.innerHTML = clean
+  tpl.content.querySelectorAll('p, h1, h2, h3, li').forEach((el) => {
+    const text = el.textContent || ''
+    const letters = text.match(/\p{L}/gu)?.length ?? 0
+    const arabic = text.match(/[\u0600-\u06FF]/g)?.length ?? 0
+    if (letters && arabic / letters > 0.5) el.setAttribute('dir', 'rtl')
+  })
+  return tpl.innerHTML
+}
+
 function TheoryPreview({ c }: { c: Record<string, any> }) {
   const title = (c.title as string) || ''
   const html = (c.html as string) || (c.text as string) || ''
   const examples = (c.examples as any[]) || []
-  const htmlForPreview = html ? wrapRichTextTables(html) : ''
+  const htmlForPreview = html ? sanitizePreviewHtml(wrapRichTextTables(html)) : ''
 
   return (
     <Box>
@@ -386,6 +460,7 @@ function TheoryPreview({ c }: { c: Record<string, any> }) {
             '& h2': { fontSize: 20, fontWeight: 600, m: '8px 0' },
             '& h3': { fontSize: 18, fontWeight: 600, m: '8px 0' },
             '& p': { m: '6px 0', lineHeight: 1.6 },
+            '& [dir="rtl"]': { textAlign: 'right', fontFamily: "'Noto Sans Arabic', sans-serif", fontSize: '1.25em', lineHeight: 1.9 },
             '& img': { maxWidth: '100%', height: 'auto', borderRadius: '8px', my: 1 },
             '& audio': { width: '100%', my: 1 },
             '.ilm-richtext-audio--compact': {
@@ -488,11 +563,11 @@ function IllustrationPreview({ c }: { c: Record<string, any> }) {
         mx: 'auto', mb: `${S.m}px`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <Typography sx={{ fontSize: 48, color: C.textSecondary }}>🖼</Typography>
+        <ImageOutlined sx={{ fontSize: 56, color: C.textSecondary }} />
       </Box>
 
       <Typography sx={{
-        fontFamily: "'Noto Sans Arabic', 'Amiri', serif",
+        fontFamily: "'Noto Sans Arabic', sans-serif",
         fontSize: 32, fontWeight: 700, color: C.textPrimary,
         direction: 'rtl', mb: `${S.s}px`,
       }}>
@@ -520,6 +595,7 @@ function IllustrationPreview({ c }: { c: Record<string, any> }) {
 /* ─── Audio Block ─── */
 function AudioBlockPreview({ c }: { c: Record<string, any> }) {
   const title = (c.title as string) || ''
+  if (c.html || c.text) return <TheoryPreview c={c} />
 
   return (
     <Box sx={{ bgcolor: C.bgWhite, borderRadius: '24px', p: `${S.l}px` }}>
@@ -536,6 +612,7 @@ function AudioBlockPreview({ c }: { c: Record<string, any> }) {
 /* ─── Video Block ─── */
 function VideoBlockPreview({ c }: { c: Record<string, any> }) {
   const title = (c.title as string) || ''
+  if (c.html || c.text) return <TheoryPreview c={c} />
 
   return (
     <Box sx={{ bgcolor: C.bgWhite, borderRadius: '24px', p: `${S.l}px` }}>
@@ -794,7 +871,7 @@ function ImageWordMatchPreview({ c }: { c: Record<string, any> }) {
               {p.imageUrl ? (
                 <Box component="img" src={p.imageUrl} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <Typography sx={{ fontSize: 32, color: C.textSecondary }}>🖼</Typography>
+                <ImageOutlined sx={{ fontSize: 36, color: C.textSecondary }} />
               )}
             </Box>
           ))}
@@ -858,7 +935,7 @@ function FindLetterPreview({ c }: { c: Record<string, any> }) {
             bgcolor: `${C.primary}1f`, border: `1px solid ${C.primary}`,
           }}>
             <Typography sx={{
-              fontFamily: "'Noto Sans Arabic', serif",
+              fontFamily: "'Noto Sans Arabic', sans-serif",
               fontSize: 20, fontWeight: 700, color: C.primary,
               direction: 'rtl',
             }}>
@@ -875,7 +952,7 @@ function FindLetterPreview({ c }: { c: Record<string, any> }) {
         textAlign: 'center',
       }}>
         <Typography sx={{
-          fontFamily: "'Noto Sans Arabic', serif",
+          fontFamily: "'Noto Sans Arabic', sans-serif",
           fontSize: 48, fontWeight: 400, color: C.textPrimary,
           direction: 'rtl', lineHeight: 1.5,
         }}>
@@ -908,7 +985,7 @@ function ListenAndChooseWordPreview({ c }: { c: Record<string, any> }) {
               border: `2px solid ${C.border}`, flexShrink: 0,
             }} />
             <Typography sx={{
-              fontFamily: "'Noto Sans Arabic', serif",
+              fontFamily: "'Noto Sans Arabic', sans-serif",
               fontSize: 22, fontWeight: 400, color: C.textPrimary,
               flex: 1, textAlign: 'right', direction: 'rtl',
             }}>
